@@ -39,13 +39,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
-      - name: Enable pnpm (corepack)
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          cache: pnpm
+          package-manager-cache: false
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -78,14 +83,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-      - name: Enable pnpm (corepack)
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          cache: pnpm
+          package-manager-cache: false
 
       - name: Install & build
         run: |
@@ -137,13 +146,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
-      - name: Enable pnpm (corepack)
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          cache: pnpm
+          package-manager-cache: false
 
       - name: Install, build, package
         run: |
