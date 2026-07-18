@@ -1,0 +1,170 @@
+name: Release (CD)
+
+# Publishes npm packages and attaches VSIX when you create a GitHub Release
+# or run this workflow manually.
+#
+# Required repository secret:
+#   NPM_TOKEN — npm Automation or granular token with publish + bypass 2FA
+#
+# Recommended: tag releases as v0.1.0 matching package.json versions.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: "npm dist-tag"
+        required: false
+        default: "latest"
+      skip_npm:
+        description: "Skip npm publish (VSIX only)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write # upload release assets
+  id-token: write # npm provenance (optional)
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build, typecheck, test
+        run: |
+          pnpm build
+          pnpm typecheck
+          pnpm test
+
+      - name: CLI smoke
+        run: |
+          set -euo pipefail
+          SDD="$(pwd)/packages/cli/dist/index.js"
+          WORK="$(mktemp -d)"
+          cd "$WORK"
+          node "$SDD" init
+          node "$SDD" new "release smoke" -w hotfix -y
+          node "$SDD" next && node "$SDD" next && node "$SDD" complete
+
+  publish-npm:
+    name: Publish to npm
+    needs: quality
+    # Run on GitHub Release always; on manual dispatch unless skip_npm is true
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.skip_npm != true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Install & build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "always-auth=true" >> .npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Check NPM_TOKEN
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::Secret NPM_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Resolve npm tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.npm_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish @structured-vibe/core
+        run: pnpm --filter @structured-vibe/core publish --access public --no-git-checks --tag "${{ steps.tag.outputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @structured-vibe/cli
+        run: pnpm --filter @structured-vibe/cli publish --access public --no-git-checks --tag "${{ steps.tag.outputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Cleanup auth
+        if: always()
+        run: rm -f .npmrc
+
+  package-vsix:
+    name: Package VSIX
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install, build, package
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm package:vscode
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: structured-vibe-sdd-vsix
+          path: packages/vscode/*.vsix
+          if-no-files-found: error
+
+      - name: Attach VSIX to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/vscode/*.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
