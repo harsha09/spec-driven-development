@@ -1,44 +1,91 @@
 #!/usr/bin/env bash
-# Publish @structured-vibe/core then @structured-vibe/cli.
-# Fails if pnpm skips ("no new packages") so CI does not silently succeed.
+# Publish @structured-vibe/core then @structured-vibe/cli from package dirs.
+# Fails hard if pnpm skips or registry does not show the new version.
 set -euo pipefail
 
 TAG="${1:-latest}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+if [ -z "${NODE_AUTH_TOKEN:-}${NPM_TOKEN:-}" ]; then
+  echo "::error::NODE_AUTH_TOKEN or NPM_TOKEN must be set for publish"
+  exit 1
+fi
+
+# Prefer NODE_AUTH_TOKEN for npm
+export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-$NPM_TOKEN}"
+
 node scripts/ensure-unpublished-version.mjs
 VERSION="$(node -e "process.stdout.write(require('./packages/core/package.json').version)")"
-echo "Publishing version ${VERSION} with tag ${TAG}"
+echo "========================================"
+echo "Publishing version ${VERSION} (tag=${TAG})"
+echo "========================================"
 
-publish_one() {
-  local filter="$1"
+# Ensure .npmrc exists for this shell (CI also writes one)
+if [ ! -f .npmrc ]; then
+  echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+  echo "always-auth=true" >> .npmrc
+fi
+# Package dirs need auth too when publishing from subdirectory
+cp .npmrc packages/core/.npmrc
+cp .npmrc packages/cli/.npmrc
+
+publish_pkg() {
+  local dir="$1"
+  local name="$2"
+  echo ""
+  echo ">>> Publishing ${name}@${VERSION} from ${dir}"
   local log
   log="$(mktemp)"
-  set +e
-  pnpm --filter "$filter" publish --access public --no-git-checks --tag "$TAG" 2>&1 | tee "$log"
-  local code=${PIPESTATUS[0]}
-  set -e
 
-  if grep -qi "no new packages that should be published" "$log"; then
-    echo "::error::pnpm skipped publishing ${filter} (version likely already on npm). Ran ensure-unpublished-version first — check package private flags / auth."
-    rm -f "$log"
-    exit 1
-  fi
-  if grep -qiE "ENEEDAUTH|403|EPUBLISHCONFLICT|cannot publish" "$log"; then
-    echo "::error::Publish failed for ${filter} (auth or conflict). See log above."
-    rm -f "$log"
-    exit 1
-  fi
+  # Publish from the package directory so pnpm treats it as a single package
+  set +e
+  (
+    cd "$dir"
+    # --no-git-checks: CI tree may be dirty after version bump
+    pnpm publish --access public --no-git-checks --tag "$TAG"
+  ) >"$log" 2>&1
+  local code=$?
+  set -e
+  cat "$log"
+
   if [ "$code" -ne 0 ]; then
-    rm -f "$log"
+    echo "::error::pnpm publish failed for ${name} (exit ${code})"
+    rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
     exit "$code"
   fi
+
+  if grep -qi "no new packages that should be published" "$log"; then
+    echo "::error::pnpm skipped ${name}@${VERSION}. Is this version already on npm?"
+    rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
+    exit 1
+  fi
+
+  # Verify registry actually has the version (eventual consistency: retry)
+  local ok=0
+  for i in 1 2 3 4 5 6; do
+    if npm view "${name}@${VERSION}" version 2>/dev/null | grep -q "${VERSION}"; then
+      ok=1
+      break
+    fi
+    echo "Waiting for registry to show ${name}@${VERSION} (attempt ${i})..."
+    sleep 5
+  done
+  if [ "$ok" -ne 1 ]; then
+    echo "::error::Published ${name} but npm view ${name}@${VERSION} failed. Check npm access for scope @structured-vibe."
+    rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
+    exit 1
+  fi
+
+  echo "OK: ${name}@${VERSION} is on npm"
   rm -f "$log"
-  echo "Published ${filter}@${VERSION}"
 }
 
-publish_one "@structured-vibe/core"
-publish_one "@structured-vibe/cli"
+publish_pkg "packages/core" "@structured-vibe/core"
+publish_pkg "packages/cli" "@structured-vibe/cli"
 
-echo "Done. npm i -g @structured-vibe/cli@${VERSION}"
+rm -f packages/core/.npmrc packages/cli/.npmrc
+
+echo ""
+echo "Done."
+echo "  npm i -g @structured-vibe/cli@${VERSION}"
