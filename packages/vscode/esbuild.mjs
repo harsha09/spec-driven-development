@@ -23,7 +23,7 @@ const options = {
   platform: "node",
   target: "node24",
   sourcemap: true,
-  // Bundle @structured-vibe/core + deps so the VSIX is self-contained
+  // Bundle @structured-vibe-coding/core + deps so the VSIX is self-contained
   packages: "bundle",
   logLevel: "info",
   // Core uses import.meta.url for defaults path; restore it under CJS output

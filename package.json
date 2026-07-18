@@ -1,5 +1,5 @@
 {
-  "name": "structured-vibe",
+  "name": "structured-vibe-coding",
   "private": true,
   "version": "0.2.1",
   "description": "Structured vibe coding — flexible, local-first Spec-Driven Development",
@@ -9,10 +9,10 @@
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
-    "sdd": "pnpm --filter @structured-vibe/cli exec node ./dist/index.js",
+    "sdd": "pnpm --filter @structured-vibe-coding/cli exec node ./dist/index.js",
     "package:vscode": "pnpm --filter structured-vibe-sdd run package",
-    "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe/core publish --access public && pnpm --filter @structured-vibe/cli publish --access public",
-    "publish:npm:dry": "pnpm --filter @structured-vibe/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe/cli publish --dry-run --no-git-checks",
+    "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe-coding/core publish --access public && pnpm --filter @structured-vibe-coding/cli publish --access public",
+    "publish:npm:dry": "pnpm --filter @structured-vibe-coding/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe-coding/cli publish --dry-run --no-git-checks",
     "version:bump": "node scripts/bump-version.mjs",
     "version:patch": "node scripts/bump-version.mjs patch",
     "version:minor": "node scripts/bump-version.mjs minor",
@@ -25,6 +25,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harsha09/spec-driven-development.git"
+    "url": "git+https://github.com/structured-vibe-coding/spec-driven-development.git"
   }
 }

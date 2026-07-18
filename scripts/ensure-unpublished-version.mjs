@@ -34,8 +34,8 @@ function published(name, version) {
 let version = readVersion();
 let guards = 0;
 while (
-  published("@structured-vibe/core", version) ||
-  published("@structured-vibe/cli", version)
+  published("@structured-vibe-coding/core", version) ||
+  published("@structured-vibe-coding/cli", version)
 ) {
   console.log(`Version ${version} already on npm — bumping patch`);
   execSync("node scripts/bump-version.mjs patch", {

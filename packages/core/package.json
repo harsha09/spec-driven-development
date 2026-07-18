@@ -1,5 +1,5 @@
 {
-  "name": "@structured-vibe/core",
+  "name": "@structured-vibe-coding/core",
   "version": "0.2.1",
   "description": "Core engine for structured vibe coding (local-first Spec-Driven Development)",
   "type": "module",
@@ -45,17 +45,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harsha09/spec-driven-development.git",
+    "url": "git+https://github.com/structured-vibe-coding/spec-driven-development.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/harsha09/spec-driven-development#readme",
+  "homepage": "https://github.com/structured-vibe-coding/spec-driven-development#readme",
   "bugs": {
-    "url": "https://github.com/harsha09/spec-driven-development/issues"
+    "url": "https://github.com/structured-vibe-coding/spec-driven-development/issues"
   },
   "keywords": [
     "sdd",
     "spec-driven-development",
-    "structured-vibe",
+    "structured-vibe-coding",
     "ai-coding",
     "workflow"
   ]

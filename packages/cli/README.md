@@ -1,13 +1,13 @@
-# `@structured-vibe/cli`
+# `@structured-vibe-coding/cli`
 
 CLI for **Structured Vibe Coding** (`sdd`) — flexible, local-first Spec-Driven Development.
 
 ## Install
 
 ```bash
-npm install -g @structured-vibe/cli
+npm install -g @structured-vibe-coding/cli
 # or
-npx @structured-vibe/cli init
+npx @structured-vibe-coding/cli init
 ```
 
 Binary name: **`sdd`**
@@ -24,7 +24,7 @@ sdd verify
 sdd complete
 ```
 
-Full documentation: [repository README](https://github.com/harsha09/spec-driven-development).
+Full documentation: [repository README](https://github.com/structured-vibe-coding/spec-driven-development).
 
 ## License
 

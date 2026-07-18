@@ -1,5 +1,5 @@
 {
-  "name": "@structured-vibe/cli",
+  "name": "@structured-vibe-coding/cli",
   "version": "0.2.1",
   "description": "CLI (sdd) for structured vibe coding — local-first Spec-Driven Development",
   "type": "module",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
-    "@structured-vibe/core": "workspace:*",
+    "@structured-vibe-coding/core": "workspace:*",
     "citty": "^0.1.6",
     "consola": "^3.4.0",
     "picocolors": "^1.1.1"
@@ -41,18 +41,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harsha09/spec-driven-development.git",
+    "url": "git+https://github.com/structured-vibe-coding/spec-driven-development.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/harsha09/spec-driven-development#readme",
+  "homepage": "https://github.com/structured-vibe-coding/spec-driven-development#readme",
   "bugs": {
-    "url": "https://github.com/harsha09/spec-driven-development/issues"
+    "url": "https://github.com/structured-vibe-coding/spec-driven-development/issues"
   },
   "keywords": [
     "sdd",
     "cli",
     "spec-driven-development",
-    "structured-vibe",
+    "structured-vibe-coding",
     "ai-coding"
   ]
 }

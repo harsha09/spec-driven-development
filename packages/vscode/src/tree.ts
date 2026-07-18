@@ -11,7 +11,7 @@ import {
   shouldAutoSkip,
   type ChangeContext,
   type Stage,
-} from "@structured-vibe/core";
+} from "@structured-vibe-coding/core";
 import { getWorkspaceRoot } from "./workspace.js";
 
 export type TreeNode =
