@@ -34,7 +34,7 @@ push to main (packages/** changed)
         ↓
   build + test + CLI smoke
         ↓
-  npm publish @structured-vibe/core + @structured-vibe/cli
+  npm publish @structured-vibe-coding/core + @structured-vibe-coding/cli
         ↓
   commit chore(release): vX.Y.Z [skip release]
   tag vX.Y.Z + push
@@ -88,7 +88,7 @@ That means the **current version is already on npm** (e.g. `0.2.0`). npm does no
 
 Workflows now:
 
-1. Detect if `@structured-vibe/core` / `cli` already have this version  
+1. Detect if `@structured-vibe-coding/core` / `cli` already have this version  
 2. **Auto patch-bump** (`0.2.0` → `0.2.1` …) until free  
 3. Publish and **fail** if pnpm still skips  
 
@@ -109,7 +109,7 @@ node scripts/bump-version.mjs --set 1.0.0
 ## One-time setup
 
 1. **npm scope**  
-   Packages are `@structured-vibe/core` and `@structured-vibe/cli`. Own that org/scope on npm, or rename packages.
+   Packages are `@structured-vibe-coding/core` and `@structured-vibe-coding/cli`. Own that org/scope on npm, or rename packages.
 
 2. **Secret `NPM_TOKEN`** (you already added this)  
    - Automation or granular token with **publish** + **bypass 2FA**  
@@ -134,7 +134,7 @@ No secrets. Same quality gate as before; uploads VSIX as an artifact (does **not
 ## Install after a successful auto-release
 
 ```bash
-npm install -g @structured-vibe/cli
+npm install -g @structured-vibe-coding/cli
 sdd --help
 
 # VSIX from the GitHub Release assets for that tag
@@ -148,7 +148,7 @@ sdd --help
 |-------|-----|
 | No auto release on push | Path must include `packages/**`; message must not be `chore(release):` or `[skip release]` |
 | Cannot push release commit | Enable **Read and write** workflow permissions |
-| `403` npm publish | Token needs publish + bypass 2FA; confirm `@structured-vibe` ownership |
+| `403` npm publish | Token needs publish + bypass 2FA; confirm `@structured-vibe-coding` ownership |
 | Version already on npm | Bump already published; wait for next commit or `workflow_dispatch` with higher bump |
 | Loop of releases | Release commits include `[skip release]` / `chore(release):` and are ignored |
 

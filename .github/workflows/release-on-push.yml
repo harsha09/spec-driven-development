@@ -4,7 +4,7 @@ name: Auto release on push
 #   1. Detect bump from conventional commits since last tag
 #   2. Bump all package versions together
 #   3. Commit + tag chore(release): vX.Y.Z
-#   4. Publish @structured-vibe/core + cli to npm
+#   4. Publish @structured-vibe-coding/core + cli to npm
 #   5. Create GitHub Release and attach VSIX
 #
 # Required secret: NPM_TOKEN
@@ -201,5 +201,5 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Version:** v${{ steps.final.outputs.version || steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Bump:** ${{ steps.bump.outputs.type }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **npm:** \`@structured-vibe/core\` + \`@structured-vibe/cli\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **npm:** \`@structured-vibe-coding/core\` + \`@structured-vibe-coding/cli\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **VSIX:** attached to GitHub Release (unless dry_run)" >> "$GITHUB_STEP_SUMMARY"

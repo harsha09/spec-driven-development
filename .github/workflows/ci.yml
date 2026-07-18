@@ -107,5 +107,5 @@ jobs:
 
       - name: Pack packages
         run: |
-          pnpm --filter @structured-vibe/core exec npm pack --dry-run
-          pnpm --filter @structured-vibe/cli exec npm pack --dry-run
+          pnpm --filter @structured-vibe-coding/core exec npm pack --dry-run
+          pnpm --filter @structured-vibe-coding/cli exec npm pack --dry-run

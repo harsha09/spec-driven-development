@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish @structured-vibe/core then @structured-vibe/cli from package dirs.
+# Publish @structured-vibe-coding/core then @structured-vibe-coding/cli from package dirs.
 # Fails hard if pnpm skips or registry does not show the new version.
 set -euo pipefail
 
@@ -72,7 +72,7 @@ publish_pkg() {
     sleep 5
   done
   if [ "$ok" -ne 1 ]; then
-    echo "::error::Published ${name} but npm view ${name}@${VERSION} failed. Check npm access for scope @structured-vibe."
+    echo "::error::Published ${name} but npm view ${name}@${VERSION} failed. Check npm access for scope @structured-vibe-coding."
     rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
     exit 1
   fi
@@ -81,11 +81,11 @@ publish_pkg() {
   rm -f "$log"
 }
 
-publish_pkg "packages/core" "@structured-vibe/core"
-publish_pkg "packages/cli" "@structured-vibe/cli"
+publish_pkg "packages/core" "@structured-vibe-coding/core"
+publish_pkg "packages/cli" "@structured-vibe-coding/cli"
 
 rm -f packages/core/.npmrc packages/cli/.npmrc
 
 echo ""
 echo "Done."
-echo "  npm i -g @structured-vibe/cli@${VERSION}"
+echo "  npm i -g @structured-vibe-coding/cli@${VERSION}"

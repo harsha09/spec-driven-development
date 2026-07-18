@@ -183,7 +183,7 @@ jobs:
           echo "## npm publish" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Version:** \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Install: \`npm i -g @structured-vibe/cli@${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Install: \`npm i -g @structured-vibe-coding/cli@${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
 
   package-vsix:
     name: Package VSIX

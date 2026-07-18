@@ -22,7 +22,7 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
-} from "@structured-vibe/core";
+} from "@structured-vibe-coding/core";
 
 function projectRoot(): string {
   return process.cwd();

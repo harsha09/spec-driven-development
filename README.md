@@ -39,9 +39,9 @@ Use `sdd` to add just enough structure when building apps—without locking your
 ### Option A — Install CLI from npm (recommended)
 
 ```bash
-npm install -g @structured-vibe/cli
+npm install -g @structured-vibe-coding/cli
 # or use without global install:
-npx @structured-vibe/cli --help
+npx @structured-vibe-coding/cli --help
 ```
 
 Binary name: **`sdd`**
@@ -54,7 +54,7 @@ sdd init
 Core library (for tooling / custom integrations):
 
 ```bash
-npm install @structured-vibe/core
+npm install @structured-vibe-coding/core
 ```
 
 > First publish: create an npm account, set `NPM_TOKEN`, then run `pnpm publish:npm` from this repo (see [npm packages](#npm-packages)). Until packages are on the registry, use Option B.
@@ -64,7 +64,7 @@ npm install @structured-vibe/core
 Clone and build the monorepo, then link the CLI globally:
 
 ```bash
-git clone https://github.com/harsha09/spec-driven-development.git
+git clone https://github.com/structured-vibe-coding/spec-driven-development.git
 cd spec-driven-development
 
 corepack enable
@@ -73,7 +73,7 @@ corepack prepare pnpm@9.15.0 --activate
 pnpm install
 pnpm build
 
-pnpm --filter @structured-vibe/cli link --global
+pnpm --filter @structured-vibe-coding/cli link --global
 sdd --help
 ```
 
@@ -82,7 +82,7 @@ Without global link:
 ```bash
 node packages/cli/dist/index.js init
 # or
-pnpm --filter @structured-vibe/cli exec node ./dist/index.js init
+pnpm --filter @structured-vibe-coding/cli exec node ./dist/index.js init
 ```
 
 ### Option C — VS Code / Cursor extension
@@ -97,9 +97,9 @@ Then **Install from VSIX…** in VS Code or Cursor (see [VS Code / Cursor extens
 ### Uninstall / unlink
 
 ```bash
-npm uninstall -g @structured-vibe/cli
+npm uninstall -g @structured-vibe-coding/cli
 # or if linked from source:
-pnpm --filter @structured-vibe/cli unlink --global
+pnpm --filter @structured-vibe-coding/cli unlink --global
 ```
 ---
 
@@ -909,8 +909,8 @@ See [`packages/vscode/README.md`](packages/vscode/README.md).
 
 | Package | Install |
 |---------|---------|
-| `@structured-vibe/cli` | `npm i -g @structured-vibe/cli` → binary `sdd` |
-| `@structured-vibe/core` | `npm i @structured-vibe/core` |
+| `@structured-vibe-coding/cli` | `npm i -g @structured-vibe-coding/cli` → binary `sdd` |
+| `@structured-vibe-coding/core` | `npm i @structured-vibe-coding/core` |
 
 ### Publish (maintainers)
 
@@ -941,8 +941,8 @@ Full guide: [`docs/ci-cd.md`](docs/ci-cd.md).
 
 ```text
 packages/
-  core/     @structured-vibe/core   # engine + default workflows
-  cli/      @structured-vibe/cli    # `sdd` binary
+  core/     @structured-vibe-coding/core   # engine + default workflows
+  cli/      @structured-vibe-coding/cli    # `sdd` binary
   vscode/   structured-vibe-sdd     # VS Code / Cursor extension
 ```
 

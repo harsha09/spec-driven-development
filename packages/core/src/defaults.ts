@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "pathe";
 
 /**
- * Packaged default assets shipped with @structured-vibe/core.
+ * Packaged default assets shipped with @structured-vibe-coding/core.
  * Resolves correctly for:
  * - package layout: packages/core/dist/index.js → ../defaults
  * - VS Code bundle: packages/vscode/dist/extension.js → ./defaults (copied at build)

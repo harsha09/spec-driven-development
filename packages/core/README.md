@@ -1,22 +1,22 @@
-# `@structured-vibe/core`
+# `@structured-vibe-coding/core`
 
 Core engine for **Structured Vibe Coding** — local-first Spec-Driven Development.
 
 Used by:
 
-- `@structured-vibe/cli` (`sdd` command)
+- `@structured-vibe-coding/cli` (`sdd` command)
 - VS Code / Cursor extension (`packages/vscode`)
 
 ## Install
 
 ```bash
-npm install @structured-vibe/core
+npm install @structured-vibe-coding/core
 ```
 
 ## Usage
 
 ```ts
-import { initProject, createChange, advanceStage, loadConfig } from "@structured-vibe/core";
+import { initProject, createChange, advanceStage, loadConfig } from "@structured-vibe-coding/core";
 
 const root = process.cwd();
 await initProject({ projectRoot: root });
@@ -30,7 +30,7 @@ const change = await createChange({
 await advanceStage(root, config, change.id);
 ```
 
-See the [repository README](https://github.com/harsha09/spec-driven-development) for workflows, customization, and CLI docs.
+See the [repository README](https://github.com/structured-vibe-coding/spec-driven-development) for workflows, customization, and CLI docs.
 
 ## License
 

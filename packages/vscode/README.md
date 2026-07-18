@@ -1,6 +1,6 @@
 # Structured Vibe Coding — VS Code / Cursor extension
 
-Local-first Spec-Driven Development in the editor. Uses the **same core** as the `sdd` CLI (`@structured-vibe/core`).
+Local-first Spec-Driven Development in the editor. Uses the **same core** as the `sdd` CLI (`@structured-vibe-coding/core`).
 
 ## Install
 

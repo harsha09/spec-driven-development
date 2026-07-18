@@ -3,7 +3,7 @@ import {
   isInitialized,
   loadConfig,
   type Config,
-} from "@structured-vibe/core";
+} from "@structured-vibe-coding/core";
 
 export function getWorkspaceRoot(): string | undefined {
   const folder = vscode.workspace.workspaceFolders?.[0];

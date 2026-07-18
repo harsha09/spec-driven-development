@@ -18,7 +18,7 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
-} from "@structured-vibe/core";
+} from "@structured-vibe-coding/core";
 import type { SddTreeProvider } from "./tree.js";
 import { requireInit, requireWorkspaceRoot, showError, showInfo } from "./workspace.js";
 
