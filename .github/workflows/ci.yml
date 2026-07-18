@@ -21,14 +21,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # pnpm must be on PATH before setup-node cache / install
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: "24"
-      - name: Enable pnpm (corepack)
+          cache: pnpm
+          # v5 defaults to package-manager-cache:true which looks for pnpm too early
+          package-manager-cache: false
+
+      - name: Verify pnpm
         run: |
-          corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          command -v pnpm
+          pnpm --version
+          node --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -67,7 +78,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # Optional gate: ensure packages pack for npm (no publish)
   npm-pack:
     name: npm pack (dry)
     runs-on: ubuntu-latest
@@ -78,14 +88,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: "24"
-      - name: Enable pnpm (corepack)
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          cache: pnpm
+          package-manager-cache: false
 
       - name: Install & build
         run: |

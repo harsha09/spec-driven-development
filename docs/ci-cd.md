@@ -6,7 +6,8 @@ GitHub Actions pipelines for continuous integration and **automatic releases on 
 
 - **Node.js 24** everywhere: app `engines` (`>=24`), local develop, and GitHub Actions
 - Actions: `actions/setup-node@v5`, `actions/checkout@v5`, `upload-artifact@v5`, `softprops/action-gh-release@v3` (Node 24 runtimes)
-- **pnpm** via **Corepack** (not `pnpm/action-setup`)
+- **pnpm**: `pnpm/action-setup@v4` **before** `setup-node`, with `package-manager-cache: false`  
+  (`setup-node@v5` otherwise looks for `pnpm` too early and fails with “Unable to locate executable file: pnpm”)
 
 ## Workflows
 
