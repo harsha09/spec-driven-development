@@ -136,14 +136,24 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish to npm
+      - name: Ensure version not already on npm
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
-        run: |
-          set -euo pipefail
-          pnpm --filter @structured-vibe/core publish --access public --no-git-checks --tag latest
-          pnpm --filter @structured-vibe/cli publish --access public --no-git-checks --tag latest
+        id: publishable
+        run: node scripts/ensure-unpublished-version.mjs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        run: bash scripts/publish-npm.sh latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Resolve final version
+        id: final
+        run: |
+          VERSION=$(node -e "process.stdout.write(require('./packages/core/package.json').version)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package VSIX
         run: pnpm package:vscode
@@ -152,17 +162,15 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ steps.final.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json packages/core/package.json packages/cli/package.json packages/vscode/package.json
-          # Only commit if there are staged changes
           if git diff --cached --quiet; then
             echo "No version file changes to commit"
           else
             git commit -m "chore(release): v${VERSION} [skip release]"
           fi
-          # Create tag if missing
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists"
           else
@@ -175,12 +183,13 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: v${{ steps.version.outputs.version }}
+          tag_name: v${{ steps.final.outputs.version }}
+          name: v${{ steps.final.outputs.version }}
           generate_release_notes: true
           files: packages/vscode/*.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Cleanup npm auth
         if: always()
@@ -190,7 +199,7 @@ jobs:
         run: |
           echo "## Auto release" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Version:** v${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** v${{ steps.final.outputs.version || steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Bump:** ${{ steps.bump.outputs.type }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **npm:** \`@structured-vibe/core\` + \`@structured-vibe/cli\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **VSIX:** attached to GitHub Release (unless dry_run)" >> "$GITHUB_STEP_SUMMARY"

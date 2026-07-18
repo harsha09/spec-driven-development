@@ -3,10 +3,9 @@ name: Release (CD)
 # Publishes npm packages and attaches VSIX when you create a GitHub Release
 # or run this workflow manually.
 #
-# Required repository secret:
-#   NPM_TOKEN — npm Automation or granular token with publish + bypass 2FA
+# Required repository secret: NPM_TOKEN
 #
-# Recommended: tag releases as v0.1.0 matching package.json versions.
+# If package.json version is already on npm, auto patch-bumps until free.
 
 on:
   release:
@@ -22,10 +21,19 @@ on:
         type: boolean
         required: false
         default: false
+      bump:
+        description: "Force version bump before publish"
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+        default: none
 
 permissions:
-  contents: write # upload release assets
-  id-token: write # npm provenance (optional)
+  contents: write
+  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -38,7 +46,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -74,14 +81,16 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: quality
-    # Run on GitHub Release always; on manual dispatch unless skip_npm is true
     if: >-
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && inputs.skip_npm != true)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -101,6 +110,13 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
+      - name: Check NPM_TOKEN
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::Secret NPM_TOKEN is not set."
+            exit 1
+          fi
+
       - name: Configure npm auth
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
@@ -108,12 +124,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Check NPM_TOKEN
-        run: |
-          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "::error::Secret NPM_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
-            exit 1
-          fi
+      - name: Optional forced bump
+        if: github.event_name == 'workflow_dispatch' && inputs.bump != 'none'
+        run: node scripts/bump-version.mjs ${{ inputs.bump }}
+
+      - name: Ensure version is not already on npm
+        id: ver
+        run: node scripts/ensure-unpublished-version.mjs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Resolve npm tag
         id: tag
@@ -124,19 +143,40 @@ jobs:
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish @structured-vibe/core
-        run: pnpm --filter @structured-vibe/core publish --access public --no-git-checks --tag "${{ steps.tag.outputs.tag }}"
+      - name: Publish packages
+        run: bash scripts/publish-npm.sh "${{ steps.tag.outputs.tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @structured-vibe/cli
-        run: pnpm --filter @structured-vibe/cli publish --access public --no-git-checks --tag "${{ steps.tag.outputs.tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Commit version bump if needed
+        run: |
+          set -euo pipefail
+          VERSION="$(node -e "process.stdout.write(require('./packages/core/package.json').version)")"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json packages/core/package.json packages/cli/package.json packages/vscode/package.json || true
+          if git diff --cached --quiet; then
+            echo "No version file changes"
+          else
+            git commit -m "chore(release): v${VERSION} [skip release]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+          if ! git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            git tag -a "v${VERSION}" -m "Release v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
 
       - name: Cleanup auth
         if: always()
         run: rm -f .npmrc
+
+      - name: Summary
+        run: |
+          VERSION="$(node -e "process.stdout.write(require('./packages/core/package.json').version)")"
+          echo "## npm publish" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Install: \`npm i -g @structured-vibe/cli@${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
 
   package-vsix:
     name: Package VSIX
@@ -145,7 +185,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

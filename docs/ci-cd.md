@@ -82,6 +82,18 @@ Pushes that only touch docs outside `packages/**` also skip the auto-release pat
 - `bump`: `auto` | `patch` | `minor` | `major`
 - `dry_run`: build + bump locally in the job only (no npm, no git push)
 
+### “There are no new packages that should be published”
+
+That means the **current version is already on npm** (e.g. `0.2.0`). npm does not allow re-publishing the same version.
+
+Workflows now:
+
+1. Detect if `@structured-vibe/core` / `cli` already have this version  
+2. **Auto patch-bump** (`0.2.0` → `0.2.1` …) until free  
+3. Publish and **fail** if pnpm still skips  
+
+**Release (CD)** manual run also has input **`bump`**: `none` | `patch` | `minor` | `major`.
+
 ### Local version scripts
 
 ```bash
