@@ -1,0 +1,55 @@
+name: hotfix
+description: Tiny local fix — intent, implement, smoke verify
+version: 1
+recommendation:
+  priority: 10
+  when:
+    keywords: [typo, hotfix, nit, rename, bump, chore]
+    max_complexity: low
+stages:
+  - id: intent
+    title: Intent
+    summary: One short note on what is broken and the fix
+    skippable: false
+    artifacts:
+      - id: intent
+        path: intent.md
+        template: intent.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Problem and expected fix are clear"
+  - id: implement
+    title: Implement
+    summary: Make the minimal code change
+    skippable: false
+    artifacts: []
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        Apply the minimal fix described in intent.md.
+        Avoid drive-by refactors.
+  - id: local_verify
+    title: Local smoke
+    summary: Quick local check that the fix works
+    skippable: true
+    artifacts:
+      - id: local-test-results
+        path: local-test-results.md
+        template: local-test-results.md
+        required: false
+      - id: evidence
+        path: evidence/local/
+        required: false
+    gate:
+      type: soft
+      checklist:
+        - "Smoke-checked locally"
+    verify:
+      commands: []
+      evidence_dir: evidence/local
+on_complete:
+  archive: true
+  domain_sync: never

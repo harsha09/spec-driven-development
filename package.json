@@ -1,0 +1,19 @@
+{
+  "name": "structured-vibe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Structured vibe coding — flexible, local-first Spec-Driven Development",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r --parallel run dev",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "sdd": "pnpm --filter @structured-vibe/cli exec node ./dist/index.js",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "license": "MIT"
+}

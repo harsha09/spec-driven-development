@@ -1,0 +1,161 @@
+name: enterprise-feature
+description: >
+  Full team path — feature, HL ARB, LLD, DB design, code research,
+  stories, tasks, implement, local verify
+version: 1
+recommendation:
+  priority: 5
+  when:
+    keywords: [arb, architecture, migration, epic, platform]
+    min_complexity: high
+stages:
+  - id: feature
+    title: Feature definition
+    summary: Capture problem, users, scope, success criteria, non-goals
+    skippable: false
+    artifacts:
+      - id: feature
+        path: feature.md
+        template: feature.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Scope clear enough for high-level design"
+
+  - id: hl_arb
+    title: High-level design + ARB
+    summary: Architecture options, tradeoffs, ARB packet and decision
+    skippable: false
+    artifacts:
+      - id: hl-design
+        path: hl-design.md
+        template: hl-design.md
+        required: true
+      - id: arb-packet
+        path: arb-packet.md
+        template: arb-packet.md
+        required: true
+      - id: arb-decision
+        path: arb-decision.md
+        template: arb-decision.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      overridable: false
+      checklist:
+        - "ARB decision recorded (approve / approve-with-conditions / reject)"
+        - "Conditions (if any) captured as constraints"
+
+  - id: lld
+    title: Low-level design
+    summary: Component contracts, sequences, error paths, interfaces
+    skippable: true
+    artifacts:
+      - id: lld
+        path: lld.md
+        template: lld.md
+        required: true
+    gate:
+      type: soft
+
+  - id: db_design
+    title: DB design
+    summary: Schema deltas, indexes, migrations, backfill
+    skippable: true
+    skip_when:
+      flags: [no_db]
+    artifacts:
+      - id: db-design
+        path: db-design.md
+        template: db-design.md
+        required: true
+    gate:
+      type: soft
+
+  - id: code_research
+    title: Code research
+    summary: Where / what / how to change in this codebase
+    skippable: true
+    artifacts:
+      - id: research
+        path: research.md
+        template: code-research.md
+        required: true
+    gate:
+      type: soft
+
+  - id: stories
+    title: User stories
+    summary: Slice into user-visible stories with acceptance
+    skippable: true
+    artifacts:
+      - id: stories
+        path: stories.md
+        template: stories.md
+        required: true
+    gate:
+      type: soft
+
+  - id: tasks
+    title: Task breakdown
+    summary: Implementable tasks traced to stories
+    skippable: true
+    artifacts:
+      - id: tasks
+        path: tasks.md
+        template: tasks.md
+        required: true
+    gate:
+      type: soft
+
+  - id: implement
+    title: Implementation
+    summary: Execute tasks; respect ARB conditions
+    skippable: false
+    artifacts:
+      - id: evidence
+        path: evidence/
+        required: false
+    gate:
+      type: soft
+      checklist:
+        - "Open tasks done or deferred with reason"
+        - "ARB conditions satisfied or waived in arb-decision.md"
+    agent_context:
+      instructions: |
+        Implement only open tasks in tasks.md.
+        Do not violate constraints in arb-decision.md.
+        Prefer patterns listed in research.md.
+
+  - id: local_verify
+    title: Local verification
+    summary: Run and verify the feature on the developer machine
+    skippable: true
+    artifacts:
+      - id: local-test-plan
+        path: local-test-plan.md
+        template: local-test-plan.md
+        required: true
+      - id: local-test-results
+        path: local-test-results.md
+        template: local-test-results.md
+        required: true
+      - id: evidence
+        path: evidence/local/
+        required: false
+    gate:
+      type: hard
+      overridable: true
+      checklist:
+        - "Happy path verified locally"
+        - "Critical edge cases from stories covered or waived"
+        - "Failures fixed or filed before complete"
+    verify:
+      commands: []
+      evidence_dir: evidence/local
+
+on_complete:
+  archive: true
+  domain_sync: recommend

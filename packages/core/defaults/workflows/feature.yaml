@@ -1,0 +1,82 @@
+name: feature
+description: Standard feature — intent, design, tasks, implement, local verify
+version: 1
+recommendation:
+  priority: 30
+  when:
+    keywords: [feature, add, build, support]
+    min_complexity: medium
+stages:
+  - id: intent
+    title: Feature intent
+    summary: Problem, users, scope, non-goals, success
+    skippable: false
+    artifacts:
+      - id: feature
+        path: feature.md
+        template: feature.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Scope and non-goals are explicit"
+  - id: design
+    title: Design
+    summary: Approach, components, risks (keep short)
+    skippable: true
+    artifacts:
+      - id: design
+        path: design.md
+        template: design.md
+        required: true
+    gate:
+      type: soft
+  - id: tasks
+    title: Tasks
+    summary: Break work into implementable tasks
+    skippable: true
+    artifacts:
+      - id: tasks
+        path: tasks.md
+        template: tasks.md
+        required: true
+    gate:
+      type: soft
+  - id: implement
+    title: Implement
+    summary: Build the feature locally
+    skippable: false
+    artifacts: []
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        Implement tasks from tasks.md following design.md and feature.md.
+        Prefer incremental, testable steps.
+  - id: local_verify
+    title: Local verify
+    summary: Verify the feature on this machine
+    skippable: true
+    artifacts:
+      - id: local-test-plan
+        path: local-test-plan.md
+        template: local-test-plan.md
+        required: true
+      - id: local-test-results
+        path: local-test-results.md
+        template: local-test-results.md
+        required: true
+      - id: evidence
+        path: evidence/local/
+        required: false
+    gate:
+      type: soft
+      checklist:
+        - "Happy path verified locally"
+        - "Key edge cases covered or waived with notes"
+    verify:
+      commands: []
+      evidence_dir: evidence/local
+on_complete:
+  archive: true
+  domain_sync: recommend
