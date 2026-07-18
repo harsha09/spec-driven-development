@@ -1,21 +1,23 @@
 {
   "name": "@structured-vibe/cli",
   "version": "0.1.0",
-  "description": "CLI for structured vibe coding (SDD)",
+  "description": "CLI (sdd) for structured vibe coding — local-first Spec-Driven Development",
   "type": "module",
   "bin": {
     "sdd": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
@@ -33,5 +35,24 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harsha09/spec-driven-development.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/harsha09/spec-driven-development#readme",
+  "bugs": {
+    "url": "https://github.com/harsha09/spec-driven-development/issues"
+  },
+  "keywords": [
+    "sdd",
+    "cli",
+    "spec-driven-development",
+    "structured-vibe",
+    "ai-coding"
+  ]
 }

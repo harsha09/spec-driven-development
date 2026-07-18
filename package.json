@@ -8,12 +8,19 @@
     "dev": "pnpm -r --parallel run dev",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
     "sdd": "pnpm --filter @structured-vibe/cli exec node ./dist/index.js",
-    "typecheck": "pnpm -r run typecheck"
+    "package:vscode": "pnpm --filter structured-vibe-sdd run package",
+    "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe/core publish --access public && pnpm --filter @structured-vibe/cli publish --access public",
+    "publish:npm:dry": "pnpm --filter @structured-vibe/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe/cli publish --dry-run --no-git-checks"
   },
   "engines": {
     "node": ">=20"
   },
   "packageManager": "pnpm@9.15.0",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harsha09/spec-driven-development.git"
+  }
 }

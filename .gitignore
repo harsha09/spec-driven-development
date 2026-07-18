@@ -6,3 +6,6 @@ coverage/
 *.log
 .sdd-test-*/
 tmp/
+*.vsix
+packages/vscode/dist/
+.npmrc
