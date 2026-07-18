@@ -8,7 +8,7 @@ Use `sdd` to add just enough structure when building apps—without locking your
 |---|---|
 | **Who** | Solo engineers and small teams (scales to larger teams via YAML policy) |
 | **Where** | Your laptop only — no cloud account required |
-| **How** | CLI today; IDE extension planned on the same core |
+| **How** | CLI + VS Code/Cursor extension on the same core |
 
 ---
 
@@ -22,8 +22,10 @@ Use `sdd` to add just enough structure when building apps—without locking your
 6. [Three workflow customization examples](#three-workflow-customization-examples)
 7. [Per-PR customization](#per-pr-customization)
 8. [Default workflow packs](#default-workflow-packs)
-9. [Develop this repo](#develop-this-repo)
-10. [License](#license)
+9. [VS Code / Cursor extension](#vs-code--cursor-extension)
+10. [npm packages](#npm-packages)
+11. [Develop this repo](#develop-this-repo)
+12. [License](#license)
 
 ---
 
@@ -32,66 +34,73 @@ Use `sdd` to add just enough structure when building apps—without locking your
 ### Requirements
 
 - **Node.js 20+**
-- **pnpm** (recommended) — or enable via Corepack: `corepack enable`
+- **pnpm** (for building from source) — or enable via Corepack: `corepack enable`
 
-### Option A — Build from this repository (current)
-
-Clone and build the monorepo, then link the CLI globally so `sdd` works in any project:
+### Option A — Install CLI from npm (recommended)
 
 ```bash
-git clone <your-repo-url> structured-vibe
-cd structured-vibe
+npm install -g @structured-vibe/cli
+# or use without global install:
+npx @structured-vibe/cli --help
+```
 
-# Enable pnpm if needed
+Binary name: **`sdd`**
+
+```bash
+sdd --help
+sdd init
+```
+
+Core library (for tooling / custom integrations):
+
+```bash
+npm install @structured-vibe/core
+```
+
+> First publish: create an npm account, set `NPM_TOKEN`, then run `pnpm publish:npm` from this repo (see [npm packages](#npm-packages)). Until packages are on the registry, use Option B.
+
+### Option B — Build from this repository
+
+Clone and build the monorepo, then link the CLI globally:
+
+```bash
+git clone https://github.com/harsha09/spec-driven-development.git
+cd spec-driven-development
+
 corepack enable
 corepack prepare pnpm@9.15.0 --activate
 
 pnpm install
 pnpm build
 
-# Make `sdd` available on your PATH
 pnpm --filter @structured-vibe/cli link --global
-```
-
-Verify:
-
-```bash
 sdd --help
+```
+
+Without global link:
+
+```bash
+node packages/cli/dist/index.js init
 # or
-sdd help
-```
-
-### Option B — Run without global install
-
-From the monorepo root (or any directory), call the built binary by path:
-
-```bash
-node /path/to/structured-vibe/packages/cli/dist/index.js --help
-```
-
-Tip: add a shell alias:
-
-```bash
-alias sdd='node /path/to/structured-vibe/packages/cli/dist/index.js'
-```
-
-### Option C — Use from the monorepo via pnpm
-
-```bash
-cd structured-vibe
-pnpm build
 pnpm --filter @structured-vibe/cli exec node ./dist/index.js init
 ```
 
-> **Note:** npm publish is not set up yet. Install from source as above until a package is published.
+### Option C — VS Code / Cursor extension
+
+```bash
+pnpm install && pnpm build
+pnpm package:vscode
+```
+
+Then **Install from VSIX…** in VS Code or Cursor (see [VS Code / Cursor extension](#vs-code--cursor-extension)).
 
 ### Uninstall / unlink
 
 ```bash
+npm uninstall -g @structured-vibe/cli
+# or if linked from source:
 pnpm --filter @structured-vibe/cli unlink --global
-# or remove the alias if you used Option B
 ```
-
 ---
 
 ## How to use it
@@ -866,28 +875,80 @@ sdd workflows
 
 ---
 
-## Develop this repo
+## VS Code / Cursor extension
 
-This monorepo builds the tool itself:
+Uses the **same core** as the CLI (bundled into the VSIX). No separate CLI install required for IDE use.
+
+| Feature | Command palette |
+|---------|-----------------|
+| Initialize | `SDD: Initialize in Workspace` |
+| New change | `SDD: New Change` |
+| Stages | `SDD: Next Stage`, `Skip Stage`, `Switch Workflow` |
+| Gates | `SDD: Approve Gate`, `Waive Gate` |
+| Local verify | `SDD: Local Verify` |
+| Agent handoff | `SDD: Copy Agent Handoff` |
+| Complete | `SDD: Complete Change` |
+
+**Sidebar:** Activity bar → **Structured Vibe** (changes, stages, artifacts).
+
+```bash
+pnpm install && pnpm build
+pnpm package:vscode
+# → packages/vscode/structured-vibe-sdd-0.1.0.vsix
+```
+
+- VS Code: Extensions → **Install from VSIX…**
+- `code --install-extension packages/vscode/structured-vibe-sdd-*.vsix`
+- `cursor --install-extension packages/vscode/structured-vibe-sdd-*.vsix`
+
+See [`packages/vscode/README.md`](packages/vscode/README.md).
+
+---
+
+## npm packages
+
+| Package | Install |
+|---------|---------|
+| `@structured-vibe/cli` | `npm i -g @structured-vibe/cli` → binary `sdd` |
+| `@structured-vibe/core` | `npm i @structured-vibe/core` |
+
+### Publish (maintainers)
+
+```bash
+npm login
+pnpm publish:npm:dry   # dry run
+pnpm publish:npm       # publish core then cli (local)
+```
+
+**GitHub Actions CI/CD** (preferred):
+
+| Pipeline | Trigger | Docs |
+|----------|---------|------|
+| **CI** | PR / push to `main` | Build, test, CLI smoke, VSIX artifact |
+| **Release (CD)** | GitHub Release or manual | npm publish + VSIX on release |
+
+1. Add repo secret **`NPM_TOKEN`** (npm Automation/granular token with publish + bypass 2FA).  
+2. Bump versions in `packages/core`, `packages/cli`, `packages/vscode`.  
+3. Create a GitHub Release (e.g. tag `v0.1.0`).
+
+Full guide: [`docs/ci-cd.md`](docs/ci-cd.md).
+
+---
+
+## Develop this repo
 
 ```text
 packages/
-  core/   @structured-vibe/core   # engine, defaults
-  cli/    @structured-vibe/cli    # `sdd` binary
+  core/     @structured-vibe/core   # engine + default workflows
+  cli/      @structured-vibe/cli    # `sdd` binary
+  vscode/   structured-vibe-sdd     # VS Code / Cursor extension
 ```
 
 ```bash
 pnpm install
 pnpm build
 pnpm test
-```
-
-After changing CLI or core:
-
-```bash
-pnpm build
-# if you used global link, it picks up the new dist automatically
-sdd --help
+pnpm package:vscode
 ```
 
 ---
@@ -907,8 +968,9 @@ sdd --help
 - [x] Core engine + CLI  
 - [x] Default + enterprise workflow packs  
 - [x] Per-change workflow / skip / gates  
-- [ ] IDE extension (VS Code / Cursor) on the same core  
-- [ ] npm package publish  
+- [x] IDE extension (VS Code / Cursor) on the same core  
+- [x] npm package publish setup (CLI + core)  
+- [ ] Marketplace listing for the extension  
 - [ ] Richer recommend heuristics  
 - [ ] `sdd workflow save-as` to promote one-off packs  
 

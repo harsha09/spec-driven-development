@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build, test & typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: CLI smoke (init → new → next → complete)
+        run: |
+          set -euo pipefail
+          SDD="$(pwd)/packages/cli/dist/index.js"
+          WORK="$(mktemp -d)"
+          cd "$WORK"
+          node "$SDD" init
+          node "$SDD" new "CI smoke hotfix typo" -w hotfix -y
+          node "$SDD" next
+          node "$SDD" next
+          node "$SDD" complete
+          test -d archive
+          echo "CLI smoke OK"
+
+      - name: Package VS Code extension (VSIX)
+        run: pnpm package:vscode
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: structured-vibe-sdd-vsix
+          path: packages/vscode/*.vsix
+          if-no-files-found: error
+          retention-days: 14
+
+  # Optional gate: ensure packages pack for npm (no publish)
+  npm-pack:
+    name: npm pack (dry)
+    runs-on: ubuntu-latest
+    needs: build-test
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install & build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Pack packages
+        run: |
+          pnpm --filter @structured-vibe/core exec npm pack --dry-run
+          pnpm --filter @structured-vibe/cli exec npm pack --dry-run
