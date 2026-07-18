@@ -12,7 +12,11 @@
     "sdd": "pnpm --filter @structured-vibe/cli exec node ./dist/index.js",
     "package:vscode": "pnpm --filter structured-vibe-sdd run package",
     "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe/core publish --access public && pnpm --filter @structured-vibe/cli publish --access public",
-    "publish:npm:dry": "pnpm --filter @structured-vibe/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe/cli publish --dry-run --no-git-checks"
+    "publish:npm:dry": "pnpm --filter @structured-vibe/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe/cli publish --dry-run --no-git-checks",
+    "version:bump": "node scripts/bump-version.mjs",
+    "version:patch": "node scripts/bump-version.mjs patch",
+    "version:minor": "node scripts/bump-version.mjs minor",
+    "version:major": "node scripts/bump-version.mjs major"
   },
   "engines": {
     "node": ">=20"
