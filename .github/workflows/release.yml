@@ -37,16 +37,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
         with:
-          version: 9.15.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
+          node-version: "24"
+      - name: Enable pnpm (corepack)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -77,17 +76,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
         with:
-          version: 9.15.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-          cache: pnpm
+      - name: Enable pnpm (corepack)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
 
       - name: Install & build
         run: |
@@ -137,16 +135,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
         with:
-          version: 9.15.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
+          node-version: "24"
+      - name: Enable pnpm (corepack)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
 
       - name: Install, build, package
         run: |
@@ -155,7 +152,7 @@ jobs:
           pnpm package:vscode
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: structured-vibe-sdd-vsix
           path: packages/vscode/*.vsix
@@ -163,7 +160,7 @@ jobs:
 
       - name: Attach VSIX to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: packages/vscode/*.vsix
         env:

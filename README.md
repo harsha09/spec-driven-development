@@ -33,7 +33,7 @@ Use `sdd` to add just enough structure when building apps—without locking your
 
 ### Requirements
 
-- **Node.js 20+**
+- **Node.js 24+** (current active CI/runtime target)
 - **pnpm** (for building from source) — or enable via Corepack: `corepack enable`
 
 ### Option A — Install CLI from npm (recommended)

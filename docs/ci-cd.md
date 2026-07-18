@@ -2,6 +2,12 @@
 
 GitHub Actions pipelines for continuous integration and **automatic releases on push to `main`**.
 
+## Runtime
+
+- **Node.js 24** everywhere: app `engines` (`>=24`), local develop, and GitHub Actions
+- Actions: `actions/setup-node@v5`, `actions/checkout@v5`, `upload-artifact@v5`, `softprops/action-gh-release@v3` (Node 24 runtimes)
+- **pnpm** via **Corepack** (not `pnpm/action-setup`)
+
 ## Workflows
 
 | Workflow | File | When | What |
