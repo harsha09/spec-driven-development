@@ -5,20 +5,25 @@
   "version": "0.2.1",
   "publisher": "structured-vibe-coding",
   "license": "MIT",
-  "private": true,
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other",
-    "SCM Providers"
+    "Programming Languages"
   ],
   "keywords": [
     "sdd",
     "spec-driven",
     "structured vibe",
     "ai coding",
-    "workflow"
+    "workflow",
+    "spec driven development"
   ],
   "activationEvents": [
     "onStartupFinished",
@@ -165,6 +170,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "package": "pnpm run build && vsce package --no-dependencies",
+    "publish:vsce": "pnpm run build && vsce publish --no-dependencies",
     "vscode:prepublish": "pnpm run build"
   },
   "dependencies": {
@@ -182,5 +188,9 @@
     "type": "git",
     "url": "https://github.com/structured-vibe-coding/spec-driven-development.git",
     "directory": "packages/vscode"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/structured-vibe-coding/spec-driven-development/issues"
+  },
+  "homepage": "https://github.com/structured-vibe-coding/spec-driven-development/tree/main/packages/vscode#readme"
 }
