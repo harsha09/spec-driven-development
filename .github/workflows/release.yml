@@ -144,9 +144,16 @@ jobs:
           fi
 
       - name: Publish packages
-        run: bash scripts/publish-npm.sh "${{ steps.tag.outputs.tag }}"
+        run: |
+          set -euo pipefail
+          echo "Commit: $(git rev-parse --short HEAD)"
+          echo "Workflow file expects publish-npm.sh (not raw pnpm --filter publish)"
+          test -x scripts/publish-npm.sh || chmod +x scripts/publish-npm.sh
+          bash scripts/publish-npm.sh "${{ steps.tag.outputs.tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
 
       - name: Commit version bump if needed
         run: |
