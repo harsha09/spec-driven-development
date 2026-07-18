@@ -1,0 +1,71 @@
+name: patch
+description: Small scoped change — intent, acceptance, implement, local verify
+version: 1
+recommendation:
+  priority: 20
+  when:
+    keywords: [fix, bug, patch, small]
+    max_complexity: medium
+stages:
+  - id: intent
+    title: Intent
+    summary: What / why for this change
+    skippable: false
+    artifacts:
+      - id: intent
+        path: intent.md
+        template: intent.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Scope is small and clear"
+  - id: acceptance
+    title: Acceptance
+    summary: How you will know it works locally
+    skippable: true
+    artifacts:
+      - id: acceptance
+        path: acceptance.md
+        template: acceptance.md
+        required: true
+    gate:
+      type: soft
+  - id: implement
+    title: Implement
+    summary: Implement the change
+    skippable: false
+    artifacts: []
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        Implement according to intent.md and acceptance.md.
+        Stay within stated scope.
+  - id: local_verify
+    title: Local verify
+    summary: Run/verify on this machine
+    skippable: true
+    artifacts:
+      - id: local-test-plan
+        path: local-test-plan.md
+        template: local-test-plan.md
+        required: false
+      - id: local-test-results
+        path: local-test-results.md
+        template: local-test-results.md
+        required: false
+      - id: evidence
+        path: evidence/local/
+        required: false
+    gate:
+      type: soft
+      checklist:
+        - "Acceptance cases checked locally"
+        - "No obvious regressions on touched paths"
+    verify:
+      commands: []
+      evidence_dir: evidence/local
+on_complete:
+  archive: true
+  domain_sync: never

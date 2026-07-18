@@ -1,0 +1,37 @@
+{
+  "name": "@structured-vibe/cli",
+  "version": "0.1.0",
+  "description": "CLI for structured vibe coding (SDD)",
+  "type": "module",
+  "bin": {
+    "sdd": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "@structured-vibe/core": "workspace:*",
+    "citty": "^0.1.6",
+    "consola": "^3.4.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

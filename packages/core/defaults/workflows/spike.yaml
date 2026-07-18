@@ -1,0 +1,50 @@
+name: spike
+description: Time-boxed exploration — intent, research, notes (optional reverse-spec)
+version: 1
+recommendation:
+  priority: 8
+  when:
+    keywords: [spike, explore, prototype, poc, research]
+stages:
+  - id: intent
+    title: Spike intent
+    summary: Question to answer and time box
+    skippable: false
+    artifacts:
+      - id: intent
+        path: intent.md
+        template: intent.md
+        required: true
+    gate:
+      type: soft
+  - id: research
+    title: Explore
+    summary: Try approaches; capture findings
+    skippable: false
+    artifacts:
+      - id: research
+        path: research.md
+        template: code-research.md
+        required: true
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        Explore options. Prefer spikes over production polish.
+        Document findings and recommendation.
+  - id: outcome
+    title: Outcome
+    summary: Recommendation — adopt, abandon, or promote to a feature change
+    skippable: false
+    artifacts:
+      - id: outcome
+        path: outcome.md
+        template: outcome.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Clear recommendation recorded"
+on_complete:
+  archive: true
+  domain_sync: never
