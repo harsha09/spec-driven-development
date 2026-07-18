@@ -1,0 +1,195 @@
+name: Auto release on push
+
+# On every push to main (with package changes), automatically:
+#   1. Detect bump from conventional commits since last tag
+#   2. Bump all package versions together
+#   3. Commit + tag chore(release): vX.Y.Z
+#   4. Publish @structured-vibe/core + cli to npm
+#   5. Create GitHub Release and attach VSIX
+#
+# Required secret: NPM_TOKEN
+#
+# Skip: commit message contains [skip release] or starts with chore(release):
+# Manual override: workflow_dispatch with bump=patch|minor|major
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "scripts/bump-version.mjs"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Bump type (auto = conventional commits)"
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
+      dry_run:
+        description: "Bump + build only (no publish, no push)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Version, publish, release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Avoid infinite loop on release commits
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'push' &&
+        !startsWith(github.event.head_commit.message, 'chore(release):') &&
+        !contains(github.event.head_commit.message, '[skip release]')
+      )
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Push tags/commits back to main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine bump
+        id: bump
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.bump }}" != "auto" ]; then
+            echo "type=${{ inputs.bump }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=auto" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.bump.outputs.type }}" = "auto" ]; then
+            node scripts/bump-version.mjs
+          else
+            node scripts/bump-version.mjs "${{ steps.bump.outputs.type }}"
+          fi
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $VERSION"
+
+      - name: Build, typecheck, test
+        run: |
+          pnpm build
+          pnpm typecheck
+          pnpm test
+
+      - name: CLI smoke
+        run: |
+          set -euo pipefail
+          SDD="$(pwd)/packages/cli/dist/index.js"
+          WORK="$(mktemp -d)"
+          cd "$WORK"
+          node "$SDD" init
+          node "$SDD" new "auto release smoke" -w hotfix -y
+          node "$SDD" next && node "$SDD" next && node "$SDD" complete
+
+      - name: Check NPM_TOKEN
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::NPM_TOKEN secret is missing. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      - name: Configure npm auth
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "always-auth=true" >> .npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          pnpm --filter @structured-vibe/core publish --access public --no-git-checks --tag latest
+          pnpm --filter @structured-vibe/cli publish --access public --no-git-checks --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Package VSIX
+        run: pnpm package:vscode
+
+      - name: Commit version bump and tag
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json packages/core/package.json packages/cli/package.json packages/vscode/package.json
+          # Only commit if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No version file changes to commit"
+          else
+            git commit -m "chore(release): v${VERSION} [skip release]"
+          fi
+          # Create tag if missing
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+          else
+            git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          fi
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: packages/vscode/*.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup npm auth
+        if: always()
+        run: rm -f .npmrc
+
+      - name: Summary
+        run: |
+          echo "## Auto release" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** v${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Bump:** ${{ steps.bump.outputs.type }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **npm:** \`@structured-vibe/core\` + \`@structured-vibe/cli\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **VSIX:** attached to GitHub Release (unless dry_run)" >> "$GITHUB_STEP_SUMMARY"

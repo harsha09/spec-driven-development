@@ -922,14 +922,16 @@ pnpm publish:npm       # publish core then cli (local)
 
 **GitHub Actions CI/CD** (preferred):
 
-| Pipeline | Trigger | Docs |
+| Pipeline | Trigger | What |
 |----------|---------|------|
-| **CI** | PR / push to `main` | Build, test, CLI smoke, VSIX artifact |
-| **Release (CD)** | GitHub Release or manual | npm publish + VSIX on release |
+| **CI** | PR / push to `main` | Build, test, smoke, VSIX artifact |
+| **Auto release on push** | Push to `main` (`packages/**`) | **Auto version bump** → npm publish → tag → GitHub Release + VSIX |
 
-1. Add repo secret **`NPM_TOKEN`** (npm Automation/granular token with publish + bypass 2FA).  
-2. Bump versions in `packages/core`, `packages/cli`, `packages/vscode`.  
-3. Create a GitHub Release (e.g. tag `v0.1.0`).
+1. Secret **`NPM_TOKEN`** (publish + bypass 2FA) — already set if you added it.  
+2. **Settings → Actions → General → Workflow permissions → Read and write** (so the bot can push version commits/tags).  
+3. Push to `main` (or run **Auto release on push** manually).  
+   - Versions bump from **conventional commits** (`feat` → minor, `fix` → patch, `BREAKING` → major).  
+   - No manual version edit required.
 
 Full guide: [`docs/ci-cd.md`](docs/ci-cd.md).
 

@@ -1,101 +1,141 @@
 # CI/CD
 
-This repo uses GitHub Actions for continuous integration and release delivery.
+GitHub Actions pipelines for continuous integration and **automatic releases on push to `main`**.
 
 ## Workflows
 
 | Workflow | File | When | What |
 |----------|------|------|------|
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | Push/PR to `main`, manual | Install → build → typecheck → test → CLI smoke → package VSIX → npm pack dry-run |
-| **Release (CD)** | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | GitHub Release published, or manual | Quality gate → publish npm packages → package VSIX → attach VSIX to release |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, VSIX artifact, npm pack dry-run |
+| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release + VSIX |
+| **Release (manual)** | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
 
-The older `publish.yml` is replaced by **Release (CD)**.
+## Automatic version bump on push (default)
 
-## CI details
+You do **not** need to bump versions manually for normal releases.
 
-On every PR and push to `main`:
+### Flow
 
-1. `pnpm install --frozen-lockfile`
-2. `pnpm build` (core, cli, vscode)
-3. `pnpm typecheck`
-4. `pnpm test`
-5. CLI smoke: `sdd init` → `new` → `next` → `complete` in a temp dir
-6. `pnpm package:vscode` and upload the `.vsix` as a workflow artifact (14 days)
-7. `npm pack --dry-run` for core + cli (ensures publishable layout)
-
-No secrets required for CI.
-
-## CD (release) details
-
-### One-time setup
-
-1. **npm token**  
-   - Create an [npm Automation token](https://docs.npmjs.com/creating-and-viewing-access-tokens) or granular token with **publish** + **bypass 2FA**.  
-   - Org/scope: packages use `@structured-vibe/*` — you must own that scope or rename packages first.
-
-2. **GitHub secret**  
-   - Repo → **Settings** → **Secrets and variables** → **Actions**  
-   - New secret: `NPM_TOKEN` = your npm token  
-
-3. **Version bump**  
-   Before releasing, set the same version in:
-   - `packages/core/package.json`
-   - `packages/cli/package.json`
-   - `packages/vscode/package.json` (for VSIX)
-
-### Publish a release
-
-```bash
-# 1. Bump versions, commit, push
-# 2. Tag and create a GitHub Release (UI or gh):
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --title "v0.1.0" --generate-notes
+```text
+push to main (packages/** changed)
+        ↓
+  skip if commit is chore(release): … or [skip release]
+        ↓
+  detect bump from conventional commits since last git tag
+        ↓
+  bump package.json versions (root, core, cli, vscode) together
+        ↓
+  build + test + CLI smoke
+        ↓
+  npm publish @structured-vibe/core + @structured-vibe/cli
+        ↓
+  commit chore(release): vX.Y.Z [skip release]
+  tag vX.Y.Z + push
+        ↓
+  GitHub Release + VSIX attachment
 ```
 
-That triggers **Release (CD)**:
+### How the bump type is chosen
 
-- Runs quality gate (build/test/smoke)
-- Publishes `@structured-vibe/core` then `@structured-vibe/cli` with tag `latest`
-- Builds VSIX and attaches it to the GitHub Release
+From commit subjects **since the last git tag**:
 
-### Manual dispatch
+| Commits contain | Bump |
+|-----------------|------|
+| `BREAKING CHANGE` or `feat!:` / `fix!:` | **major** |
+| `feat:` / `feat(scope):` | **minor** |
+| anything else (fix, chore, docs, …) | **patch** |
 
-**Actions → Release (CD) → Run workflow**
-
-| Input | Meaning |
-|-------|---------|
-| `npm_tag` | npm dist-tag (`latest`, `next`, …) |
-| `skip_npm` | If true, only build/upload VSIX (no npm publish) |
-
-## Local parity
+Examples:
 
 ```bash
-pnpm install
-pnpm build
-pnpm typecheck
-pnpm test
-pnpm package:vscode
-pnpm publish:npm:dry
+git commit -m "fix: skip stage navigation"
+# → 0.1.0 → 0.1.1
+
+git commit -m "feat: add agent handoff panel"
+# → 0.1.1 → 0.2.0
+
+git commit -m "feat!: redesign workflow schema"
+# → 0.2.0 → 1.0.0
 ```
 
-## Install published artifacts
+### Skip a release
 
 ```bash
-# after successful CD
+git commit -m "docs: fix typo [skip release]"
+# or after an automated release (already skipped):
+# chore(release): v0.1.1 [skip release]
+```
+
+Pushes that only touch docs outside `packages/**` also skip the auto-release path filter.
+
+### Manual bump type
+
+**Actions → Auto release on push → Run workflow**
+
+- `bump`: `auto` | `patch` | `minor` | `major`
+- `dry_run`: build + bump locally in the job only (no npm, no git push)
+
+### Local version scripts
+
+```bash
+pnpm version:bump    # auto from commits since last tag
+pnpm version:patch
+pnpm version:minor
+pnpm version:major
+node scripts/bump-version.mjs --set 1.0.0
+```
+
+---
+
+## One-time setup
+
+1. **npm scope**  
+   Packages are `@structured-vibe/core` and `@structured-vibe/cli`. Own that org/scope on npm, or rename packages.
+
+2. **Secret `NPM_TOKEN`** (you already added this)  
+   - Automation or granular token with **publish** + **bypass 2FA**  
+   - Repo → Settings → Secrets and variables → Actions → `NPM_TOKEN`
+
+3. **Workflow permissions**  
+   Repo → Settings → Actions → General → **Workflow permissions**:  
+   - Allow **Read and write** permissions (so the bot can push the release commit + tags)
+
+4. **First publish**  
+   Push a change under `packages/` to `main`, or run **Auto release on push** manually.  
+   First run will tag `v0.1.1` (patch from `0.1.0`) unless commits since start include `feat:`.
+
+---
+
+## CI (every PR)
+
+No secrets. Same quality gate as before; uploads VSIX as an artifact (does **not** publish npm).
+
+---
+
+## Install after a successful auto-release
+
+```bash
 npm install -g @structured-vibe/cli
 sdd --help
 
-# VSIX from GitHub Release assets
-code --install-extension structured-vibe-sdd-*.vsix
+# VSIX from the GitHub Release assets for that tag
 ```
+
+---
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `403` on npm publish | Token lacks publish / bypass 2FA; or `@structured-vibe` scope not owned |
-| `NPM_TOKEN is not set` | Add repo secret `NPM_TOKEN` |
-| Version already exists | Bump version in package.json files |
-| VSIX missing on release | Check **package-vsix** job logs; ensure `pnpm package:vscode` succeeds |
-| Environment `npm` blocks job | Approve deployment or remove `environment: npm` from workflow |
+| No auto release on push | Path must include `packages/**`; message must not be `chore(release):` or `[skip release]` |
+| Cannot push release commit | Enable **Read and write** workflow permissions |
+| `403` npm publish | Token needs publish + bypass 2FA; confirm `@structured-vibe` ownership |
+| Version already on npm | Bump already published; wait for next commit or `workflow_dispatch` with higher bump |
+| Loop of releases | Release commits include `[skip release]` / `chore(release):` and are ignored |
+
+---
+
+## Related
+
+- [`scripts/bump-version.mjs`](../scripts/bump-version.mjs) — shared bump logic  
+- Classic manual release workflow still available if you prefer tags-only releases  
