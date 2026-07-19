@@ -89,25 +89,31 @@ sdd agents refresh                        # update active-context.md after stage
 
 ---
 
-## Engineer workflow
+## Engineer workflow (agent after every command)
 
-### Copilot / Claude
+**Model:** SDD owns process state; the **AI coding agent from init** does the work.
 
-1. `sdd new "…"` / IDE New Change  
-2. `sdd agents refresh` (also runs on new/next)  
-3. Pick agent **sdd** / **sdd-implementer**  
-4. Agent reads active-context + protocol  
-5. Human: `sdd verify` → `sdd complete`  
+| After this command… | Agent behavior |
+|---------------------|----------------|
+| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `status` / `checkout` / `agent` / `agents refresh` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
+| `sdd init` | Installs agent files only (no launch) |
+| `sdd workflows` | List only (no launch) |
 
-### Grok Build
+| Configured agent | How it runs |
+|------------------|-------------|
+| **grok** | CLI spawns `grok -p "…"` (or interactive `grok`) |
+| **claude** | CLI spawns `claude -p "…"` |
+| **copilot** | Host UI: open Copilot Chat → agent `sdd` (handoff file refreshed for you) |
 
-1. `sdd init --here --ai grok`  
-2. `sdd new "…"` — creates the change pack, writes `.sdd/handoff.md`, and **starts Grok** (if `grok` is on PATH and the session is interactive)  
-3. Grok reads active-context + handoff + protocol; fills the current stage  
-4. You run: `sdd next` → … → `sdd verify` → `sdd complete`  
+Skip launch anytime: `--no-agent` or `SDD_NO_AGENT=1`.
 
-Skip launch: `sdd new "…" --no-agent`  
-Print handoff only (no launch): `sdd agent`
+```bash
+sdd init --here --ai grok
+sdd new "Add feature"          # launches Grok
+sdd next                       # launches Grok again for new stage
+sdd verify                     # launches Grok with verify context
+sdd next --no-agent            # process only
+```
 
 ---
 

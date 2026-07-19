@@ -223,8 +223,10 @@ describe("agent integrations (registry)", () => {
       title: ctx.meta.title,
       stage: ctx.meta.stage,
       changeId: ctx.id,
+      event: "advanced intent → implement",
     });
     expect(kick).toMatch(/sdd next/i);
     expect(kick).toContain(ctx.id);
+    expect(kick).toMatch(/advanced intent/i);
   });
 });

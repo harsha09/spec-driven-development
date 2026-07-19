@@ -494,15 +494,18 @@ export function agentKickoffMessage(opts: {
   title: string;
   stage: string;
   changeId: string;
+  /** What just happened, e.g. "new change", "advanced to implement" */
+  event?: string;
 }): string {
+  const event = opts.event ?? "context updated";
   return [
-    `SDD: new change started.`,
+    `SDD: ${event}.`,
     `Title: ${opts.title}`,
     `Change: ${opts.changeId}`,
     `Stage: ${opts.stage}`,
     `Read in order: .sdd/active-context.md, .sdd/handoff.md, .sdd/protocol.md, memory/constitution.md (if present).`,
-    `Fill/update current stage artifacts only under changes/${opts.changeId}/. Do not expand scope.`,
-    `When the stage is done, tell the human to run: sdd next`,
+    `Do the work for the current stage only under changes/${opts.changeId}/. Do not expand scope.`,
+    `When the stage is done, tell the human to run: sdd next (or sdd verify / sdd complete as appropriate).`,
   ].join(" ");
 }
 
