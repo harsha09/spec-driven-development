@@ -14,7 +14,6 @@ import {
   listChanges,
   listWorkflowNames,
   loadConfig,
-  loadInstalledAgent,
   loadWorkflow,
   recommendWorkflow,
   refreshActiveAgentContext,
@@ -26,19 +25,26 @@ import {
   writeAgentHandoff,
 } from "@structured-vibe-coding/core";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
-import { launchAgentAfterNew } from "./launch-agent.js";
+import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
+
+/** Shared flag: skip launching the coding agent after a command. */
+const noAgentArg = {
+  type: "boolean" as const,
+  description: "Do not launch the AI coding agent (or set SDD_NO_AGENT=1)",
+  default: false,
+};
 
 const init = defineCommand({
   meta: {
     name: "init",
     description:
-      "Initialize SDD in a project and install ONE AI coding agent (default step: pick agent). Example: sdd init --here --ai grok",
+      "Initialize SDD + ONE AI agent. Example: sdd init --here --ai grok",
   },
   args: {
     path: {
       type: "positional",
-      description: "Project directory name, or \".\" for current dir (same as --here)",
+      description: 'Project directory name, or "." for current dir (same as --here)',
       required: false,
     },
     here: {
@@ -54,7 +60,7 @@ const init = defineCommand({
     ai: {
       type: "string",
       description:
-        "Install only this AI agent: grok | copilot | claude. Does NOT create the other hosts' folders.",
+        "Install only this AI agent: grok | copilot | claude. Does NOT create other hosts' folders.",
       alias: "a",
     },
     integration: {
@@ -94,7 +100,7 @@ const newCmd = defineCommand({
   meta: {
     name: "new",
     description:
-      "Start a new change, write agent handoff, and launch the AI agent from init (use --no-agent to skip)",
+      "Start a change pack, refresh handoff, and launch the AI agent from init",
   },
   args: {
     title: { type: "positional", description: "Change title", required: false },
@@ -111,11 +117,7 @@ const newCmd = defineCommand({
       alias: "y",
       default: false,
     },
-    "no-agent": {
-      type: "boolean",
-      description: "Do not launch the AI coding agent after creating the change",
-      default: false,
-    },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -189,44 +191,29 @@ const newCmd = defineCommand({
       consola.log(`Path:     ${ctx.path}`);
       consola.log("");
       consola.log(formatStatus(ctx));
+      consola.log("");
 
-      // Launch AI agent configured at sdd init (from .sdd/agents.json)
-      const launch = await launchAgentAfterNew({
+      const launch = await launchConfiguredAgent({
         projectRoot: root,
         config,
         ctx,
         noAgent: args["no-agent"],
+        event: `new change · stage ${ctx.meta.stage}`,
       });
-      consola.log("");
-      consola.info(`Handoff: ${launch.handoffPath}`);
-      if (launch.launched) {
-        consola.success(
-          `Started ${launch.target} (${(launch.command ?? []).join(" ")})`,
-        );
-      } else {
-        const installed = await loadInstalledAgent(root);
-        const label = installed?.integration.label ?? "AI agent";
-        consola.info(
-          pc.dim(
-            launch.reason ??
-              `${label}: open the tool in this project and read .sdd/handoff.md`,
-          ),
-        );
-        if (launch.target === "grok") {
-          consola.log(pc.dim("  Or: open Grok Build here — it loads AGENTS.md + .grok/rules/sdd.md"));
-        }
-      }
-      consola.log("");
-      consola.log(pc.dim("After the agent fills this stage: sdd next · sdd status · sdd verify"));
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const status = defineCommand({
-  meta: { name: "status", description: "Show active change and stage progress" },
+  meta: {
+    name: "status",
+    description: "Show active change status, refresh handoff, launch AI agent",
+  },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
     list: { type: "boolean", description: "List all open changes", default: false },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -253,15 +240,28 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `status · stage ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const next = defineCommand({
-  meta: { name: "next", description: "Advance to the next workflow stage" },
+  meta: {
+    name: "next",
+    description: "Advance stage, then launch the AI agent for the new stage",
+  },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
     force: { type: "boolean", description: "Skip gate/artifact checks", default: false },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -278,16 +278,31 @@ const next = defineCommand({
       }
       consola.log("");
       consola.log(formatStatus(result.ctx));
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx: result.ctx,
+        noAgent: args["no-agent"],
+        event: result.to
+          ? `advanced ${result.from} → ${result.to}`
+          : `on last stage ${result.ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const skip = defineCommand({
-  meta: { name: "skip", description: "Skip a stage for this change (per-PR override)" },
+  meta: {
+    name: "skip",
+    description: "Skip a stage, then launch the AI agent",
+  },
   args: {
     stage: { type: "positional", description: "Stage id to skip", required: true },
     reason: { type: "string", description: "Why this stage is skipped", alias: "r", required: true },
     change: { type: "string", description: "Change id", alias: "c" },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -295,6 +310,15 @@ const skip = defineCommand({
       const ctx = await skipStage(root, config, id, args.stage, args.reason);
       consola.success(`Skipped stage ${args.stage}`);
       consola.log(formatStatus(ctx));
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `skipped ${args.stage} · now ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
@@ -302,12 +326,13 @@ const skip = defineCommand({
 const use = defineCommand({
   meta: {
     name: "use",
-    description: "Switch workflow for this change (per-PR)",
+    description: "Switch workflow for this change, then launch the AI agent",
   },
   args: {
     workflow: { type: "positional", description: "Workflow name", required: true },
     reason: { type: "string", description: "Why switching", alias: "r" },
     change: { type: "string", description: "Change id", alias: "c" },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -315,12 +340,24 @@ const use = defineCommand({
       const ctx = await switchWorkflow(root, config, id, args.workflow, args.reason);
       consola.success(`Workflow set to ${args.workflow}`);
       consola.log(formatStatus(ctx));
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `workflow → ${args.workflow} · stage ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const gate = defineCommand({
-  meta: { name: "gate", description: "Approve / waive / fail a stage gate" },
+  meta: {
+    name: "gate",
+    description: "Approve/waive/fail a gate, then launch the AI agent",
+  },
   args: {
     action: {
       type: "positional",
@@ -330,6 +367,7 @@ const gate = defineCommand({
     stage: { type: "string", description: "Stage id (default: current)", alias: "s" },
     note: { type: "string", description: "Note", alias: "n" },
     change: { type: "string", description: "Change id", alias: "c" },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -353,12 +391,24 @@ const gate = defineCommand({
       );
       consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
       consola.log(formatStatus(ctx));
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `gate ${action} on ${args.stage ?? ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const verify = defineCommand({
-  meta: { name: "verify", description: "Run local verification for the current stage" },
+  meta: {
+    name: "verify",
+    description: "Run local verify, then launch the AI agent with results context",
+  },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
     "no-run": {
@@ -366,6 +416,7 @@ const verify = defineCommand({
       description: "Only write checklist/evidence stubs, do not run commands",
       default: false,
     },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -395,21 +446,36 @@ const verify = defineCommand({
           pc.dim("Fix commands, re-run sdd verify, or sdd gate approve/waive to override."),
         );
         process.exitCode = 1;
-      } else {
-        consola.log(pc.dim("When satisfied: sdd gate approve && sdd next (or sdd complete)"));
       }
+      consola.log("");
+      const ctx = await buildContext(root, config, id);
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `local verify ${result.ok ? "passed" : "failed"} · stage ${result.stageId}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const complete = defineCommand({
-  meta: { name: "complete", description: "Complete the change and archive it" },
+  meta: {
+    name: "complete",
+    description: "Complete and archive the change, then notify/launch the AI agent",
+  },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
+      // Handoff while change still under changes/
+      const before = await buildContext(root, config, id);
+      await writeAgentHandoff(root, config, id);
       const { archivedTo, ctx } = await completeChange(root, config, id);
       consola.success(`Completed ${ctx.id}`);
       if (archivedTo) consola.info(`Archived to ${archivedTo}`);
@@ -420,12 +486,23 @@ const complete = defineCommand({
           ),
         );
       }
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx: before,
+        changeId: before.id,
+        noAgent: args["no-agent"],
+        event: `change completed${archivedTo ? " and archived" : ""}`,
+        reuseHandoff: true,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
 
 const workflows = defineCommand({
-  meta: { name: "workflows", description: "List available workflow packs" },
+  meta: { name: "workflows", description: "List available workflow packs (no agent launch)" },
   async run() {
     await withProject(async ({ root }) => {
       const names = await listWorkflowNames(root);
@@ -442,23 +519,37 @@ const workflows = defineCommand({
 const agent = defineCommand({
   meta: {
     name: "agent",
-    description:
-      "Write .sdd/handoff.md and print it (does not launch the AI — use sdd new for auto-launch)",
+    description: "Refresh handoff and launch the configured AI agent (or --print only)",
   },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
+    print: {
+      type: "boolean",
+      description: "Only write/print handoff — do not launch agent",
+      default: false,
+    },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
-      await refreshActiveAgentContext(root);
-      const path = await writeAgentHandoff(root, config, id);
-      const body = await import("node:fs/promises").then((fs) =>
-        fs.readFile(path, "utf8"),
-      );
-      process.stdout.write(body);
-      if (!body.endsWith("\n")) process.stdout.write("\n");
-      consola.info(pc.dim(`Also written to ${path}`));
+      const ctx = await buildContext(root, config, id);
+      if (args.print || args["no-agent"]) {
+        await refreshActiveAgentContext(root);
+        const path = await writeAgentHandoff(root, config, id);
+        const body = await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8"));
+        process.stdout.write(body);
+        if (!body.endsWith("\n")) process.stdout.write("\n");
+        consola.info(pc.dim(`Written to ${path}`));
+        return;
+      }
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        event: `explicit sdd agent · stage ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
@@ -467,7 +558,7 @@ const agentsInstall = defineCommand({
   meta: {
     name: "install",
     description:
-      "Install or switch AI agent files for ONE host (removes other hosts' agent dirs). Example: sdd agents install --ai grok --force",
+      "Install or switch AI agent files for ONE host. Example: sdd agents install --ai grok --force",
   },
   args: {
     target: {
@@ -516,12 +607,22 @@ const agentsInstall = defineCommand({
 const agentsRefresh = defineCommand({
   meta: {
     name: "refresh",
-    description: "Refresh .sdd/active-context.md for coding agents (Copilot / Claude / Grok)",
+    description: "Refresh active-context + handoff and launch the AI agent",
   },
-  async run() {
-    await withInitialized(async (root) => {
+  args: {
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
       const path = await refreshActiveAgentContext(root);
       consola.success(path ? `Updated ${path}` : "SDD not ready");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        noAgent: args["no-agent"],
+        event: "agents refresh",
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
@@ -538,15 +639,28 @@ const agents = defineCommand({
 });
 
 const useChange = defineCommand({
-  meta: { name: "checkout", description: "Set the active change" },
+  meta: {
+    name: "checkout",
+    description: "Set the active change, then launch the AI agent",
+  },
   args: {
     change: { type: "positional", description: "Change id", required: true },
+    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
-      await buildContext(root, config, args.change);
+      const ctx = await buildContext(root, config, args.change);
       await setActiveChange(root, config, args.change);
       consola.success(`Active change: ${args.change}`);
+      consola.log("");
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `checkout ${args.change}`,
+      });
+      await reportAgentLaunch(launch);
     });
   },
 });
@@ -555,36 +669,35 @@ const help = defineCommand({
   meta: { name: "help", description: "Show help overview" },
   async run() {
     const root = projectRoot();
-    consola.log(pc.bold("sdd") + " — local Spec-Driven Development (change packs + gates)");
+    consola.log(pc.bold("sdd") + " — local Spec-Driven Development + your AI coding agent");
     consola.log("");
-    consola.log(pc.bold("First-time setup (one command):"));
+    consola.log(pc.bold("Idea:"));
+    consola.log(pc.dim("  Process commands update the change pack, then hand work to the agent"));
+    consola.log(pc.dim("  configured at init (grok/claude CLI, or Copilot chat in the IDE)."));
+    consola.log("");
+    consola.log(pc.bold("Setup (once):"));
     consola.log(`  ${pc.cyan("sdd init --here --ai grok")}     Grok Build only`);
     consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}  GitHub Copilot only`);
     consola.log(`  ${pc.cyan("sdd init --here --ai claude")}   Claude Code only`);
-    consola.log(pc.dim("  → creates .sdd/, memory/, changes/, archive/, domains/"));
-    consola.log(pc.dim("  → plus agent files for the chosen AI only (not all hosts)"));
     consola.log("");
-    consola.log(pc.bold("Everyday:"));
-    consola.log(`  ${pc.cyan('sdd new "My change"')}   create change + launch AI from init`);
-    consola.log(`  ${pc.cyan('sdd new "…" --no-agent')}  create change without launching AI`);
-    consola.log(`  ${pc.cyan("sdd status")}            show stage`);
-    consola.log(`  ${pc.cyan("sdd next")}              advance stage`);
-    consola.log(`  ${pc.cyan("sdd verify")}            local verify`);
-    consola.log(`  ${pc.cyan("sdd complete")}          archive change`);
+    consola.log(pc.bold("Everyday (each launches the agent unless --no-agent):"));
+    consola.log(`  ${pc.cyan('sdd new "My change"')}   create pack + agent`);
+    consola.log(`  ${pc.cyan("sdd status")}            status + agent`);
+    consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
+    consola.log(`  ${pc.cyan("sdd verify")}            verify + agent`);
+    consola.log(`  ${pc.cyan("sdd complete")}          archive + agent`);
+    consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
     consola.log("");
-    consola.log(pc.bold("Agents:"));
-    consola.log(`  ${pc.cyan("sdd agents install --ai grok")}   switch AI host (optional later)`);
-    consola.log(`  ${pc.cyan("sdd agents refresh")}             update .sdd/active-context.md`);
-    consola.log(`  ${pc.cyan("sdd agent")}                      write/print .sdd/handoff.md only`);
+    consola.log(pc.bold("Skip agent launch:"));
+    consola.log(`  ${pc.cyan("sdd next --no-agent")}   or  ${pc.cyan("SDD_NO_AGENT=1 sdd next")}`);
     consola.log("");
-    consola.log(pc.dim("Docs: https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md"));
-    consola.log(pc.dim("More: sdd <command> --help"));
+    consola.log(pc.dim("Docs: docs/ide-and-agents.md · sdd <command> --help"));
     if (await isInitialized(root)) {
       const config = await loadConfig(root);
       const active = await getActiveChangeId(root, config);
       if (active) consola.log(pc.dim(`Active change: ${active}`));
     } else {
-      consola.log(pc.dim("This directory is not initialized. Run: sdd init --here --ai grok"));
+      consola.log(pc.dim("Not initialized. Run: sdd init --here --ai grok"));
     }
   },
 });
@@ -593,8 +706,8 @@ const main = defineCommand({
   meta: {
     name: "sdd",
     description:
-      "Local Spec-Driven Development. Start with: sdd init --here --ai grok|copilot|claude",
-    version: "0.5.4",
+      "Local SDD: process + launch your init-configured AI agent after each command",
+    version: "0.6.1",
   },
   subCommands: {
     init,

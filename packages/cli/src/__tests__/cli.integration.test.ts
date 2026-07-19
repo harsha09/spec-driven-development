@@ -117,7 +117,7 @@ describe("CLI integration", () => {
     expect(await exists(join(changePath, "intent.md"))).toBe(true);
 
     // status may write via consola (not always captured on pipe); exit 0 is enough
-    const status = runSdd(root, ["status"]);
+    const status = runSdd(root, ["status", "--no-agent"]);
     expect(status.status, status.stderr + status.stdout).toBe(0);
 
     // Ensure intent content for leave checks
@@ -125,14 +125,18 @@ describe("CLI integration", () => {
       fs.writeFile(join(changePath, "intent.md"), "# Intent\n\ncli test\n", "utf8"),
     );
 
-    const next = runSdd(root, ["next"]);
+    const next = runSdd(root, ["next", "--no-agent"]);
     expect(next.status, next.stderr + next.stdout).toBe(0);
+    // handoff rewritten after process commands
+    expect(await exists(join(root, ".sdd/handoff.md"))).toBe(true);
 
-    const refresh = runSdd(root, ["agents", "refresh"]);
+    const refresh = runSdd(root, ["agents", "refresh", "--no-agent"]);
     expect(refresh.status, refresh.stderr + refresh.stdout).toBe(0);
     expect(await exists(join(root, ".sdd/active-context.md"))).toBe(true);
     const active = await readFile(join(root, ".sdd/active-context.md"), "utf8");
     expect(active).toMatch(/CLI integration|protocol|implement/i);
+    const handoff = await readFile(join(root, ".sdd/handoff.md"), "utf8");
+    expect(handoff.length).toBeGreaterThan(50);
   });
 
   it("sdd init --no-agents then sdd agents install --ai claude", async () => {
