@@ -9,8 +9,9 @@ import pc from "picocolors";
 import {
   AGENT_TARGET_OPTIONS,
   DEFAULT_INIT_INTEGRATION,
+  getIntegration,
   initProject,
-  installAgentIntegrations,
+  installAgentIntegration,
   isInitialized,
   listWorkflowNames,
   optionForTarget,
@@ -176,21 +177,21 @@ async function checkAgentTool(
   ignoreAgentTools: boolean,
 ): Promise<void> {
   if (ignoreAgentTools) return;
-  const opt = optionForTarget(target);
-  if (!opt?.requiresCli) return;
+  const integ = getIntegration(target);
+  if (!integ.requiresCli) return;
 
-  const bin = target === "claude-code" ? "claude" : opt.key;
+  const bin = integ.cliBinary ?? integ.key;
   if (toolOnPath(bin)) return;
 
   if (!isInteractive()) {
     throw new Error(
-      `${opt.label} CLI ('${bin}') not found. Install from ${opt.installUrl}\n` +
+      `${integ.label} CLI ('${bin}') not found. Install from ${integ.installUrl}\n` +
         `Tip: use --ignore-agent-tools to skip this check`,
     );
   }
 
-  p.log.warn(`${opt.label} CLI ('${bin}') not found on PATH.`);
-  p.log.message(`Install from: ${pc.cyan(opt.installUrl)}`);
+  p.log.warn(`${integ.label} CLI ('${bin}') not found on PATH.`);
+  p.log.message(`Install from: ${pc.cyan(integ.installUrl)}`);
   const cont = await p.confirm({
     message: "Continue without the agent CLI on PATH?",
     initialValue: false,
@@ -249,9 +250,9 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   let agentDetail = "skipped";
   if (selected !== false) {
     s.start(`Install ${optionForTarget(selected)?.label ?? selected} integration`);
-    const ag = await installAgentIntegrations({
+    const ag = await installAgentIntegration({
       projectRoot,
-      targets: [selected],
+      target: selected,
       force: true,
     });
     s.stop(

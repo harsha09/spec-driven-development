@@ -1,120 +1,151 @@
 import { join } from "pathe";
 import { pathExists, writeText } from "./fs.js";
 import { loadConfig } from "./config.js";
-import {
-  buildAgentPrompt,
-  buildContext,
-  getActiveChangeId,
-  formatStatus,
-} from "./change.js";
+import { buildContext, getActiveChangeId } from "./change-context.js";
+import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
 import { sddRoot } from "./paths.js";
 
 /**
  * AI coding agents (not IDEs).
- * VS Code / Cursor / IntelliJ are editors; they host tools like Copilot or Claude Code.
- *
  * Speckit-style: one integration at a time; public keys are short (`copilot`, `claude`).
  */
 export type AgentTarget = "copilot" | "claude-code";
 
-export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code"];
-
-/** Default when non-interactive and no --ai / --integration (matches Speckit). */
-export const DEFAULT_INIT_INTEGRATION: AgentTarget = "copilot";
-
-export interface AgentTargetOption {
-  /** Internal install id (file paths / agents.json). */
+/** Registry entry — add a new AI agent by appending here only. */
+export interface AgentIntegration {
   id: AgentTarget;
-  /** Speckit-style public key used with --ai / --integration. */
+  /** Speckit-style public key (`--ai` / `--integration`). */
   key: string;
+  aliases: string[];
   label: string;
   hint: string;
-  /** If true, CLI may check that the agent binary is on PATH. */
   requiresCli: boolean;
   installUrl: string;
+  /** Binary name when requiresCli (e.g. `claude`). */
+  cliBinary?: string;
+  /** Relative path for a thin role agent file. */
+  rolePath: (roleId: string) => string;
+  /** One markdown table row for AGENTS.md. */
+  agentsMdRow: string;
 }
 
-/** Human-facing options for interactive AI-agent pick (CLI / IDE). */
-export const AGENT_TARGET_OPTIONS: AgentTargetOption[] = [
+export const AGENT_INTEGRATIONS: AgentIntegration[] = [
   {
     id: "copilot",
     key: "copilot",
+    aliases: ["github-copilot", "gh-copilot"],
     label: "GitHub Copilot",
     hint: ".github/agents/*.agent.md (VS Code, Cursor, JetBrains, …)",
     requiresCli: false,
     installUrl: "https://github.com/features/copilot",
+    rolePath: (roleId) => `.github/agents/${roleId}.agent.md`,
+    agentsMdRow:
+      "| GitHub Copilot | `.github/agents/*.agent.md` (same roles; any IDE that supports Copilot agents) |",
   },
   {
     id: "claude-code",
     key: "claude",
+    aliases: ["claude-code", "claudecode"],
     label: "Claude Code",
     hint: ".claude/agents/*.md (terminal agent)",
     requiresCli: true,
+    cliBinary: "claude",
     installUrl: "https://docs.anthropic.com/en/docs/claude-code",
+    rolePath: (roleId) => `.claude/agents/${roleId}.md`,
+    agentsMdRow:
+      "| Claude Code | `.claude/agents/` (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) |",
   },
 ];
 
-/** Public CLI keys → internal targets (Speckit uses `claude`, not `claude-code`). */
-export function integrationKeyFor(target: AgentTarget): string {
-  return AGENT_TARGET_OPTIONS.find((o) => o.id === target)?.key ?? target;
+export const ALL_AGENT_TARGETS: AgentTarget[] = AGENT_INTEGRATIONS.map((i) => i.id);
+
+/** Default when non-interactive and no --ai (matches Speckit). */
+export const DEFAULT_INIT_INTEGRATION: AgentTarget = "copilot";
+
+/** @deprecated Prefer AgentIntegration / AGENT_INTEGRATIONS — kept for UI option lists. */
+export type AgentTargetOption = Pick<
+  AgentIntegration,
+  "id" | "key" | "label" | "hint" | "requiresCli" | "installUrl"
+>;
+
+export const AGENT_TARGET_OPTIONS: AgentTargetOption[] = AGENT_INTEGRATIONS.map(
+  ({ id, key, label, hint, requiresCli, installUrl }) => ({
+    id,
+    key,
+    label,
+    hint,
+    requiresCli,
+    installUrl,
+  }),
+);
+
+const IDE_NAMES = new Set([
+  "intellij",
+  "idea",
+  "jetbrains",
+  "vscode",
+  "vs-code",
+  "cursor",
+]);
+
+export function getIntegration(target: AgentTarget): AgentIntegration {
+  const found = AGENT_INTEGRATIONS.find((i) => i.id === target);
+  if (!found) throw new Error(`Unknown agent integration: ${target}`);
+  return found;
 }
 
-export function optionForTarget(target: AgentTarget): AgentTargetOption | undefined {
-  return AGENT_TARGET_OPTIONS.find((o) => o.id === target);
+export function integrationKeyFor(target: AgentTarget): string {
+  return getIntegration(target).key;
+}
+
+export function optionForTarget(target: AgentTarget): AgentTargetOption {
+  return getIntegration(target);
+}
+
+/** Parse one Speckit-style integration key. */
+export function parseIntegration(raw: string): AgentTarget {
+  const p = raw.trim().toLowerCase();
+  if (!p) {
+    throw new Error(
+      `Expected one AI coding agent. Choose from: ${AGENT_INTEGRATIONS.map((i) => i.key).join(", ")}`,
+    );
+  }
+  if (IDE_NAMES.has(p)) {
+    throw new Error(
+      `"${p}" is an IDE, not an AI coding agent. Choose: copilot or claude (Claude Code).`,
+    );
+  }
+  for (const integ of AGENT_INTEGRATIONS) {
+    if (integ.id === p || integ.key === p || integ.aliases.includes(p)) {
+      return integ.id;
+    }
+  }
+  throw new Error(
+    `Unknown AI coding agent "${raw}". Choose from: ${AGENT_INTEGRATIONS.map((i) => i.key).join(", ")}`,
+  );
 }
 
 /**
- * Parse Speckit-style integration keys: `copilot`, `claude`, `claude-code`, …
- * Throws on unknown ids or IDE names.
+ * Parse one or more keys (comma-separated). Prefer parseIntegration for product flows.
+ * @deprecated Multi-install is not the product default; use parseIntegration.
  */
 export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
   const parts = (Array.isArray(raw) ? raw : [raw])
     .flatMap((s) => String(s).split(","))
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim())
     .filter(Boolean);
-
+  if (!parts.length) {
+    throw new Error("No AI coding agent specified");
+  }
   const out: AgentTarget[] = [];
   for (const p of parts) {
-    // IDEs are not AI agent targets
-    if (
-      p === "intellij" ||
-      p === "idea" ||
-      p === "jetbrains" ||
-      p === "vscode" ||
-      p === "vs-code" ||
-      p === "cursor"
-    ) {
-      throw new Error(
-        `"${p}" is an IDE, not an AI coding agent. Choose: copilot or claude (Claude Code).`,
-      );
-    }
-    const id =
-      p === "claude" || p === "claude-code" || p === "claudecode"
-        ? "claude-code"
-        : p === "github-copilot" || p === "gh-copilot" || p === "copilot"
-          ? "copilot"
-          : p;
-    if (!ALL_AGENT_TARGETS.includes(id as AgentTarget)) {
-      const keys = AGENT_TARGET_OPTIONS.map((o) => o.key).join(", ");
-      throw new Error(`Unknown AI coding agent "${p}". Choose from: ${keys}`);
-    }
-    if (!out.includes(id as AgentTarget)) out.push(id as AgentTarget);
+    const id = parseIntegration(p);
+    if (!out.includes(id)) out.push(id);
   }
   return out;
 }
 
-/** Parse a single Speckit-style integration (exactly one). */
-export function parseIntegration(raw: string): AgentTarget {
-  const list = parseAgentTargets(raw);
-  if (list.length !== 1) {
-    throw new Error(
-      `Expected one AI coding agent (like Speckit --integration), got: ${raw}`,
-    );
-  }
-  return list[0]!;
-}
-
-/** Roles emitted as thin agents (shared body generator — no skill files). */
+/** Roles emitted as thin agents (shared body generator). */
 export type SddAgentRoleId =
   | "sdd"
   | "sdd-planner"
@@ -125,7 +156,6 @@ export interface SddAgentRole {
   id: SddAgentRoleId;
   description: string;
   roleLine: string;
-  /** Extra one-liner constraints for this role only */
   roleRules: string[];
 }
 
@@ -173,34 +203,41 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
   },
 ];
 
-export interface InstallAgentsOptions {
+export interface InstallAgentOptions {
   projectRoot: string;
-  targets?: AgentTarget[];
+  /** Single AI coding agent (Speckit-style). */
+  target: AgentTarget;
   force?: boolean;
 }
 
-export interface InstallAgentsResult {
+export interface InstallAgentResult {
+  created: string[];
+  skipped: string[];
+  target: AgentTarget;
+}
+
+/** @deprecated Use InstallAgentOptions / installAgentIntegration. */
+export type InstallAgentsOptions = {
+  projectRoot: string;
+  targets?: AgentTarget[];
+  force?: boolean;
+};
+
+/** @deprecated Use InstallAgentResult. */
+export type InstallAgentsResult = {
   created: string[];
   skipped: string[];
   targets: AgentTarget[];
-}
+};
 
 /**
- * Install **agents only** (no skills, no fat instructions).
- *
- * Single playbook: `.sdd/protocol.md`
- * Live state:      `.sdd/active-context.md`
- * Thin agents:     `.claude/agents/*` and `.github/agents/*` (pointers + role)
+ * Install thin agents for **one** AI integration (registry-driven).
+ * Writes protocol + active-context + role stubs + single `.sdd/agents.json` snapshot.
  */
-export async function installAgentIntegrations(
-  opts: InstallAgentsOptions,
-): Promise<InstallAgentsResult> {
-  if (!opts.targets?.length) {
-    throw new Error(
-      `Specify at least one AI coding agent: ${ALL_AGENT_TARGETS.join(", ")} (not an IDE; do not install all by default)`,
-    );
-  }
-  const targets = opts.targets;
+export async function installAgentIntegration(
+  opts: InstallAgentOptions,
+): Promise<InstallAgentResult> {
+  const integ = getIntegration(opts.target);
   const created: string[] = [];
   const skipped: string[] = [];
   const root = opts.projectRoot;
@@ -216,36 +253,29 @@ export async function installAgentIntegrations(
     created.push(rel);
   };
 
-  // Always: one protocol + live context
   await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
   await refreshActiveAgentContext(root);
 
   for (const role of SDD_AGENT_ROLES) {
-    const body = renderThinAgent(role);
-    if (targets.includes("claude-code")) {
-      await write(`.claude/agents/${role.id}.md`, body);
-    }
-    if (targets.includes("copilot")) {
-      // Copilot custom agents (same files in VS Code, Cursor, JetBrains, …)
-      await write(`.github/agents/${role.id}.agent.md`, body);
-    }
+    await write(integ.rolePath(role.id), renderThinAgent(role));
   }
 
-  // Tiny shared pointer for hosts that read AGENTS.md (not a second playbook)
-  await write("AGENTS.md", renderAgentsMd(targets));
+  await write("AGENTS.md", renderAgentsMd(integ));
 
+  // Single snapshot (no separate init-options.json)
   await write(
     join(".sdd", "agents.json"),
     JSON.stringify(
       {
-        version: 2,
+        version: 3,
         mode: "agents-only",
         protocol: ".sdd/protocol.md",
         activeContext: ".sdd/active-context.md",
         roles: SDD_AGENT_ROLES.map((r) => r.id),
-        installed: targets,
-        /** Speckit-style primary integration key (first target). */
-        integration: targets[0] ? integrationKeyFor(targets[0]) : null,
+        /** Speckit-style public key */
+        ai: integ.key,
+        integration: integ.key,
+        installed: [integ.id],
         updated: new Date().toISOString(),
       },
       null,
@@ -253,25 +283,36 @@ export async function installAgentIntegrations(
     ) + "\n",
   );
 
-  // Speckit-like init options snapshot
-  await write(
-    join(".sdd", "init-options.json"),
-    JSON.stringify(
-      {
-        ai: targets[0] ? integrationKeyFor(targets[0]) : null,
-        integration: targets[0] ? integrationKeyFor(targets[0]) : null,
-        installed: targets.map(integrationKeyFor),
-        updated: new Date().toISOString(),
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-
-  return { created, skipped, targets };
+  return { created, skipped, target: opts.target };
 }
 
-/** Thin agent body shared by Claude Code and GitHub Copilot (same text). */
+/**
+ * Install one or more integrations (writes each host's files; snapshot = last target).
+ * Prefer installAgentIntegration for product flows.
+ */
+export async function installAgentIntegrations(
+  opts: InstallAgentsOptions,
+): Promise<InstallAgentsResult> {
+  if (!opts.targets?.length) {
+    throw new Error(
+      `Specify one AI coding agent: ${AGENT_INTEGRATIONS.map((i) => i.key).join(", ")}`,
+    );
+  }
+  const created: string[] = [];
+  const skipped: string[] = [];
+  for (const target of opts.targets) {
+    const r = await installAgentIntegration({
+      projectRoot: opts.projectRoot,
+      target,
+      force: opts.force,
+    });
+    created.push(...r.created);
+    skipped.push(...r.skipped);
+  }
+  return { created, skipped, targets: opts.targets };
+}
+
+/** Thin agent body shared across hosts (same text). */
 export function renderThinAgent(role: SddAgentRole): string {
   const rules = role.roleRules.map((r) => `- ${r}`).join("\n");
   return `---
@@ -300,14 +341,13 @@ Do not claim the change is complete without local verification when the workflow
 `;
 }
 
-/** Write .sdd/active-context.md for the current change (all agents read this). */
+/** Write .sdd/active-context.md for the current change. */
 export async function refreshActiveAgentContext(projectRoot: string): Promise<string | null> {
   const markerDir = sddRoot(projectRoot);
   if (!(await pathExists(join(markerDir, "config.yaml")))) {
     return null;
   }
 
-  // Ensure protocol exists for agents that only got a partial install
   const protocolPath = join(markerDir, "protocol.md");
   if (!(await pathExists(protocolPath))) {
     await writeText(protocolPath, PROTOCOL_MD);
@@ -410,18 +450,7 @@ sdd complete
 - Claiming complete without verify when required
 `;
 
-function renderAgentsMd(targets: AgentTarget[]): string {
-  const rows: string[] = [];
-  if (targets.includes("claude-code")) {
-    rows.push(
-      "| Claude Code | `.claude/agents/` (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) |",
-    );
-  }
-  if (targets.includes("copilot")) {
-    rows.push(
-      "| GitHub Copilot | `.github/agents/*.agent.md` (same roles; any IDE that supports Copilot agents) |",
-    );
-  }
+function renderAgentsMd(integ: AgentIntegration): string {
   return `# Agents
 
 This repo uses **SDD agents only** (no skills).
@@ -435,7 +464,7 @@ AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ hos
 
 | AI agent | Files |
 |----------|--------|
-${rows.join("\n")}
+${integ.agentsMdRow}
 
 Refresh context: \`sdd agents refresh\`.
 `;

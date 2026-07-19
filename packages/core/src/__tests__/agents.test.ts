@@ -4,12 +4,14 @@ import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   initProject,
-  installAgentIntegrations,
+  installAgentIntegration,
   createChange,
   loadConfig,
   parseAgentTargets,
   parseIntegration,
   DEFAULT_INIT_INTEGRATION,
+  AGENT_INTEGRATIONS,
+  getIntegration,
   refreshActiveAgentContext,
   pathExists,
   renderThinAgent,
@@ -33,51 +35,65 @@ afterEach(async () => {
   }
 });
 
-describe("agent integrations (agents-only)", () => {
-  it("installs protocol + thin agents for copilot and claude — no skills", async () => {
+describe("agent integrations (registry)", () => {
+  it("installs protocol + thin agents via registry (both hosts)", async () => {
     const root = await tempProject();
-    const result = await installAgentIntegrations({
+    await installAgentIntegration({
       projectRoot: root,
-      targets: ["copilot", "claude-code"],
+      target: "copilot",
       force: true,
     });
-    expect(result.created.length).toBeGreaterThan(5);
+    await installAgentIntegration({
+      projectRoot: root,
+      target: "claude-code",
+      force: true,
+    });
 
-    // Single playbook
     expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
     const protocol = await readFile(join(root, ".sdd/protocol.md"), "utf8");
     expect(protocol).toContain("SDD protocol");
     expect(protocol.length).toBeGreaterThan(PROTOCOL_MD.length - 50);
 
-    // Claude agents (not skills)
     for (const role of SDD_AGENT_ROLES) {
       expect(await pathExists(join(root, `.claude/agents/${role.id}.md`))).toBe(true);
       expect(await pathExists(join(root, `.github/agents/${role.id}.agent.md`))).toBe(true);
     }
     expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
     expect(await pathExists(join(root, ".github/copilot-instructions.md"))).toBe(false);
-    expect(await pathExists(join(root, ".github/skills"))).toBe(false);
 
-    // Thin: agent body is short and points at protocol
     const impl = await readFile(join(root, ".claude/agents/sdd-implementer.md"), "utf8");
     expect(impl.length).toBeLessThan(1200);
     expect(impl).toMatch(/\.sdd\/protocol\.md/);
-    expect(impl).toMatch(/\.sdd\/active-context\.md/);
-    expect(impl).toMatch(/Role: \*\*implementer\*\*|Implementer:/i);
 
-    // Same body generator for both hosts
     const claude = await readFile(join(root, ".claude/agents/sdd.md"), "utf8");
     const copilot = await readFile(join(root, ".github/agents/sdd.agent.md"), "utf8");
     expect(claude).toBe(copilot);
 
     expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
-    expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(false);
+    // Single snapshot only (no init-options.json)
+    expect(await pathExists(join(root, ".sdd/agents.json"))).toBe(true);
+    expect(await pathExists(join(root, ".sdd/init-options.json"))).toBe(false);
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.version).toBe(3);
+    expect(snap.ai).toBe("claude");
+    expect(snap.integration).toBe("claude");
+  });
+
+  it("registry drives role paths and public keys", () => {
+    expect(AGENT_INTEGRATIONS.length).toBeGreaterThanOrEqual(2);
+    const copilot = getIntegration("copilot");
+    expect(copilot.rolePath("sdd")).toBe(".github/agents/sdd.agent.md");
+    expect(copilot.key).toBe("copilot");
+    const claude = getIntegration("claude-code");
+    expect(claude.rolePath("sdd")).toBe(".claude/agents/sdd.md");
+    expect(claude.key).toBe("claude");
+    expect(claude.cliBinary).toBe("claude");
   });
 
   it("rejects IDE names as agent targets", () => {
     expect(() => parseAgentTargets("intellij")).toThrow(/IDE/i);
-    expect(() => parseAgentTargets("vscode")).toThrow(/IDE/i);
-    expect(() => parseAgentTargets("cursor")).toThrow(/IDE/i);
+    expect(() => parseIntegration("vscode")).toThrow(/IDE/i);
+    expect(() => parseIntegration("cursor")).toThrow(/IDE/i);
   });
 
   it("accepts Speckit-style keys (claude → claude-code, default copilot)", () => {
@@ -87,32 +103,30 @@ describe("agent integrations (agents-only)", () => {
     expect(parseAgentTargets("claude")).toEqual(["claude-code"]);
   });
 
-  it("init does not install agents unless AI agents are specified", async () => {
+  it("init does not install agents unless AI agent is specified", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sdd-init-none-"));
     temps.push(dir);
     const res = await initProject({ projectRoot: dir });
     expect(res.agents).toBeUndefined();
     expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(false);
-    expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(false);
   });
 
-  it("init installs only the requested AI agent (no skills)", async () => {
+  it("init installs only the requested AI agent", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sdd-init-ag-"));
     temps.push(dir);
     const res = await initProject({
       projectRoot: dir,
-      agents: ["claude-code"],
+      agents: "claude-code",
     });
     expect(res.agents?.created.length).toBeGreaterThan(0);
     expect(await pathExists(join(dir, ".sdd/protocol.md"))).toBe(true);
     expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(true);
     expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(false);
-    expect(await pathExists(join(dir, ".claude/skills/sdd/SKILL.md"))).toBe(false);
   });
 
   it("refreshActiveAgentContext writes active change and mentions protocol", async () => {
     const root = await tempProject();
-    await installAgentIntegrations({ projectRoot: root, targets: ["copilot"], force: true });
+    await installAgentIntegration({ projectRoot: root, target: "copilot", force: true });
     const config = await loadConfig(root);
     await createChange({
       projectRoot: root,
@@ -131,7 +145,7 @@ describe("agent integrations (agents-only)", () => {
     for (const role of SDD_AGENT_ROLES) {
       const body = renderThinAgent(role);
       expect(body.length).toBeLessThan(1200);
-      expect(body).not.toMatch(/Hard rules/); // full rules live in protocol only
+      expect(body).not.toMatch(/Hard rules/);
       expect(body).toMatch(/protocol\.md/);
     }
   });

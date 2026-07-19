@@ -10,7 +10,7 @@ import {
   createChange,
   formatStatus,
   getActiveChangeId,
-  installAgentIntegrations,
+  installAgentIntegration,
   isInitialized,
   listChanges,
   listWorkflowNames,
@@ -25,17 +25,7 @@ import {
   switchWorkflow,
 } from "@structured-vibe-coding/core";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
-
-function projectRoot(): string {
-  return process.cwd();
-}
-
-async function requireInit(): Promise<void> {
-  if (!(await isInitialized(projectRoot()))) {
-    consola.error("SDD is not initialized here. Run `sdd init` first.");
-    process.exit(1);
-  }
-}
+import { projectRoot, withInitialized, withProject } from "./project.js";
 
 const init = defineCommand({
   meta: {
@@ -116,33 +106,29 @@ const newCmd = defineCommand({
     },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-
-    let title = args.title?.trim();
-    if (!title) {
-      title = await consola.prompt("Change title:", { type: "text" });
-      if (!title || typeof title !== "string") {
-        consola.error("Title is required");
-        process.exit(1);
+    await withProject(async ({ root, config }) => {
+      let title = args.title?.trim();
+      if (!title) {
+        title = await consola.prompt("Change title:", { type: "text" });
+        if (!title || typeof title !== "string") {
+          consola.error("Title is required");
+          process.exit(1);
+        }
       }
-    }
 
-    const flags: Record<string, boolean | string | number> = {};
-    const flagArg = args.flag;
-    const flagList = flagArg == null ? [] : Array.isArray(flagArg) ? flagArg : [flagArg];
-    for (const raw of flagList) {
-      const [k, ...rest] = String(raw).split("=");
-      if (!k) continue;
-      const v = rest.join("=");
-      if (v === "true" || v === "") flags[k] = true;
-      else if (v === "false") flags[k] = false;
-      else if (v && !Number.isNaN(Number(v))) flags[k] = Number(v);
-      else flags[k] = v || true;
-    }
+      const flags: Record<string, boolean | string | number> = {};
+      const flagArg = args.flag;
+      const flagList = flagArg == null ? [] : Array.isArray(flagArg) ? flagArg : [flagArg];
+      for (const raw of flagList) {
+        const [k, ...rest] = String(raw).split("=");
+        if (!k) continue;
+        const v = rest.join("=");
+        if (v === "true" || v === "") flags[k] = true;
+        else if (v === "false") flags[k] = false;
+        else if (v && !Number.isNaN(Number(v))) flags[k] = Number(v);
+        else flags[k] = v || true;
+      }
 
-    try {
       const rec = await recommendWorkflow(root, title, config, {
         preferred: args.workflow,
       });
@@ -150,7 +136,9 @@ const newCmd = defineCommand({
       let workflowName = rec.name;
       if (!args.workflow && !args.yes) {
         consola.log("");
-        consola.log(`${pc.bold("Recommended:")} ${pc.green(rec.name)} ${pc.dim(`(${rec.reason})`)}`);
+        consola.log(
+          `${pc.bold("Recommended:")} ${pc.green(rec.name)} ${pc.dim(`(${rec.reason})`)}`,
+        );
         if (rec.alternatives.length) {
           consola.log(`${pc.dim("Alternatives:")} ${rec.alternatives.join(", ")}`);
         }
@@ -191,10 +179,7 @@ const newCmd = defineCommand({
       consola.log(formatStatus(ctx));
       consola.log("");
       consola.log(pc.dim("Edit artifacts, then: sdd next · sdd agent · sdd status"));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -205,10 +190,7 @@ const status = defineCommand({
     list: { type: "boolean", description: "List all open changes", default: false },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       if (args.list) {
         const ids = await listChanges(root, config);
         if (!ids.length) {
@@ -232,10 +214,7 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -246,10 +225,7 @@ const next = defineCommand({
     force: { type: "boolean", description: "Skip gate/artifact checks", default: false },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const result = await advanceStage(root, config, id, { force: args.force });
       for (const w of result.warnings) consola.warn(w);
@@ -263,10 +239,7 @@ const next = defineCommand({
       }
       consola.log("");
       consola.log(formatStatus(result.ctx));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -278,18 +251,12 @@ const skip = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await skipStage(root, config, id, args.stage, args.reason);
       consola.success(`Skipped stage ${args.stage}`);
       consola.log(formatStatus(ctx));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -304,18 +271,12 @@ const use = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await switchWorkflow(root, config, id, args.workflow, args.reason);
       consola.success(`Workflow set to ${args.workflow}`);
       consola.log(formatStatus(ctx));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -332,20 +293,16 @@ const gate = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    const action = args.action;
-    if (!["approve", "waive", "fail"].includes(action)) {
-      consola.error("action must be approve | waive | fail");
-      process.exit(1);
-    }
-    const statusMap = {
-      approve: "approved",
-      waive: "waived",
-      fail: "failed",
-    } as const;
-    try {
+    await withProject(async ({ root, config }) => {
+      const action = args.action;
+      if (!["approve", "waive", "fail"].includes(action)) {
+        throw new Error("action must be approve | waive | fail");
+      }
+      const statusMap = {
+        approve: "approved",
+        waive: "waived",
+        fail: "failed",
+      } as const;
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await approveGate(
         root,
@@ -357,10 +314,7 @@ const gate = defineCommand({
       );
       consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
       consola.log(formatStatus(ctx));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -375,10 +329,7 @@ const verify = defineCommand({
     },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const result = await runLocalVerify(root, config, id, {
         runCommands: !args["no-run"],
@@ -401,15 +352,14 @@ const verify = defineCommand({
       consola.info(`Evidence: ${result.evidencePath}`);
       if (!result.ok) {
         consola.warn("Verify did not pass (required commands failed or were skipped).");
-        consola.log(pc.dim("Fix commands, re-run sdd verify, or sdd gate approve/waive to override."));
+        consola.log(
+          pc.dim("Fix commands, re-run sdd verify, or sdd gate approve/waive to override."),
+        );
         process.exitCode = 1;
       } else {
         consola.log(pc.dim("When satisfied: sdd gate approve && sdd next (or sdd complete)"));
       }
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -419,10 +369,7 @@ const complete = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const { archivedTo, ctx } = await completeChange(root, config, id);
       consola.success(`Completed ${ctx.id}`);
@@ -434,19 +381,14 @@ const complete = defineCommand({
           ),
         );
       }
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
 const workflows = defineCommand({
   meta: { name: "workflows", description: "List available workflow packs" },
   async run() {
-    await requireInit();
-    const root = projectRoot();
-    try {
+    await withProject(async ({ root }) => {
       const names = await listWorkflowNames(root);
       for (const name of names) {
         const wf = await loadWorkflow(root, name);
@@ -454,10 +396,7 @@ const workflows = defineCommand({
           `${pc.cyan(name)}  ${pc.dim(wf.description ?? "")}  ${pc.dim(`(${wf.stages.length} stages)`)}`,
         );
       }
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -467,21 +406,14 @@ const agent = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       await refreshActiveAgentContext(root);
       const prompt = await buildAgentPrompt(ctx, config, root);
-      // raw stdout for easy piping
       process.stdout.write(prompt);
       if (!prompt.endsWith("\n")) process.stdout.write("\n");
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -509,9 +441,7 @@ const agentsInstall = defineCommand({
     force: { type: "boolean", description: "Overwrite existing agent files", default: false },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    try {
+    await withInitialized(async (root) => {
       const selected = await selectIntegration({
         ai: args.ai ?? args.target,
         integration: args.integration,
@@ -521,18 +451,15 @@ const agentsInstall = defineCommand({
         consola.info("No AI coding agent selected — nothing installed.");
         return;
       }
-      const result = await installAgentIntegrations({
+      const result = await installAgentIntegration({
         projectRoot: root,
-        targets: [selected],
+        target: selected,
         force: args.force,
       });
-      consola.success(`Installed AI integration: ${result.targets.join(", ")}`);
+      consola.success(`Installed AI integration: ${result.target}`);
       for (const f of result.created) consola.log(`  + ${f}`);
       for (const f of result.skipped) consola.log(pc.dim(`  = ${f} (exists, use --force)`));
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -542,14 +469,10 @@ const agentsRefresh = defineCommand({
     description: "Refresh .sdd/active-context.md for Copilot / Claude Code",
   },
   async run() {
-    await requireInit();
-    try {
-      const path = await refreshActiveAgentContext(projectRoot());
+    await withInitialized(async (root) => {
+      const path = await refreshActiveAgentContext(root);
       consola.success(path ? `Updated ${path}` : "SDD not ready");
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -570,17 +493,11 @@ const useChange = defineCommand({
     change: { type: "positional", description: "Change id", required: true },
   },
   async run({ args }) {
-    await requireInit();
-    const root = projectRoot();
-    const config = await loadConfig(root);
-    try {
+    await withProject(async ({ root, config }) => {
       await buildContext(root, config, args.change);
       await setActiveChange(root, config, args.change);
       consola.success(`Active change: ${args.change}`);
-    } catch (err) {
-      consola.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    });
   },
 });
 
@@ -627,4 +544,4 @@ const main = defineCommand({
   },
 });
 
-runMain(main);
+await runMain(main);

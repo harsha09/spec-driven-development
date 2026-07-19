@@ -9,7 +9,7 @@ import {
   createChange,
   formatStatus,
   initProject,
-  installAgentIntegrations,
+  installAgentIntegration,
   isInitialized,
   listChanges,
   listWorkflowNames,
@@ -75,12 +75,12 @@ export function registerCommands(
     await initProject({
       projectRoot: root,
       force: force || (await isInitialized(root)),
-      agents,
+      agents: agents === false ? false : agents[0],
     });
     const agentNote =
       agents === false
         ? "No agent files (use SDD: Install Agent Integrations)."
-        : `AI agent: ${agents.join(", ")}.`;
+        : `AI agent: ${agents[0]}.`;
     showInfo(`Initialized. ${agentNote} Use SDD: New Change to start.`);
   });
 
@@ -346,12 +346,12 @@ export function registerCommands(
     }
     const targets = await resolveAgentTargetsForIde(agentsArg, { allowNone: false });
     if (targets === undefined || targets === false) return;
-    const result = await installAgentIntegrations({
+    const result = await installAgentIntegration({
       projectRoot: root,
-      targets,
+      target: targets[0]!,
       force: true,
     });
-    showInfo(`AI agent (${targets.join(", ")}): +${result.created.length} files`);
+    showInfo(`AI agent (${result.target}): +${result.created.length} files`);
   });
 
   reg("structuredVibe.agentsRefresh", async () => {
