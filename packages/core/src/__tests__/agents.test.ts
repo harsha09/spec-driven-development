@@ -109,6 +109,8 @@ describe("agent integrations (registry)", () => {
     const res = await initProject({ projectRoot: dir });
     expect(res.agents).toBeUndefined();
     expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(dir, "memory/index.md"))).toBe(true);
+    expect(await pathExists(join(dir, "memory/product.md"))).toBe(true);
   });
 
   it("init installs only the requested AI agent", async () => {

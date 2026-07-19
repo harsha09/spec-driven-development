@@ -77,6 +77,21 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
     await copyDir(mSrc, mDest);
   } else {
     await writeText(
+      join(mDest, "index.md"),
+      `# Documentation map
+
+Parent page for **stable** project docs. Start here, then open only what you need.
+
+| Topic | File |
+|-------|------|
+| Product | [product.md](product.md) |
+| Architecture | [architecture.md](architecture.md) |
+| Conventions | [conventions.md](conventions.md) |
+
+Active work: \`.sdd/active-context.md\` and \`changes/<id>/\`.
+`,
+    );
+    await writeText(
       join(mDest, "product.md"),
       "# Product\n\n<!-- What are you building? -->\n",
     );
@@ -115,8 +130,12 @@ This directory configures local Spec-Driven Development for this repo.
 - \`config.yaml\` — project settings and per-change policy
 - \`workflows/\` — YAML workflow packs (customize freely)
 - \`templates/\` — markdown templates for stage artifacts
+- \`protocol.md\` / \`active-context.md\` — agent playbook + live task (after agent install)
 
 Work lives in \`../changes/\` and completed work in \`../archive/\`.
+
+**Documentation map (stable):** \`../memory/index.md\`  
+**Change-scoped docs:** \`../changes/<id>/\`
 
 ## Quick commands
 

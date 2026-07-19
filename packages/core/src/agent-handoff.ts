@@ -84,6 +84,7 @@ export async function buildAgentPrompt(
 
   parts.push(`## Artifacts to read`);
   const memoryHint = join(projectRoot, config.memory_path);
+  parts.push(`- Documentation map (if present): ${memoryHint}/index.md`);
   parts.push(`- Memory: ${memoryHint}/`);
   for (const s of ctx.stages) {
     for (const a of s.artifacts) {

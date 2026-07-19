@@ -404,7 +404,7 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 |------|--------|
 | Process state | \`changes/<id>/meta.yaml\` (workflow, stage, gates) |
 | Current task snapshot | \`.sdd/active-context.md\` |
-| Stable product/tech rules | \`memory/*.md\` |
+| Stable product/tech rules | \`memory/*.md\` (start at \`memory/index.md\` if present) |
 | Stage artifacts | files in \`changes/<id>/\` for the active change |
 
 ## Required read order
@@ -412,7 +412,7 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 1. \`.sdd/active-context.md\`
 2. This file (\`.sdd/protocol.md\`)
 3. \`meta.yaml\` + artifacts for the **current stage** (and prior stages if needed)
-4. \`memory/\` when architecture or conventions matter
+4. \`memory/index.md\` (documentation map) if present, then linked memory pages when architecture or conventions matter
 
 ## Stage behavior
 
@@ -461,6 +461,7 @@ AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ hos
 |------------|--|
 | Live task | \`.sdd/active-context.md\` |
 | Playbook | \`.sdd/protocol.md\` |
+| Doc map (stable) | \`memory/index.md\` if present |
 
 | AI agent | Files |
 |----------|--------|

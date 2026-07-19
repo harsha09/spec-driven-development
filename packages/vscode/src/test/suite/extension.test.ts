@@ -50,6 +50,7 @@ suite("Structured Vibe SDD — VS Code UI", () => {
 
     assert.ok(exists(".sdd/config.yaml"), ".sdd/config.yaml");
     assert.ok(exists(".sdd/workflows/hotfix.yaml"), "default workflow");
+    assert.ok(exists("memory/index.md"), "memory documentation map");
     assert.ok(exists("memory/product.md"), "memory");
     assert.ok(exists(".sdd/protocol.md"), "single SDD protocol playbook");
     assert.ok(exists(".github/agents/sdd.agent.md"), "GitHub Copilot agent only");

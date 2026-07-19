@@ -12,7 +12,15 @@ Use `sdd` to add just enough structure when building apps—without locking your
 
 ---
 
-## Table of contents
+## Documentation
+
+| | |
+|---|---|
+| **This README** | Install, quickstart, command reference, customization |
+| **[docs/ hub](docs/README.md)** | Full doc map: agents, CI, marketplace, scenarios, package links |
+| **In an app after `sdd init`** | Stable map: `memory/index.md` · change packs: `changes/<id>/` |
+
+### In-repo map (this repository)
 
 1. [Install](#install)
 2. [How to use it](#how-to-use-it)
@@ -26,6 +34,8 @@ Use `sdd` to add just enough structure when building apps—without locking your
 10. [npm packages](#npm-packages)
 11. [Develop this repo](#develop-this-repo)
 12. [License](#license)
+
+More detail: **[docs/README.md](docs/README.md)**.
 
 ---
 
@@ -135,6 +145,7 @@ This creates:
 | `.sdd/config.yaml` | Project policy and paths |
 | `.sdd/workflows/` | Workflow packs (YAML) |
 | `.sdd/templates/` | Markdown templates for stage artifacts |
+| `memory/index.md` | **Documentation map** (parent router for stable docs) |
 | `memory/` | Stable product / architecture / conventions |
 | `changes/` | Active work (one folder per change ≈ PR) |
 | `archive/` | Completed changes |
@@ -147,6 +158,8 @@ sdd init --force
 ```
 
 ### Step 2 — (Optional) Fill project memory
+
+Start at **`memory/index.md`** (map), then edit the linked pages (`product`, `architecture`, `conventions`). Keep the map short; put detail in the leaves.
 
 Edit the stable context your team always wants agents and humans to see:
 
