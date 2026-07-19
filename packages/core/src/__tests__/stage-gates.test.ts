@@ -57,7 +57,11 @@ describe("canLeaveStage", () => {
       title: "Soft gate ok",
       workflowName: "hotfix",
     });
-    await writeFile(join(ctx0.path, "intent.md"), "# Intent\n\nok\n", "utf8");
+    await writeFile(
+      join(ctx0.path, "intent.md"),
+      "# Intent\n\nFix crash on empty expenses list by showing empty state. Success: no null deref on open.\n",
+      "utf8",
+    );
     await approveGate(root, config, ctx0.id, "intent", "lgtm", "approved");
 
     const ctx = await buildContext(root, config, ctx0.id);

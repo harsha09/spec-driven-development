@@ -591,6 +591,15 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 | tasks | Break work into implementable checklist |
 | implement | Code only for this change; follow tasks/acceptance |
 | local_verify | Check acceptance; fix only; prepare for complete |
+| brainstorm (optional) | Multiple approaches; parallel exploration; no final design yet |
+| clarify_* (optional) | Ask clarifying questions; write Q&A; or tell human to skip |
+
+## Optional stages
+
+- Stages marked **optional** / kind \`brainstorm\` or \`clarify\` may be skipped:  
+  \`sdd skip <stage_id> -r "not needed"\`
+- Do **not** invent a skip by jumping stages. \`sdd next\` blocks on empty required stubs (e.g. design.md).
+- If the tool falls back to an earlier stage, **complete that stage** before advancing again.
 
 ## Hard rules
 
@@ -599,6 +608,7 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 3. **Honor constraints** in \`arb-decision.md\`, design, and memory non-negotiables.
 4. **Local verify** is part of done when the workflow has a verify stage: \`sdd verify\`.
 5. Prefer small, reviewable diffs.
+6. **Required stage artifacts must be substantive** — not empty templates. Design cannot be skipped via empty design.md.
 
 ## Commands (human / shell)
 
