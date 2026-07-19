@@ -65,11 +65,27 @@ Run Claude Code in the repo root; the skill tells the agent to read active conte
 | Package | What |
 |---------|------|
 | `packages/core` | Unit tests for agent file install + active context |
-| `packages/vscode` | Unit tests for init/new/next/agents paths the extension uses |
+| `packages/vscode` | Unit tests + **full Electron UI tests** (`@vscode/test-electron`) |
 | `packages/intellij` | JUnit tests for CLI argv contract (`./gradlew test`) |
 
-These prove **integration contracts** (files + CLI). Full UI automation for every IDE is not required for CI on headless runners; IntelliJ `runIde` is manual.
+### VS Code UI tests
 
+```bash
+pnpm --filter structured-vibe-sdd run test:ui
+# or from monorepo root:
+pnpm test:vscode-ui
+```
+
+Launches a real VS Code instance, activates `structured-vibe-coding.structured-vibe-sdd`, and exercises:
+
+- command registration  
+- `structuredVibe.init` → `.sdd/` + Copilot/Claude agent files  
+- `structuredVibe.new` (programmatic title/workflow args)  
+- `structuredVibe.next` stage advance  
+- `structuredVibe.agentsRefresh` → `.sdd/active-context.md`  
+- status / tree refresh  
+
+CI runs these under **Xvfb** on Linux.
 ---
 
 ## Init flags

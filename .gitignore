@@ -8,6 +8,9 @@ coverage/
 tmp/
 *.vsix
 packages/vscode/dist/
+packages/vscode/out/
+.vscode-test/
+
 packages/intellij/.gradle/
 packages/intellij/build/
 packages/intellij/out/

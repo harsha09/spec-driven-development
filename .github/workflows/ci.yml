@@ -50,8 +50,20 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test
+      - name: Test (unit)
         run: pnpm test
+
+      - name: VS Code UI tests
+        run: |
+          # Headless Linux display for Electron
+          if [ "$(uname)" = "Linux" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+            export DISPLAY=:99
+            Xvfb :99 -screen 0 1280x1024x24 >/tmp/xvfb.log 2>&1 &
+            sleep 2
+          fi
+          pnpm --filter structured-vibe-sdd run test:ui
 
       - name: CLI smoke (init → new → next → complete)
         run: |
