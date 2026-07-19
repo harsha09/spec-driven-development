@@ -8,4 +8,7 @@ coverage/
 tmp/
 *.vsix
 packages/vscode/dist/
+packages/intellij/.gradle/
+packages/intellij/build/
+packages/intellij/out/
 .npmrc
