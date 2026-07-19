@@ -1,6 +1,13 @@
 import { join } from "pathe";
 import { defaultConfig, saveConfig } from "./config.js";
-import { copyDir, ensureDir, pathExists, writeText } from "./fs.js";
+import {
+  copyDir,
+  copyDirSkipExisting,
+  ensureDir,
+  pathExists,
+  writeText,
+  writeTextIfMissing,
+} from "./fs.js";
 import {
   defaultMemoryDir,
   defaultTemplatesDir,
@@ -69,14 +76,14 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
     created.push(tDest);
   }
 
-  // memory
+  // memory — stable team docs; never overwrite on --force (constitution, product, …)
   const mDest = memoryDir(projectRoot, config);
   await ensureDir(mDest);
   const mSrc = defaultMemoryDir();
   if (await pathExists(mSrc)) {
-    await copyDir(mSrc, mDest);
+    await copyDirSkipExisting(mSrc, mDest);
   } else {
-    await writeText(
+    await writeTextIfMissing(
       join(mDest, "index.md"),
       `# Documentation map
 
@@ -85,24 +92,87 @@ Parent page for **stable** project docs. Start here, then open only what you nee
 | Topic | File |
 |-------|------|
 | Product | [product.md](product.md) |
+| Constitution (non-negotiables) | [constitution.md](constitution.md) |
 | Architecture | [architecture.md](architecture.md) |
 | Conventions | [conventions.md](conventions.md) |
 
 Active work: \`.sdd/active-context.md\` and \`changes/<id>/\`.
 `,
     );
-    await writeText(
+    await writeTextIfMissing(
       join(mDest, "product.md"),
       "# Product\n\n<!-- What are you building? -->\n",
     );
-    await writeText(
+    await writeTextIfMissing(
+      join(mDest, "constitution.md"),
+      `# Constitution
+
+<!-- Non-negotiables agents must not violate. Broader style lives in conventions.md. -->
+
+## Principles
+
+-
+
+## Stack & tooling
+
+-
+
+## Testing
+
+-
+
+## Security
+
+-
+
+## Process
+
+-
+`,
+    );
+    await writeTextIfMissing(
       join(mDest, "architecture.md"),
       "# Architecture\n\n<!-- High-level system shape -->\n",
     );
-    await writeText(
+    await writeTextIfMissing(
       join(mDest, "conventions.md"),
       "# Conventions\n\n<!-- Coding and process conventions -->\n",
     );
+  }
+  // Ensure constitution exists even for older projects re-initing (add if missing only)
+  if (!(await pathExists(join(mDest, "constitution.md")))) {
+    const fromDefault = join(mSrc, "constitution.md");
+    if (await pathExists(fromDefault)) {
+      await copyDirSkipExisting(mSrc, mDest);
+    } else {
+      await writeTextIfMissing(
+        join(mDest, "constitution.md"),
+        `# Constitution
+
+<!-- Non-negotiables agents must not violate. Broader style lives in conventions.md. -->
+
+## Principles
+
+-
+
+## Stack & tooling
+
+-
+
+## Testing
+
+-
+
+## Security
+
+-
+
+## Process
+
+-
+`,
+      );
+    }
   }
   created.push(mDest);
 

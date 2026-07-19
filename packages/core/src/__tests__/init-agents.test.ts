@@ -57,6 +57,9 @@ describe("init installs agents without separate agents install", () => {
     expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
     expect(await pathExists(join(root, ".sdd/agents.json"))).toBe(true);
     expect(await pathExists(join(root, "memory/index.md"))).toBe(true);
+    expect(await pathExists(join(root, "memory/constitution.md"))).toBe(true);
+    const index = await readFile(join(root, "memory/index.md"), "utf8");
+    expect(index).toMatch(/constitution/i);
 
     for (const p of absent) {
       expect(await pathExists(join(root, p))).toBe(false);

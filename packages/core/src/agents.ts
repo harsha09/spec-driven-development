@@ -422,7 +422,8 @@ ${role.roleLine}
 
 1. \`.sdd/active-context.md\` — current change and stage
 2. \`.sdd/protocol.md\` — SDD rules for this repo (single playbook)
-3. Active change files under \`changes/<id>/\` as listed in active-context
+3. \`memory/constitution.md\` if present — non-negotiables
+4. Active change files under \`changes/<id>/\` as listed in active-context
 
 ## Role rules
 
@@ -572,6 +573,7 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 |------|--------|
 | Process state | \`changes/<id>/meta.yaml\` (workflow, stage, gates) |
 | Current task snapshot | \`.sdd/active-context.md\` |
+| Non-negotiables | \`memory/constitution.md\` if present |
 | Stable product/tech rules | \`memory/*.md\` (start at \`memory/index.md\` if present) |
 | Stage artifacts | files in \`changes/<id>/\` for the active change |
 
@@ -579,8 +581,9 @@ This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this fil
 
 1. \`.sdd/active-context.md\`
 2. This file (\`.sdd/protocol.md\`)
-3. \`meta.yaml\` + artifacts for the **current stage** (and prior stages if needed)
-4. \`memory/index.md\` (documentation map) if present, then linked memory pages when architecture or conventions matter
+3. \`memory/constitution.md\` if present (non-negotiables agents must not violate)
+4. \`meta.yaml\` + artifacts for the **current stage** (and prior stages if needed)
+5. \`memory/index.md\` (documentation map) if present, then linked memory pages when architecture or conventions matter
 
 ## Stage behavior
 
@@ -639,6 +642,7 @@ AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ hos
 |------------|--|
 | Live task | \`.sdd/active-context.md\` |
 | Playbook | \`.sdd/protocol.md\` |
+| Constitution | \`memory/constitution.md\` if present |
 | Doc map (stable) | \`memory/index.md\` if present |
 
 | AI agent | Files |

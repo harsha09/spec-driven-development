@@ -77,6 +77,7 @@ export async function buildAgentPrompt(
 
   parts.push(`## Constraints`);
   parts.push(`- Follow artifacts in the change directory as source of truth.`);
+  parts.push(`- Honor \`memory/constitution.md\` when present (non-negotiables).`);
   parts.push(`- Do not skip ARB/decision constraints if present.`);
   parts.push(`- Local development only — verify on this machine.`);
   parts.push(`- Prefer small, reviewable commits.`);

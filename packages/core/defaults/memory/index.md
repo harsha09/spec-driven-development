@@ -14,6 +14,7 @@ Parent page for **stable** project docs. Humans and coding agents: start here, t
 | Topic | File |
 |-------|------|
 | Product / vision | [product.md](product.md) |
+| Constitution (non-negotiables) | [constitution.md](constitution.md) |
 | Architecture | [architecture.md](architecture.md) |
 | Coding & process conventions | [conventions.md](conventions.md) |
 
