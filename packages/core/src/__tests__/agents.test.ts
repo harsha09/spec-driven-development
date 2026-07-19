@@ -80,7 +80,7 @@ describe("agent integrations (registry)", () => {
   });
 
   it("registry drives role paths and public keys", () => {
-    expect(AGENT_INTEGRATIONS.length).toBeGreaterThanOrEqual(2);
+    expect(AGENT_INTEGRATIONS.length).toBeGreaterThanOrEqual(3);
     const copilot = getIntegration("copilot");
     expect(copilot.rolePath("sdd")).toBe(".github/agents/sdd.agent.md");
     expect(copilot.key).toBe("copilot");
@@ -88,6 +88,32 @@ describe("agent integrations (registry)", () => {
     expect(claude.rolePath("sdd")).toBe(".claude/agents/sdd.md");
     expect(claude.key).toBe("claude");
     expect(claude.cliBinary).toBe("claude");
+    const grok = getIntegration("grok");
+    expect(grok.key).toBe("grok");
+    expect(grok.rolePath("sdd")).toBe(".grok/rules/sdd.md");
+    expect(grok.rolesToInstall).toEqual(["sdd"]);
+  });
+
+  it("installs Grok Build rules (single .grok/rules/sdd.md)", async () => {
+    const root = await tempProject();
+    const result = await installAgentIntegration({
+      projectRoot: root,
+      target: "grok",
+      force: true,
+    });
+    expect(result.target).toBe("grok");
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(true);
+    // Only router role — not separate planner/implementer (Grok loads all rules/*.md)
+    expect(await pathExists(join(root, ".grok/rules/sdd-implementer.md"))).toBe(false);
+    expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
+    expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
+    const rule = await readFile(join(root, ".grok/rules/sdd.md"), "utf8");
+    expect(rule).toMatch(/protocol\.md/);
+    expect(rule).toMatch(/active-context\.md/);
+    const agentsMd = await readFile(join(root, "AGENTS.md"), "utf8");
+    expect(agentsMd).toMatch(/Grok Build/i);
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.ai).toBe("grok");
   });
 
   it("rejects IDE names as agent targets", () => {
@@ -96,9 +122,11 @@ describe("agent integrations (registry)", () => {
     expect(() => parseIntegration("cursor")).toThrow(/IDE/i);
   });
 
-  it("accepts Speckit-style keys (claude → claude-code, default copilot)", () => {
+  it("accepts Speckit-style keys (claude → claude-code, grok, default copilot)", () => {
     expect(parseIntegration("claude")).toBe("claude-code");
     expect(parseIntegration("copilot")).toBe("copilot");
+    expect(parseIntegration("grok")).toBe("grok");
+    expect(parseIntegration("grok-build")).toBe("grok");
     expect(DEFAULT_INIT_INTEGRATION).toBe("copilot");
     expect(parseAgentTargets("claude")).toEqual(["claude-code"]);
   });

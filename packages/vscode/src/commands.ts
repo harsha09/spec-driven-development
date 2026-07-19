@@ -399,7 +399,7 @@ async function resolveAgentTargetsForIde(
 
   const pick = await vscode.window.showQuickPick(items, {
     title: "Choose your AI coding agent integration",
-    placeHolder: "copilot | claude — not VS Code / IntelliJ",
+    placeHolder: "copilot | claude | grok — not VS Code / IntelliJ",
     ignoreFocusOut: true,
   });
   if (!pick) return undefined;

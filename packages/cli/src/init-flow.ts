@@ -283,7 +283,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
       `# agent: ${agentDetail} · playbook .sdd/protocol.md · context .sdd/active-context.md`,
     );
   } else {
-    next.push(`sdd agents install --ai copilot   # or --ai claude`);
+    next.push(`sdd agents install --ai copilot   # or --ai claude | grok`);
   }
 
   p.outro(

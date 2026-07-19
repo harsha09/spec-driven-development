@@ -51,7 +51,7 @@ const init = defineCommand({
     },
     ai: {
       type: "string",
-      description: "AI coding agent: copilot | claude (Speckit-style; skip pick)",
+      description: "AI coding agent: copilot | claude | grok (Speckit-style; skip pick)",
       alias: "a",
     },
     integration: {
@@ -426,12 +426,12 @@ const agentsInstall = defineCommand({
   args: {
     target: {
       type: "string",
-      description: "copilot | claude (alias of --ai)",
+      description: "copilot | claude | grok (alias of --ai)",
       alias: "t",
     },
     ai: {
       type: "string",
-      description: "AI coding agent: copilot | claude",
+      description: "AI coding agent: copilot | claude | grok",
       alias: "a",
     },
     integration: {
@@ -466,7 +466,7 @@ const agentsInstall = defineCommand({
 const agentsRefresh = defineCommand({
   meta: {
     name: "refresh",
-    description: "Refresh .sdd/active-context.md for Copilot / Claude Code",
+    description: "Refresh .sdd/active-context.md for coding agents (Copilot / Claude / Grok)",
   },
   async run() {
     await withInitialized(async (root) => {
@@ -479,7 +479,7 @@ const agentsRefresh = defineCommand({
 const agents = defineCommand({
   meta: {
     name: "agents",
-    description: "Manage AI coding-agent integrations (Speckit-style: copilot | claude)",
+    description: "Manage AI coding-agent integrations (copilot | claude | grok)",
   },
   subCommands: {
     install: agentsInstall,
