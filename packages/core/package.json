@@ -1,6 +1,6 @@
 {
   "name": "@structured-vibe-coding/core",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Core engine for structured vibe coding (local-first Spec-Driven Development)",
   "type": "module",
   "main": "./dist/index.js",
