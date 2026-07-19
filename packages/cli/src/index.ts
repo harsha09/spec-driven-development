@@ -40,7 +40,7 @@ async function requireInit(): Promise<void> {
   }
 }
 
-/** Speckit-style: pick one (or more via flag) coding agent platform — never all by default. */
+/** Speckit-style: pick AI coding agent(s) — never all by default. IDEs are not options. */
 async function resolveAgentTargets(opts: {
   /** --ai / --agents raw value */
   agentsFlag?: string | boolean;
@@ -62,7 +62,9 @@ async function resolveAgentTargets(opts: {
     consola.info(
       "Non-interactive session: skipping agent files. Pass " +
         pc.cyan("--ai copilot") +
-        " (or claude-code, intellij) or " +
+        " or " +
+        pc.cyan("--ai claude-code") +
+        " (AI agents — not IDEs) or " +
         pc.cyan("--no-agents") +
         ".",
     );
@@ -70,8 +72,12 @@ async function resolveAgentTargets(opts: {
   }
 
   consola.log("");
-  consola.log(pc.bold("Select your coding agent platform"));
-  consola.log(pc.dim("Only the chosen host gets agent files (not all platforms)."));
+  consola.log(pc.bold("Select your AI coding agent"));
+  consola.log(
+    pc.dim(
+      "GitHub Copilot or Claude Code — not VS Code / IntelliJ (those are IDEs that host agents).",
+    ),
+  );
 
   if (opts.multi) {
     const ids = AGENT_TARGET_OPTIONS.map((o) => o.id);
@@ -101,7 +107,7 @@ async function resolveAgentTargets(opts: {
     ...AGENT_TARGET_OPTIONS.map((o) => `${o.label}  (${o.hint})`),
     "None  (skip agent files — sdd agents install later)",
   ];
-  const picked = await consola.prompt("Which platform?", {
+  const picked = await consola.prompt("Which AI coding agent?", {
     type: "select",
     options: choices,
   });
@@ -120,14 +126,14 @@ async function resolveAgentTargets(opts: {
 const init = defineCommand({
   meta: {
     name: "init",
-    description: "Initialize SDD in the current directory (asks which agent platform)",
+    description: "Initialize SDD in the current directory (asks which AI coding agent)",
   },
   args: {
     force: { type: "boolean", description: "Overwrite default workflows/templates", default: false },
     ai: {
       type: "string",
       description:
-        "Agent platform to install: copilot | claude-code | intellij (skip interactive pick)",
+        "AI coding agent to install: copilot | claude-code (not an IDE; skip interactive pick)",
       alias: "a",
     },
     agents: {
@@ -172,7 +178,7 @@ const init = defineCommand({
       if (resolved !== false) {
         consola.log(
           pc.dim(
-            "Playbook: .sdd/protocol.md · live: .sdd/active-context.md · thin agents for selected platform only",
+            "Playbook: .sdd/protocol.md · live: .sdd/active-context.md · thin agents for selected AI agent only",
           ),
         );
       }
@@ -574,12 +580,12 @@ const agent = defineCommand({
 const agentsInstall = defineCommand({
   meta: {
     name: "install",
-    description: "Install agent files for a selected platform (prompts if -t omitted)",
+    description: "Install agent files for a selected AI coding agent (prompts if -t omitted)",
   },
   args: {
     target: {
       type: "string",
-      description: "copilot | claude-code | intellij (comma-separated; skip interactive pick)",
+      description: "copilot | claude-code (comma-separated; not IDEs; skip interactive pick)",
       alias: "t",
     },
     ai: {
@@ -599,7 +605,7 @@ const agentsInstall = defineCommand({
         multi: true,
       });
       if (resolved === false || !resolved.length) {
-        consola.info("No platforms selected — nothing installed.");
+        consola.info("No AI coding agent selected — nothing installed.");
         return;
       }
       const result = await installAgentIntegrations({
@@ -637,7 +643,7 @@ const agentsRefresh = defineCommand({
 const agents = defineCommand({
   meta: {
     name: "agents",
-    description: "Manage coding-agent integrations (Copilot, Claude Code, IntelliJ)",
+    description: "Manage AI coding-agent integrations (GitHub Copilot, Claude Code)",
   },
   subCommands: {
     install: agentsInstall,

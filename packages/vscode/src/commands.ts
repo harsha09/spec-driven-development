@@ -403,8 +403,8 @@ async function resolveAgentTargetsForIde(
   }
 
   const pick = await vscode.window.showQuickPick(items, {
-    title: "Which coding agent platform?",
-    placeHolder: "Only the selected platform gets agent files",
+    title: "Which AI coding agent?",
+    placeHolder: "Copilot or Claude Code — not VS Code / IntelliJ (those are IDEs)",
     ignoreFocusOut: true,
   });
   if (!pick) return undefined;

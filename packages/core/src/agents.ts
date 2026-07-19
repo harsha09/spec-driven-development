@@ -9,11 +9,15 @@ import {
 } from "./change.js";
 import { sddRoot } from "./paths.js";
 
-export type AgentTarget = "copilot" | "claude-code" | "intellij";
+/**
+ * AI coding agents (not IDEs).
+ * VS Code / Cursor / IntelliJ are editors; they host tools like Copilot or Claude Code.
+ */
+export type AgentTarget = "copilot" | "claude-code";
 
-export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code", "intellij"];
+export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code"];
 
-/** Human-facing labels for interactive platform pick (CLI / IDE). */
+/** Human-facing labels for interactive AI-agent pick (CLI / IDE). */
 export const AGENT_TARGET_OPTIONS: {
   id: AgentTarget;
   label: string;
@@ -22,17 +26,12 @@ export const AGENT_TARGET_OPTIONS: {
   {
     id: "copilot",
     label: "GitHub Copilot",
-    hint: ".github/agents/*.agent.md",
+    hint: ".github/agents/*.agent.md — works in VS Code, Cursor, JetBrains, …",
   },
   {
     id: "claude-code",
     label: "Claude Code",
-    hint: ".claude/agents/*.md",
-  },
-  {
-    id: "intellij",
-    label: "IntelliJ / JetBrains",
-    hint: ".idea/sdd-agent-notes.md",
+    hint: ".claude/agents/*.md — CLI / terminal agent",
   },
 ];
 
@@ -45,18 +44,28 @@ export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
 
   const out: AgentTarget[] = [];
   for (const p of parts) {
-    // aliases
+    // IDEs are not AI agent targets
+    if (
+      p === "intellij" ||
+      p === "idea" ||
+      p === "jetbrains" ||
+      p === "vscode" ||
+      p === "vs-code" ||
+      p === "cursor"
+    ) {
+      throw new Error(
+        `"${p}" is an IDE, not an AI coding agent. Choose: copilot (GitHub Copilot in any IDE) or claude-code.`,
+      );
+    }
     const id =
       p === "claude" || p === "claude-code" || p === "claudecode"
         ? "claude-code"
         : p === "github-copilot" || p === "gh-copilot" || p === "copilot"
           ? "copilot"
-          : p === "jetbrains" || p === "idea" || p === "intellij"
-            ? "intellij"
-            : p;
+          : p;
     if (!ALL_AGENT_TARGETS.includes(id as AgentTarget)) {
       throw new Error(
-        `Unknown agent platform "${p}". Choose one of: ${ALL_AGENT_TARGETS.join(", ")}`,
+        `Unknown AI coding agent "${p}". Choose one of: ${ALL_AGENT_TARGETS.join(", ")}`,
       );
     }
     if (!out.includes(id as AgentTarget)) out.push(id as AgentTarget);
@@ -147,7 +156,7 @@ export async function installAgentIntegrations(
 ): Promise<InstallAgentsResult> {
   if (!opts.targets?.length) {
     throw new Error(
-      `Specify at least one agent platform: ${ALL_AGENT_TARGETS.join(", ")} (do not install all by default)`,
+      `Specify at least one AI coding agent: ${ALL_AGENT_TARGETS.join(", ")} (not an IDE; do not install all by default)`,
     );
   }
   const targets = opts.targets;
@@ -170,27 +179,19 @@ export async function installAgentIntegrations(
   await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
   await refreshActiveAgentContext(root);
 
-  if (targets.includes("copilot") || targets.includes("claude-code")) {
-    for (const role of SDD_AGENT_ROLES) {
-      const body = renderThinAgent(role);
-      if (targets.includes("claude-code")) {
-        await write(`.claude/agents/${role.id}.md`, body);
-      }
-      if (targets.includes("copilot")) {
-        // Copilot custom agent file naming
-        await write(`.github/agents/${role.id}.agent.md`, body);
-      }
+  for (const role of SDD_AGENT_ROLES) {
+    const body = renderThinAgent(role);
+    if (targets.includes("claude-code")) {
+      await write(`.claude/agents/${role.id}.md`, body);
+    }
+    if (targets.includes("copilot")) {
+      // Copilot custom agents (same files in VS Code, Cursor, JetBrains, …)
+      await write(`.github/agents/${role.id}.agent.md`, body);
     }
   }
 
-  if (targets.includes("intellij")) {
-    await write(".idea/sdd-agent-notes.md", INTELLIJ_NOTES);
-  }
-
-  // Tiny shared pointer for any host that reads AGENTS.md (not a second playbook)
-  if (targets.includes("copilot") || targets.includes("claude-code") || targets.includes("intellij")) {
-    await write("AGENTS.md", AGENTS_MD_THIN);
-  }
+  // Tiny shared pointer for hosts that read AGENTS.md (not a second playbook)
+  await write("AGENTS.md", renderAgentsMd(targets));
 
   await write(
     join(".sdd", "agents.json"),
@@ -351,29 +352,33 @@ sdd complete
 - Claiming complete without verify when required
 `;
 
-const AGENTS_MD_THIN = `# Agents
+function renderAgentsMd(targets: AgentTarget[]): string {
+  const rows: string[] = [];
+  if (targets.includes("claude-code")) {
+    rows.push(
+      "| Claude Code | `.claude/agents/` (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) |",
+    );
+  }
+  if (targets.includes("copilot")) {
+    rows.push(
+      "| GitHub Copilot | `.github/agents/*.agent.md` (same roles; any IDE that supports Copilot agents) |",
+    );
+  }
+  return `# Agents
 
 This repo uses **SDD agents only** (no skills).
+
+AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ host tools like Copilot or Claude Code.
 
 | Read first | |
 |------------|--|
 | Live task | \`.sdd/active-context.md\` |
 | Playbook | \`.sdd/protocol.md\` |
 
-| Host | Agents |
-|------|--------|
-| Claude Code | \`.claude/agents/\` (\`sdd\`, \`sdd-planner\`, \`sdd-implementer\`, \`sdd-reviewer\`) |
-| GitHub Copilot | \`.github/agents/*.agent.md\` (same roles) |
+| AI agent | Files |
+|----------|--------|
+${rows.join("\n")}
 
 Refresh context: \`sdd agents refresh\`.
 `;
-
-const INTELLIJ_NOTES = `# SDD + IntelliJ
-
-Agents only. Playbook: \`.sdd/protocol.md\`. Live: \`.sdd/active-context.md\`.
-
-1. Install \`sdd\` on PATH: \`npm i -g @structured-vibe-coding/cli\`
-2. Tools → SDD → Initialize / Install Agent Integrations
-3. GitHub Copilot uses \`.github/agents/*\` + active-context (same as VS Code)
-4. After stage changes: **Refresh Agent Context**
-`;
+}
