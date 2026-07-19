@@ -1,7 +1,7 @@
 {
   "name": "structured-vibe-coding",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Structured vibe coding — flexible, local-first Spec-Driven Development",
   "scripts": {
     "build": "pnpm -r run build",
