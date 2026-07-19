@@ -37,14 +37,14 @@ Install zip: **Settings → Plugins → ⚙️ → Install Plugin from Disk…**
 
 | Action | CLI |
 |--------|-----|
-| Initialize | `sdd init` |
+| Initialize | `sdd init --here --ai copilot` |
 | New Change | `sdd new "…"` (prompts) |
 | Status | `sdd status` |
 | Next Stage | `sdd next` |
 | Local Verify | `sdd verify` |
 | Complete | `sdd complete` |
 | Refresh Agent Context | `sdd agents refresh` |
-| Install Agent Files | `sdd agents install` |
+| Install Agent Files | `sdd agents install --ai copilot --force` |
 
 ## AI agents (not the IDE itself)
 

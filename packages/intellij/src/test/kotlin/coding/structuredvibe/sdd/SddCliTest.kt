@@ -7,8 +7,8 @@ class SddCliTest {
     @Test
     fun `buildCommand prefixes sdd binary`() {
         assertEquals(
-            listOf("sdd", "init"),
-            SddCli.buildCommand(listOf("init")),
+            listOf("sdd", "init", "--here", "--ai", "copilot"),
+            SddCli.buildCommand(listOf("init", "--here", "--ai", "copilot")),
         )
         assertEquals(
             listOf("sdd", "new", "Add feature", "-y"),
@@ -25,11 +25,12 @@ class SddCliTest {
     }
 
     @Test
-    fun `agent install and copilot paths are stable CLI surface`() {
-        // Contract tests: IntelliJ + VS Code + CI all rely on these argv shapes
-        val install = SddCli.buildCommand(listOf("agents", "install", "-t", "copilot,claude-code", "--force"))
-        assertEquals("sdd", install[0])
-        assertEquals("agents", install[1])
-        assertEquals("install", install[2])
+    fun `agent install uses Speckit-style single AI flag`() {
+        val install =
+            SddCli.buildCommand(listOf("agents", "install", "--ai", "copilot", "--force"))
+        assertEquals(
+            listOf("sdd", "agents", "install", "--ai", "copilot", "--force"),
+            install,
+        )
     }
 }
