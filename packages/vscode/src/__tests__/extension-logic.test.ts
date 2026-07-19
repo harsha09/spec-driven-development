@@ -72,4 +72,14 @@ describe("VS Code extension use-cases (core path)", () => {
     expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
     expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
   });
+
+  it("init with grok alone is enough (no separate install)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-vsc-grok-"));
+    temps.push(root);
+    await initProject({ projectRoot: root, agents: "grok" });
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, "memory/index.md"))).toBe(true);
+  });
 });
