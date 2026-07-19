@@ -43,16 +43,17 @@ suite("Structured Vibe SDD — VS Code UI", () => {
     }
   });
 
-  test("SDD: Initialize creates .sdd and agent files", async function () {
+  test("SDD: Initialize creates .sdd and only selected platform agents", async function () {
     this.timeout(60_000);
-    await vscode.commands.executeCommand("structuredVibe.init", true);
+    // force + explicit platforms (no QuickPick in UI tests)
+    await vscode.commands.executeCommand("structuredVibe.init", true, ["copilot"]);
 
     assert.ok(exists(".sdd/config.yaml"), ".sdd/config.yaml");
     assert.ok(exists(".sdd/workflows/hotfix.yaml"), "default workflow");
     assert.ok(exists("memory/product.md"), "memory");
     assert.ok(exists(".sdd/protocol.md"), "single SDD protocol playbook");
-    assert.ok(exists(".github/agents/sdd.agent.md"), "GitHub Copilot agent");
-    assert.ok(exists(".claude/agents/sdd.md"), "Claude Code agent");
+    assert.ok(exists(".github/agents/sdd.agent.md"), "GitHub Copilot agent only");
+    assert.ok(!exists(".claude/agents/sdd.md"), "Claude not installed when only copilot selected");
     assert.ok(!exists(".claude/skills/sdd/SKILL.md"), "no Claude skills (agents-only)");
     assert.ok(exists("AGENTS.md"), "AGENTS.md thin pointer");
   });
@@ -60,7 +61,7 @@ suite("Structured Vibe SDD — VS Code UI", () => {
   test("SDD: New Change with args creates change pack", async function () {
     this.timeout(60_000);
     if (!exists(".sdd/config.yaml")) {
-      await vscode.commands.executeCommand("structuredVibe.init", true);
+      await vscode.commands.executeCommand("structuredVibe.init", true, false);
     }
 
     await vscode.commands.executeCommand(
@@ -85,7 +86,7 @@ suite("Structured Vibe SDD — VS Code UI", () => {
   test("SDD: Next Stage advances workflow", async function () {
     this.timeout(60_000);
     if (!exists(".sdd/config.yaml")) {
-      await vscode.commands.executeCommand("structuredVibe.init", true);
+      await vscode.commands.executeCommand("structuredVibe.init", true, false);
     }
     // Fresh change for this test
     await vscode.commands.executeCommand(
@@ -111,7 +112,7 @@ suite("Structured Vibe SDD — VS Code UI", () => {
   test("SDD: Refresh Agent Context writes active-context.md", async function () {
     this.timeout(60_000);
     if (!exists(".sdd/config.yaml")) {
-      await vscode.commands.executeCommand("structuredVibe.init", true);
+      await vscode.commands.executeCommand("structuredVibe.init", true, false);
     }
     await vscode.commands.executeCommand(
       "structuredVibe.new",
@@ -137,7 +138,7 @@ suite("Structured Vibe SDD — VS Code UI", () => {
   test("SDD: status command runs without error", async function () {
     this.timeout(60_000);
     if (!exists(".sdd/config.yaml")) {
-      await vscode.commands.executeCommand("structuredVibe.init", true);
+      await vscode.commands.executeCommand("structuredVibe.init", true, false);
     }
     // Ensure there is an active change
     const changesDir = path.join(workspaceRoot(), "changes");

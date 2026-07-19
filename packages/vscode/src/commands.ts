@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import {
   advanceStage,
   approveGate,
+  AGENT_TARGET_OPTIONS,
   buildAgentPrompt,
   buildContext,
   completeChange,
@@ -13,6 +14,7 @@ import {
   listChanges,
   listWorkflowNames,
   loadWorkflow,
+  parseAgentTargets,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
@@ -20,6 +22,7 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
+  type AgentTarget,
 } from "@structured-vibe-coding/core";
 import type { SddTreeProvider } from "./tree.js";
 import { requireInit, requireWorkspaceRoot, showError, showInfo } from "./workspace.js";
@@ -48,9 +51,11 @@ export function registerCommands(
   });
 
   /**
-   * @param forceArg when true, re-init without prompting (UI tests / automation)
+   * @param forceArg when true, re-init without confirm (UI tests / automation)
+   * @param agentsArg platforms to install — string, string[], or false/"none" to skip.
+   *   When omitted, shows a platform picker (never installs all by default).
    */
-  reg("structuredVibe.init", async (forceArg?: unknown) => {
+  reg("structuredVibe.init", async (forceArg?: unknown, agentsArg?: unknown) => {
     const root = await requireWorkspaceRoot();
     const force = forceArg === true;
     if (await isInitialized(root)) {
@@ -62,11 +67,21 @@ export function registerCommands(
         );
         if (again !== "Force re-init") return;
       }
-      await initProject({ projectRoot: root, force: true });
-    } else {
-      await initProject({ projectRoot: root });
     }
-    showInfo("Initialized. Use SDD: New Change to start.");
+
+    const agents = await resolveAgentTargetsForIde(agentsArg);
+    if (agents === undefined) return; // user cancelled picker
+
+    await initProject({
+      projectRoot: root,
+      force: force || (await isInitialized(root)),
+      agents,
+    });
+    const platformNote =
+      agents === false
+        ? "No agent files (use SDD: Install Agent Integrations)."
+        : `Agents for: ${agents.join(", ")}.`;
+    showInfo(`Initialized. ${platformNote} Use SDD: New Change to start.`);
   });
 
   /**
@@ -325,34 +340,22 @@ export function registerCommands(
     /* tree items open via vscode.open command */
   });
 
-  /** @param allArg when true, install all targets without picker (UI tests) */
-  reg("structuredVibe.agentsInstall", async (allArg?: unknown) => {
+  /**
+   * @param agentsArg platforms (string | string[]) to skip picker; never installs all unless listed
+   */
+  reg("structuredVibe.agentsInstall", async (agentsArg?: unknown) => {
     const root = await requireWorkspaceRoot();
     if (!(await isInitialized(root))) {
       throw new Error("Initialize SDD first.");
     }
-    let targets: ("copilot" | "claude-code" | "intellij")[] | undefined;
-    if (allArg === true) {
-      targets = undefined; // all
-    } else {
-      const pick = await vscode.window.showQuickPick(
-        [
-          { label: "All (Copilot + Claude Code + IntelliJ)", targets: undefined as undefined },
-          { label: "GitHub Copilot only", targets: ["copilot" as const] },
-          { label: "Claude Code only", targets: ["claude-code" as const] },
-          { label: "IntelliJ notes only", targets: ["intellij" as const] },
-        ],
-        { title: "Install agent integrations" },
-      );
-      if (!pick) return;
-      targets = pick.targets;
-    }
+    const targets = await resolveAgentTargetsForIde(agentsArg, { allowNone: false });
+    if (targets === undefined || targets === false) return;
     const result = await installAgentIntegrations({
       projectRoot: root,
       targets,
       force: true,
     });
-    showInfo(`Agent files: +${result.created.length} written`);
+    showInfo(`Agent files (${targets.join(", ")}): +${result.created.length} written`);
   });
 
   reg("structuredVibe.agentsRefresh", async () => {
@@ -363,6 +366,49 @@ export function registerCommands(
       await openPath(path);
     }
   });
+}
+
+/**
+ * Resolve agent platforms for IDE commands.
+ * - explicit args → use them
+ * - otherwise QuickPick one platform (or none)
+ * Returns `undefined` if the user cancelled.
+ */
+async function resolveAgentTargetsForIde(
+  agentsArg: unknown,
+  opts?: { allowNone?: boolean },
+): Promise<false | AgentTarget[] | undefined> {
+  const allowNone = opts?.allowNone !== false;
+
+  if (agentsArg === false || agentsArg === "none") return false;
+  if (typeof agentsArg === "string" && agentsArg.trim()) {
+    return parseAgentTargets(agentsArg);
+  }
+  if (Array.isArray(agentsArg) && agentsArg.length) {
+    return parseAgentTargets(agentsArg.map(String));
+  }
+
+  const items: { label: string; description?: string; targets: false | AgentTarget[] }[] =
+    AGENT_TARGET_OPTIONS.map((o) => ({
+      label: o.label,
+      description: o.hint,
+      targets: [o.id] as AgentTarget[],
+    }));
+  if (allowNone) {
+    items.push({
+      label: "None",
+      description: "Skip agent files — install later",
+      targets: false,
+    });
+  }
+
+  const pick = await vscode.window.showQuickPick(items, {
+    title: "Which coding agent platform?",
+    placeHolder: "Only the selected platform gets agent files",
+    ignoreFocusOut: true,
+  });
+  if (!pick) return undefined;
+  return pick.targets;
 }
 
 let output: vscode.OutputChannel | undefined;

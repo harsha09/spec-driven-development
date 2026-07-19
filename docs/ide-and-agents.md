@@ -40,12 +40,16 @@ All real rules live in **`.sdd/protocol.md` once**.
 
 ## Commands
 
+`sdd init` asks **which platform** (like Speckit) — it does **not** install every host by default.
+
 ```bash
-sdd init                      # installs agents + protocol
-sdd init --no-agents
-sdd agents install            # copilot + claude-code + intellij
-sdd agents install -t copilot,claude-code
-sdd agents install --force    # rewrite stubs + protocol
+sdd init                      # interactive: pick copilot | claude-code | intellij | none
+sdd init --ai copilot         # non-interactive: GitHub Copilot only
+sdd init --ai claude-code     # Claude Code only
+sdd init --no-agents          # skip agent files
+sdd agents install            # interactive pick (or -t / --ai)
+sdd agents install -t copilot
+sdd agents install --force -t claude-code
 sdd agents refresh            # refresh active-context.md
 ```
 
@@ -65,9 +69,9 @@ sdd agents refresh            # refresh active-context.md
 
 | Package | Coverage |
 |---------|----------|
-| `core` | protocol + agents-only install; no skills; thin body; Claude≡Copilot text |
-| `vscode` unit | init creates agents + protocol |
-| `vscode` UI | Electron: init creates agents, not skills |
+| `core` | protocol + agents-only install; opt-in platforms; no skills; thin body |
+| `vscode` unit | init with explicit platform only |
+| `vscode` UI | Electron: init installs only selected platform |
 | `intellij` | CLI argv for `agents install/refresh` |
 
 ```bash

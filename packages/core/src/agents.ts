@@ -13,6 +13,57 @@ export type AgentTarget = "copilot" | "claude-code" | "intellij";
 
 export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code", "intellij"];
 
+/** Human-facing labels for interactive platform pick (CLI / IDE). */
+export const AGENT_TARGET_OPTIONS: {
+  id: AgentTarget;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    id: "copilot",
+    label: "GitHub Copilot",
+    hint: ".github/agents/*.agent.md",
+  },
+  {
+    id: "claude-code",
+    label: "Claude Code",
+    hint: ".claude/agents/*.md",
+  },
+  {
+    id: "intellij",
+    label: "IntelliJ / JetBrains",
+    hint: ".idea/sdd-agent-notes.md",
+  },
+];
+
+/** Parse `copilot`, `claude-code,copilot`, etc. Throws on unknown ids. */
+export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
+  const parts = (Array.isArray(raw) ? raw : [raw])
+    .flatMap((s) => String(s).split(","))
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  const out: AgentTarget[] = [];
+  for (const p of parts) {
+    // aliases
+    const id =
+      p === "claude" || p === "claude-code" || p === "claudecode"
+        ? "claude-code"
+        : p === "github-copilot" || p === "gh-copilot" || p === "copilot"
+          ? "copilot"
+          : p === "jetbrains" || p === "idea" || p === "intellij"
+            ? "intellij"
+            : p;
+    if (!ALL_AGENT_TARGETS.includes(id as AgentTarget)) {
+      throw new Error(
+        `Unknown agent platform "${p}". Choose one of: ${ALL_AGENT_TARGETS.join(", ")}`,
+      );
+    }
+    if (!out.includes(id as AgentTarget)) out.push(id as AgentTarget);
+  }
+  return out;
+}
+
 /** Roles emitted as thin agents (shared body generator — no skill files). */
 export type SddAgentRoleId =
   | "sdd"
@@ -94,7 +145,12 @@ export interface InstallAgentsResult {
 export async function installAgentIntegrations(
   opts: InstallAgentsOptions,
 ): Promise<InstallAgentsResult> {
-  const targets = opts.targets?.length ? opts.targets : ALL_AGENT_TARGETS;
+  if (!opts.targets?.length) {
+    throw new Error(
+      `Specify at least one agent platform: ${ALL_AGENT_TARGETS.join(", ")} (do not install all by default)`,
+    );
+  }
+  const targets = opts.targets;
   const created: string[] = [];
   const skipped: string[] = [];
   const root = opts.projectRoot;
