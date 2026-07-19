@@ -24,6 +24,9 @@ import {
 } from "../index.js";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
+const meat = (t: string) =>
+  `# ${t}\n\nSubstantive stage content for tests so empty templates do not pass completeness checks. Includes constraints and expected outcomes for the change.\n`;
+
 const temps: string[] = [];
 
 async function tempProject(): Promise<string> {
@@ -50,11 +53,26 @@ describe("dynamic analysis / edge cases", () => {
       title: "Skip current test",
       workflowName: "feature",
     });
+    await writeFile(join(ctx.path, "feature.md"), meat("Feature"), "utf8");
+    await skipStage(root, config, ctx.id, "clarify_intent", "n/a");
+    await skipStage(root, config, ctx.id, "brainstorm", "n/a");
     await advanceStage(root, config, ctx.id);
     let c = await buildContext(root, config, ctx.id);
     expect(c.meta.stage).toBe("design");
-    c = await skipStage(root, config, ctx.id, "design", "n/a");
-    expect(c.meta.stage).toBe("tasks");
+    // design is required (not skippable) — fill and advance; skip optional clarify_design
+    await writeFile(
+      join(ctx.path, "design.md"),
+      meat("Design") + "\nUse existing export pipeline with streaming CSV writer.\n",
+      "utf8",
+    );
+    c = await skipStage(root, config, ctx.id, "clarify_design", "n/a");
+    // still on design until we next
+    const advanced = await advanceStage(root, config, ctx.id);
+    expect(advanced.to).toBe("tasks");
+    // skip current tasks stage advances forward (not back)
+    c = await skipStage(root, config, ctx.id, "tasks", "n/a");
+    expect(["clarify_tasks", "implement"]).toContain(c.meta.stage);
+    expect(c.meta.stage).not.toBe("intent");
   });
 
   it("clears active pointer after archive", async () => {
@@ -66,8 +84,10 @@ describe("dynamic analysis / edge cases", () => {
       title: "Archive pointer",
       workflowName: "hotfix",
     });
+    await writeFile(join(ctx.path, "intent.md"), meat("Intent"), "utf8");
     await advanceStage(root, config, ctx.id);
     await advanceStage(root, config, ctx.id);
+    await writeFile(join(ctx.path, "local-test-results.md"), meat("Results"), "utf8");
     await completeChange(root, config, ctx.id);
     const raw = (await readText(activePointerPath(root, config))).trim();
     const active = await getActiveChangeId(root, config);
@@ -162,7 +182,11 @@ stages:
       title: "Hard gate",
       workflowName: "enterprise-feature",
     });
+    await writeFile(join(ctx.path, "feature.md"), meat("Feature"), "utf8");
     await advanceStage(root, config, ctx.id);
+    await writeFile(join(ctx.path, "hl-design.md"), meat("HL design"), "utf8");
+    await writeFile(join(ctx.path, "arb-packet.md"), meat("ARB packet"), "utf8");
+    await writeFile(join(ctx.path, "arb-decision.md"), meat("ARB decision"), "utf8");
     await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/Hard gate/);
     await approveGate(root, config, ctx.id, "hl_arb");
     const r = await advanceStage(root, config, ctx.id);
@@ -179,9 +203,14 @@ stages:
       workflowName: "enterprise-feature",
       flags: { no_db: true },
     });
+    await writeFile(join(ctx.path, "feature.md"), meat("Feature"), "utf8");
     await advanceStage(root, config, ctx.id);
+    await writeFile(join(ctx.path, "hl-design.md"), meat("HL design"), "utf8");
+    await writeFile(join(ctx.path, "arb-packet.md"), meat("ARB packet"), "utf8");
+    await writeFile(join(ctx.path, "arb-decision.md"), meat("ARB decision"), "utf8");
     await approveGate(root, config, ctx.id, "hl_arb");
     await advanceStage(root, config, ctx.id);
+    await writeFile(join(ctx.path, "lld.md"), meat("LLD"), "utf8");
     const r = await advanceStage(root, config, ctx.id);
     expect(r.to).toBe("code_research");
   });
@@ -197,8 +226,15 @@ stages:
       status: "in_progress" as const,
       stage: "design",
       flags: {},
-      overrides: { skip_stages: ["design"], gates: {}, extra_stages: [] },
-      skipped: [{ stage: "design", reason: "x", at: new Date().toISOString() }],
+      overrides: {
+        skip_stages: ["design", "clarify_design"],
+        gates: {},
+        extra_stages: [],
+      },
+      skipped: [
+        { stage: "design", reason: "x", at: new Date().toISOString() },
+        { stage: "clarify_design", reason: "x", at: new Date().toISOString() },
+      ],
       gates: {},
       verify_results: {},
     } satisfies ChangeMeta;

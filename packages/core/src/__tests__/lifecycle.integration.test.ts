@@ -49,7 +49,7 @@ describe("lifecycle integration", () => {
 
     await writeFile(
       join(created.path, "intent.md"),
-      "# Intent\n\nMinimal fix for integration test.\n",
+      "# Intent\n\nMinimal fix for integration test: stop crash on empty list and show empty state instead.\n",
       "utf8",
     );
 
@@ -66,6 +66,17 @@ describe("lifecycle integration", () => {
     // implement → local_verify
     const toVerify = await advanceStage(root, config, created.id);
     expect(toVerify.to).toBe("local_verify");
+
+    await writeFile(
+      join(created.path, "local-test-plan.md"),
+      "# Plan\n\nOpen expenses with zero rows; expect empty state UI, no exception.\n",
+      "utf8",
+    );
+    await writeFile(
+      join(created.path, "local-test-results.md"),
+      "# Results\n\nManually verified empty state on laptop; no crash. Edge case of slow network not tested.\n",
+      "utf8",
+    );
 
     const verify = await runLocalVerify(root, config, created.id, {
       runCommands: false,

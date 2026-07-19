@@ -24,6 +24,14 @@ export const StageSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   summary: z.string().optional(),
+  /**
+   * standard — normal work stage
+   * brainstorm — optional multi-approach exploration (before design)
+   * clarify — optional Q&A before leaving a major stage
+   */
+  kind: z.enum(["standard", "brainstorm", "clarify"]).default("standard"),
+  /** When true, stage is optional (skippable); agents may skip if not needed */
+  optional: z.boolean().default(false),
   artifacts: z.array(ArtifactDefSchema).default([]),
   gate: GateSchema.default({}),
   skippable: z.boolean().default(true),

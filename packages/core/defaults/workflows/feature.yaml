@@ -1,6 +1,6 @@
 name: feature
-description: Standard feature — intent, design, tasks, implement, local verify
-version: 1
+description: "Feature — intent, optional clarify/brainstorm, design, tasks, implement, verify"
+version: 2
 recommendation:
   priority: 30
   when:
@@ -10,6 +10,7 @@ stages:
   - id: intent
     title: Feature intent
     summary: Problem, users, scope, non-goals, success
+    kind: standard
     skippable: false
     artifacts:
       - id: feature
@@ -20,10 +21,55 @@ stages:
       type: soft
       checklist:
         - "Scope and non-goals are explicit"
+
+  # Optional: clarifying questions after intent
+  - id: clarify_intent
+    title: Clarify intent
+    summary: Ask clarifying questions before brainstorm/design (optional)
+    kind: clarify
+    optional: true
+    skippable: true
+    artifacts:
+      - id: clarify-intent
+        path: clarify-intent.md
+        template: clarify.md
+        required: false
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        OPTIONAL clarify stage. If scope is already clear, tell the human to run:
+          sdd skip clarify_intent -r "intent is clear"
+        Otherwise ask focused clarifying questions (ambiguities, constraints, success metrics).
+        Write Q&A into clarify-intent.md. Do not design or implement yet.
+
+  # Optional: parallel approaches before design
+  - id: brainstorm
+    title: Brainstorm approaches
+    summary: Explore multiple approaches in parallel (optional)
+    kind: brainstorm
+    optional: true
+    skippable: true
+    artifacts:
+      - id: brainstorm
+        path: brainstorm.md
+        template: brainstorm.md
+        required: false
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        OPTIONAL brainstorm stage. If a single approach is obvious, human may:
+          sdd skip brainstorm -r "single approach is clear"
+        Otherwise produce 2–4 approaches in brainstorm.md (trade-offs, risks).
+        Prefer parallel exploration: outline each approach independently, then compare.
+        Do not pick a final design until design stage. Do not implement code yet.
+
   - id: design
     title: Design
-    summary: Approach, components, risks (keep short)
-    skippable: true
+    summary: Chosen approach, components, risks (required for features)
+    kind: standard
+    skippable: false
     artifacts:
       - id: design
         path: design.md
@@ -31,9 +77,37 @@ stages:
         required: true
     gate:
       type: soft
+      checklist:
+        - "Approach chosen and risks noted"
+    agent_context:
+      instructions: |
+        Produce a concrete design in design.md based on feature.md and brainstorm.md (if any).
+        Do not leave template stubs empty — substantive content is required before sdd next.
+        Do not implement product code yet.
+
+  - id: clarify_design
+    title: Clarify design
+    summary: Clarifying questions after design (optional)
+    kind: clarify
+    optional: true
+    skippable: true
+    artifacts:
+      - id: clarify-design
+        path: clarify-design.md
+        template: clarify.md
+        required: false
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        OPTIONAL. Skip if design is clear:
+          sdd skip clarify_design -r "design is clear"
+        Otherwise ask questions that unblock tasks/implement. Write answers to clarify-design.md.
+
   - id: tasks
     title: Tasks
     summary: Break work into implementable tasks
+    kind: standard
     skippable: true
     artifacts:
       - id: tasks
@@ -42,9 +116,34 @@ stages:
         required: true
     gate:
       type: soft
+    agent_context:
+      instructions: |
+        Break design into concrete tasks in tasks.md. Design must already be substantive.
+        Do not implement large product code yet.
+
+  - id: clarify_tasks
+    title: Clarify tasks
+    summary: Clarifying questions after tasks (optional)
+    kind: clarify
+    optional: true
+    skippable: true
+    artifacts:
+      - id: clarify-tasks
+        path: clarify-tasks.md
+        template: clarify.md
+        required: false
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        OPTIONAL. Skip if tasks are clear:
+          sdd skip clarify_tasks -r "tasks are clear"
+        Otherwise resolve ambiguities before implement.
+
   - id: implement
     title: Implement
     summary: Build the feature locally
+    kind: standard
     skippable: false
     artifacts: []
     gate:
@@ -52,10 +151,12 @@ stages:
     agent_context:
       instructions: |
         Implement tasks from tasks.md following design.md and feature.md.
-        Prefer incremental, testable steps.
+        Prefer incremental, testable steps. Honor memory/constitution.md if present.
+
   - id: local_verify
     title: Local verify
     summary: Verify the feature on this machine
+    kind: standard
     skippable: true
     artifacts:
       - id: local-test-plan
@@ -77,6 +178,7 @@ stages:
     verify:
       commands: []
       evidence_dir: evidence/local
+
 on_complete:
   archive: true
   domain_sync: recommend

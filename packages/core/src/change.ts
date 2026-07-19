@@ -39,7 +39,10 @@ import {
   setActiveChange,
   type ChangeContext,
 } from "./change-context.js";
-import { canLeaveStage } from "./stage-gates.js";
+import {
+  canLeaveStage,
+  fallbackIncompleteStageId,
+} from "./stage-gates.js";
 
 // Re-export split modules so public API stays `from "./change.js"` / core index
 export type { ChangeContext } from "./change-context.js";
@@ -53,8 +56,14 @@ export {
   saveChangeMeta,
   setActiveChange,
 } from "./change-context.js";
-export { canLeaveStage, approveGate } from "./stage-gates.js";
+export {
+  canLeaveStage,
+  approveGate,
+  fallbackIncompleteStageId,
+  incompletePriorStageErrors,
+} from "./stage-gates.js";
 export { formatStatus, buildAgentPrompt } from "./agent-handoff.js";
+export { isSubstantiveArtifactContent } from "./artifacts.js";
 
 export interface CreateChangeInput {
   projectRoot: string;
@@ -221,11 +230,48 @@ export async function advanceStage(
   changeId: string,
   opts?: { force?: boolean },
 ): Promise<AdvanceResult> {
-  const ctx = await buildContext(projectRoot, config, changeId);
+  let ctx = await buildContext(projectRoot, config, changeId);
   const warnings: string[] = [];
 
   if (ctx.meta.status === "completed") {
     throw new Error("Change is already completed.");
+  }
+
+  // Fall back if pointer jumped past incomplete work (e.g. design stub, already on tasks)
+  if (!opts?.force) {
+    const fallback = await fallbackIncompleteStageId(ctx);
+    if (fallback && fallback !== ctx.meta.stage) {
+      const from = ctx.meta.stage;
+      ctx.meta.stage = fallback;
+      await saveChangeMeta(projectRoot, config, ctx.meta);
+      const stage = getStage(ctx.workflow, ctx.meta, fallback)!;
+      const artifactsCreated = await materializeStageArtifacts(
+        projectRoot,
+        config,
+        changeId,
+        ctx.workflow,
+        ctx.meta,
+        stage,
+      );
+      try {
+        const { refreshActiveAgentContext } = await import("./agents.js");
+        await refreshActiveAgentContext(projectRoot);
+      } catch {
+        // optional
+      }
+      const updated = await buildContext(projectRoot, config, changeId);
+      return {
+        ctx: updated,
+        from,
+        to: fallback,
+        completed: false,
+        artifactsCreated,
+        warnings: [
+          ...warnings,
+          `Fell back to incomplete stage "${fallback}" (required work not done). Finish it before advancing.`,
+        ],
+      };
+    }
   }
 
   const check = await canLeaveStage(ctx, config);
