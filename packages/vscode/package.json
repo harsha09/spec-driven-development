@@ -2,7 +2,7 @@
   "name": "structured-vibe-sdd",
   "displayName": "Structured Vibe Coding (SDD)",
   "description": "Local-first Spec-Driven Development for VS Code and Cursor — same engine as the sdd CLI",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "publisher": "structured-vibe-coding",
   "license": "MIT",
   "icon": "media/icon.png",
