@@ -52,13 +52,13 @@ IntelliJ is an **IDE**. Agent files are for **AI coding agents**:
 
 | AI agent | Install |
 |----------|---------|
-| **GitHub Copilot** | `sdd init --ai copilot` → `.github/agents/*.agent.md` + protocol |
-| **Claude Code** | `sdd init --ai claude-code` → `.claude/agents/` (terminal; not IntelliJ-specific) |
+| **GitHub Copilot** | `sdd init --here --ai copilot` → `.github/agents/*.agent.md` + protocol |
+| **Claude Code** | `sdd init --here --ai claude` → `.claude/agents/` (terminal; not IntelliJ-specific) |
 
 ### GitHub Copilot in IntelliJ
 
 1. Install **GitHub Copilot** JetBrains plugin  
-2. `sdd init --ai copilot` (or interactive pick **GitHub Copilot**)  
+2. `sdd init --here --ai copilot` (or interactive pick **GitHub Copilot**)  
 3. After stages: **Refresh Agent Context**  
 4. Select SDD agents in Copilot (e.g. `sdd-implementer`)
 

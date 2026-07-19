@@ -8,6 +8,8 @@ import {
   createChange,
   loadConfig,
   parseAgentTargets,
+  parseIntegration,
+  DEFAULT_INIT_INTEGRATION,
   refreshActiveAgentContext,
   pathExists,
   renderThinAgent,
@@ -76,6 +78,13 @@ describe("agent integrations (agents-only)", () => {
     expect(() => parseAgentTargets("intellij")).toThrow(/IDE/i);
     expect(() => parseAgentTargets("vscode")).toThrow(/IDE/i);
     expect(() => parseAgentTargets("cursor")).toThrow(/IDE/i);
+  });
+
+  it("accepts Speckit-style keys (claude → claude-code, default copilot)", () => {
+    expect(parseIntegration("claude")).toBe("claude-code");
+    expect(parseIntegration("copilot")).toBe("copilot");
+    expect(DEFAULT_INIT_INTEGRATION).toBe("copilot");
+    expect(parseAgentTargets("claude")).toEqual(["claude-code"]);
   });
 
   it("init does not install agents unless AI agents are specified", async () => {

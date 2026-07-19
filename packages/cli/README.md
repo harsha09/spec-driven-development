@@ -12,17 +12,26 @@ npx @structured-vibe-coding/cli init
 
 Binary name: **`sdd`**
 
-## Quick start
+## Quick start (Speckit-style)
 
 ```bash
 cd my-app
-sdd init
+sdd init --here --ai copilot    # or: sdd init --here --ai claude
+# interactive:
+#   sdd init --here             # pick AI agent (default highlight: copilot)
 sdd new "Add expense CSV export"
 sdd status
 sdd next
 sdd verify
 sdd complete
 ```
+
+| Flag | Speckit analogue |
+|------|------------------|
+| `--here` / `.` | `specify init --here` / `specify init .` |
+| `--ai copilot\|claude` | `--integration` / AI pick |
+| `--ignore-agent-tools` | skip CLI-on-PATH check |
+| `--force` | merge into existing dir / re-init |
 
 Full documentation: [repository README](https://github.com/structured-vibe-coding/spec-driven-development).
 

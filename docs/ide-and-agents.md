@@ -47,17 +47,28 @@ All real rules live in **`.sdd/protocol.md` once**.
 
 ## Commands
 
-`sdd init` asks **which AI coding agent** (like Speckit) — never installs every agent by default, and never offers IDEs as choices.
+`sdd init` follows the **GitHub Speckit** install pattern:
+
+1. Project path (`.` / `--here` / name)
+2. Choose **one** AI coding agent integration (not an IDE)
+3. Install shared infra + that integration’s agent files
+4. Non-interactive without `--ai` → defaults to **copilot** (like Speckit)
 
 ```bash
-sdd init                      # interactive: pick copilot | claude-code | none
-sdd init --ai copilot         # non-interactive: GitHub Copilot only
-sdd init --ai claude-code     # Claude Code only
-sdd init --no-agents          # skip agent files
-sdd agents install            # interactive pick (or -t / --ai)
-sdd agents install -t copilot
-sdd agents install --force -t claude-code
-sdd agents refresh            # refresh active-context.md
+# Speckit-like
+sdd init                      # current dir; interactive agent pick
+sdd init .                    # same as --here
+sdd init --here
+sdd init my-app               # create/use my-app/
+sdd init --here --ai copilot  # non-interactive Copilot
+sdd init --here --ai claude   # Claude Code (Speckit key: claude)
+sdd init --here --integration claude   # Speckit --integration alias
+sdd init --here --no-agents
+sdd init --here --ai claude --ignore-agent-tools
+
+sdd agents install --ai copilot
+sdd agents install --ai claude --force
+sdd agents refresh
 ```
 
 ---

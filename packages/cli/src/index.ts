@@ -1,6 +1,7 @@
 import { defineCommand, runMain } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import * as clack from "@clack/prompts";
 import {
   advanceStage,
   approveGate,
@@ -10,7 +11,6 @@ import {
   createChange,
   formatStatus,
   getActiveChangeId,
-  initProject,
   installAgentIntegrations,
   isInitialized,
   listChanges,
@@ -26,8 +26,10 @@ import {
   skipStage,
   switchWorkflow,
   AGENT_TARGET_OPTIONS,
+  DEFAULT_INIT_INTEGRATION,
   type AgentTarget,
 } from "@structured-vibe-coding/core";
+import { runSpeckitStyleInit } from "./init-flow.js";
 
 function projectRoot(): string {
   return process.cwd();
@@ -40,148 +42,104 @@ async function requireInit(): Promise<void> {
   }
 }
 
-/** Speckit-style: pick AI coding agent(s) — never all by default. IDEs are not options. */
+/**
+ * Speckit-style single integration pick for `sdd agents install`.
+ * Non-interactive without flag → default copilot (like Speckit).
+ */
 async function resolveAgentTargets(opts: {
-  /** --ai / --agents raw value */
   agentsFlag?: string | boolean;
   noAgents?: boolean;
-  /** When true, allow multiselect in interactive mode */
-  multi?: boolean;
 }): Promise<AgentTarget[] | false> {
   if (opts.noAgents) return false;
 
   const flag = opts.agentsFlag;
-  if (flag === true || flag === "") {
-    // bare --agents without value → prompt
-  } else if (typeof flag === "string" && flag.trim()) {
+  if (typeof flag === "string" && flag.trim()) {
     return parseAgentTargets(flag);
   }
 
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   if (!interactive) {
     consola.info(
-      "Non-interactive session: skipping agent files. Pass " +
-        pc.cyan("--ai copilot") +
-        " or " +
-        pc.cyan("--ai claude-code") +
-        " (AI agents — not IDEs) or " +
-        pc.cyan("--no-agents") +
-        ".",
+      pc.dim(
+        `Non-interactive: defaulting to '${DEFAULT_INIT_INTEGRATION}'. Use --ai copilot|claude.`,
+      ),
     );
-    return false;
+    return [DEFAULT_INIT_INTEGRATION];
   }
 
-  consola.log("");
-  consola.log(pc.bold("Select your AI coding agent"));
-  consola.log(
-    pc.dim(
-      "GitHub Copilot or Claude Code — not VS Code / IntelliJ (those are IDEs that host agents).",
-    ),
-  );
-
-  if (opts.multi) {
-    const ids = AGENT_TARGET_OPTIONS.map((o) => o.id);
-    const labels = AGENT_TARGET_OPTIONS.map((o) => `${o.label}  (${o.hint})`);
-    const picked = await consola.prompt("Platforms to install:", {
-      type: "multiselect",
-      options: labels,
-      required: false,
-    });
-    if (picked === undefined || typeof picked === "symbol") {
-      consola.error("Cancelled");
-      process.exit(1);
-    }
-    if (!Array.isArray(picked) || picked.length === 0) {
-      return false;
-    }
-    // Map selected labels back to ids
-    const selected: AgentTarget[] = [];
-    for (const label of picked) {
-      const idx = labels.indexOf(String(label));
-      if (idx >= 0) selected.push(ids[idx]!);
-    }
-    return selected.length ? selected : false;
-  }
-
-  const choices = [
-    ...AGENT_TARGET_OPTIONS.map((o) => `${o.label}  (${o.hint})`),
-    "None  (skip agent files — sdd agents install later)",
-  ];
-  const picked = await consola.prompt("Which AI coding agent?", {
-    type: "select",
-    options: choices,
+  const choice = await clack.select({
+    message: "Choose your AI coding agent integration:",
+    options: [
+      ...AGENT_TARGET_OPTIONS.map((o) => ({
+        value: o.id,
+        label: o.label,
+        hint: o.hint,
+      })),
+      { value: "none" as const, label: "None", hint: "skip" },
+    ],
+    initialValue: DEFAULT_INIT_INTEGRATION,
   });
-
-  if (picked === undefined || typeof picked === "symbol") {
+  if (clack.isCancel(choice)) {
     consola.error("Cancelled");
     process.exit(1);
   }
-  const choice = String(picked);
-  if (choice.startsWith("None")) return false;
-  const idx = choices.indexOf(choice);
-  if (idx < 0 || idx >= AGENT_TARGET_OPTIONS.length) return false;
-  return [AGENT_TARGET_OPTIONS[idx]!.id];
+  if (choice === "none") return false;
+  return [choice as AgentTarget];
 }
 
 const init = defineCommand({
   meta: {
     name: "init",
-    description: "Initialize SDD in the current directory (asks which AI coding agent)",
+    description:
+      "Initialize SDD (Speckit-style: project path + AI coding agent integration)",
   },
   args: {
-    force: { type: "boolean", description: "Overwrite default workflows/templates", default: false },
+    path: {
+      type: "positional",
+      description: "Project directory (use . or --here for current dir)",
+      required: false,
+    },
+    here: {
+      type: "boolean",
+      description: "Initialize in the current directory (Speckit --here)",
+      default: false,
+    },
+    force: {
+      type: "boolean",
+      description: "Merge/overwrite when directory exists or re-init",
+      default: false,
+    },
     ai: {
       type: "string",
-      description:
-        "AI coding agent to install: copilot | claude-code (not an IDE; skip interactive pick)",
+      description: "AI coding agent: copilot | claude (Speckit-style; skip pick)",
       alias: "a",
     },
-    agents: {
+    integration: {
       type: "string",
-      description: "Same as --ai (comma-separated allowed)",
+      description: "Same as --ai (Speckit --integration alias)",
     },
     "no-agents": {
       type: "boolean",
-      description: "Skip agent files entirely",
+      description: "Skip AI agent files",
+      default: false,
+    },
+    "ignore-agent-tools": {
+      type: "boolean",
+      description: "Skip checks that agent CLIs (e.g. claude) are on PATH",
       default: false,
     },
   },
   async run({ args }) {
     try {
-      const agentsFlag = args.ai ?? args.agents;
-      const resolved = await resolveAgentTargets({
-        agentsFlag,
-        noAgents: args["no-agents"],
-        multi: false,
-      });
-
-      const result = await initProject({
-        projectRoot: projectRoot(),
+      await runSpeckitStyleInit({
+        path: args.path,
+        here: args.here,
         force: args.force,
-        agents: resolved === false ? false : resolved,
+        ai: args.ai,
+        integration: args.integration,
+        noAgents: args["no-agents"],
+        ignoreAgentTools: args["ignore-agent-tools"],
       });
-      consola.success("Initialized structured vibe coding (SDD)");
-      consola.info(`Config: .sdd/config.yaml`);
-      consola.info(`Workflows: .sdd/workflows/ (${(await listWorkflowNames(projectRoot())).join(", ")})`);
-      if (result.agents?.created.length) {
-        consola.info(
-          `Agents (${resolved === false ? "none" : (resolved as AgentTarget[]).join(", ")}): ` +
-            `${result.agents.created.slice(0, 6).join(", ")}${result.agents.created.length > 6 ? "…" : ""}`,
-        );
-      } else {
-        consola.info(pc.dim("Agents: skipped (run sdd agents install later)"));
-      }
-      consola.log("");
-      consola.log(pc.dim("Next:"));
-      consola.log(`  ${pc.cyan("sdd new")} "Your first change"`);
-      consola.log(`  ${pc.cyan("sdd status")}`);
-      if (resolved !== false) {
-        consola.log(
-          pc.dim(
-            "Playbook: .sdd/protocol.md · live: .sdd/active-context.md · thin agents for selected AI agent only",
-          ),
-        );
-      }
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);
@@ -580,18 +538,23 @@ const agent = defineCommand({
 const agentsInstall = defineCommand({
   meta: {
     name: "install",
-    description: "Install agent files for a selected AI coding agent (prompts if -t omitted)",
+    description:
+      "Install agent files for one AI coding agent (Speckit-style; prompts if --ai omitted)",
   },
   args: {
     target: {
       type: "string",
-      description: "copilot | claude-code (comma-separated; not IDEs; skip interactive pick)",
+      description: "copilot | claude (alias of --ai)",
       alias: "t",
     },
     ai: {
       type: "string",
-      description: "Same as --target / -t",
+      description: "AI coding agent: copilot | claude",
       alias: "a",
+    },
+    integration: {
+      type: "string",
+      description: "Same as --ai (Speckit --integration)",
     },
     force: { type: "boolean", description: "Overwrite existing agent files", default: false },
   },
@@ -599,21 +562,20 @@ const agentsInstall = defineCommand({
     await requireInit();
     const root = projectRoot();
     try {
-      const raw = args.target ?? args.ai;
-      const resolved = await resolveAgentTargets({
-        agentsFlag: raw,
-        multi: true,
-      });
+      const raw = args.ai ?? args.integration ?? args.target;
+      const resolved = await resolveAgentTargets({ agentsFlag: raw });
       if (resolved === false || !resolved.length) {
         consola.info("No AI coding agent selected — nothing installed.");
         return;
       }
+      // Speckit installs one integration; if multiple flags passed, honor first
+      const targets = [resolved[0]!];
       const result = await installAgentIntegrations({
         projectRoot: root,
-        targets: resolved,
+        targets,
         force: args.force,
       });
-      consola.success(`Installed agent integrations: ${result.targets.join(", ")}`);
+      consola.success(`Installed AI integration: ${result.targets.join(", ")}`);
       for (const f of result.created) consola.log(`  + ${f}`);
       for (const f of result.skipped) consola.log(pc.dim(`  = ${f} (exists, use --force)`));
     } catch (err) {
@@ -643,7 +605,7 @@ const agentsRefresh = defineCommand({
 const agents = defineCommand({
   meta: {
     name: "agents",
-    description: "Manage AI coding-agent integrations (GitHub Copilot, Claude Code)",
+    description: "Manage AI coding-agent integrations (Speckit-style: copilot | claude)",
   },
   subCommands: {
     install: agentsInstall,

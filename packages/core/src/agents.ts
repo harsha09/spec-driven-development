@@ -12,30 +12,61 @@ import { sddRoot } from "./paths.js";
 /**
  * AI coding agents (not IDEs).
  * VS Code / Cursor / IntelliJ are editors; they host tools like Copilot or Claude Code.
+ *
+ * Speckit-style: one integration at a time; public keys are short (`copilot`, `claude`).
  */
 export type AgentTarget = "copilot" | "claude-code";
 
 export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code"];
 
-/** Human-facing labels for interactive AI-agent pick (CLI / IDE). */
-export const AGENT_TARGET_OPTIONS: {
+/** Default when non-interactive and no --ai / --integration (matches Speckit). */
+export const DEFAULT_INIT_INTEGRATION: AgentTarget = "copilot";
+
+export interface AgentTargetOption {
+  /** Internal install id (file paths / agents.json). */
   id: AgentTarget;
+  /** Speckit-style public key used with --ai / --integration. */
+  key: string;
   label: string;
   hint: string;
-}[] = [
+  /** If true, CLI may check that the agent binary is on PATH. */
+  requiresCli: boolean;
+  installUrl: string;
+}
+
+/** Human-facing options for interactive AI-agent pick (CLI / IDE). */
+export const AGENT_TARGET_OPTIONS: AgentTargetOption[] = [
   {
     id: "copilot",
+    key: "copilot",
     label: "GitHub Copilot",
-    hint: ".github/agents/*.agent.md — works in VS Code, Cursor, JetBrains, …",
+    hint: ".github/agents/*.agent.md (VS Code, Cursor, JetBrains, …)",
+    requiresCli: false,
+    installUrl: "https://github.com/features/copilot",
   },
   {
     id: "claude-code",
+    key: "claude",
     label: "Claude Code",
-    hint: ".claude/agents/*.md — CLI / terminal agent",
+    hint: ".claude/agents/*.md (terminal agent)",
+    requiresCli: true,
+    installUrl: "https://docs.anthropic.com/en/docs/claude-code",
   },
 ];
 
-/** Parse `copilot`, `claude-code,copilot`, etc. Throws on unknown ids. */
+/** Public CLI keys → internal targets (Speckit uses `claude`, not `claude-code`). */
+export function integrationKeyFor(target: AgentTarget): string {
+  return AGENT_TARGET_OPTIONS.find((o) => o.id === target)?.key ?? target;
+}
+
+export function optionForTarget(target: AgentTarget): AgentTargetOption | undefined {
+  return AGENT_TARGET_OPTIONS.find((o) => o.id === target);
+}
+
+/**
+ * Parse Speckit-style integration keys: `copilot`, `claude`, `claude-code`, …
+ * Throws on unknown ids or IDE names.
+ */
 export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
   const parts = (Array.isArray(raw) ? raw : [raw])
     .flatMap((s) => String(s).split(","))
@@ -54,7 +85,7 @@ export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
       p === "cursor"
     ) {
       throw new Error(
-        `"${p}" is an IDE, not an AI coding agent. Choose: copilot (GitHub Copilot in any IDE) or claude-code.`,
+        `"${p}" is an IDE, not an AI coding agent. Choose: copilot or claude (Claude Code).`,
       );
     }
     const id =
@@ -64,13 +95,23 @@ export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
           ? "copilot"
           : p;
     if (!ALL_AGENT_TARGETS.includes(id as AgentTarget)) {
-      throw new Error(
-        `Unknown AI coding agent "${p}". Choose one of: ${ALL_AGENT_TARGETS.join(", ")}`,
-      );
+      const keys = AGENT_TARGET_OPTIONS.map((o) => o.key).join(", ");
+      throw new Error(`Unknown AI coding agent "${p}". Choose from: ${keys}`);
     }
     if (!out.includes(id as AgentTarget)) out.push(id as AgentTarget);
   }
   return out;
+}
+
+/** Parse a single Speckit-style integration (exactly one). */
+export function parseIntegration(raw: string): AgentTarget {
+  const list = parseAgentTargets(raw);
+  if (list.length !== 1) {
+    throw new Error(
+      `Expected one AI coding agent (like Speckit --integration), got: ${raw}`,
+    );
+  }
+  return list[0]!;
 }
 
 /** Roles emitted as thin agents (shared body generator — no skill files). */
@@ -203,6 +244,23 @@ export async function installAgentIntegrations(
         activeContext: ".sdd/active-context.md",
         roles: SDD_AGENT_ROLES.map((r) => r.id),
         installed: targets,
+        /** Speckit-style primary integration key (first target). */
+        integration: targets[0] ? integrationKeyFor(targets[0]) : null,
+        updated: new Date().toISOString(),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  // Speckit-like init options snapshot
+  await write(
+    join(".sdd", "init-options.json"),
+    JSON.stringify(
+      {
+        ai: targets[0] ? integrationKeyFor(targets[0]) : null,
+        integration: targets[0] ? integrationKeyFor(targets[0]) : null,
+        installed: targets.map(integrationKeyFor),
         updated: new Date().toISOString(),
       },
       null,
