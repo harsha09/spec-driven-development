@@ -51,29 +51,40 @@ All real rules live in **`.sdd/protocol.md` once**.
 
 ## Commands
 
-`sdd init` follows the **GitHub Speckit** install pattern:
+## Setup is one command
 
-1. Project path (`.` / `--here` / name)
-2. Choose **one** AI coding agent integration (not an IDE)
-3. Install shared infra + that integration’s agent files
-4. Non-interactive without `--ai` → defaults to **copilot** (like Speckit)
+**You only need `sdd init`.** It installs SDD **and** the chosen AI agent.  
+`sdd agents install` is only for **later** (switch host or reinstall).
 
 ```bash
-# Speckit-like
-sdd init                      # current dir; interactive agent pick
-sdd init .                    # same as --here
-sdd init --here
-sdd init my-app               # create/use my-app/
-sdd init --here --ai copilot  # GitHub Copilot
-sdd init --here --ai claude   # Claude Code
-sdd init --here --ai grok     # Grok Build
-sdd init --here --integration grok
-sdd init --here --no-agents
-sdd init --here --ai claude --ignore-agent-tools
+# First-time (pick ONE AI — not all hosts)
+sdd init --here --ai grok      # only .grok/rules + shared SDD dirs
+sdd init --here --ai copilot   # only .github/agents + shared SDD dirs
+sdd init --here --ai claude    # only .claude/agents + shared SDD dirs
 
-sdd agents install --ai grok
-sdd agents install --ai copilot --force
-sdd agents refresh
+# Interactive pick (still one agent)
+sdd init --here
+
+# Skip agent files
+sdd init --here --no-agents
+```
+
+### What gets created
+
+| Always (shared SDD — not “AI platforms”) | Only for selected `--ai` |
+|------------------------------------------|---------------------------|
+| `.sdd/` (config, workflows, templates, protocol) | **grok** → `.grok/rules/sdd.md` |
+| `memory/` (incl. `index.md`) | **copilot** → `.github/agents/*.agent.md` |
+| `changes/`, `archive/`, `domains/` | **claude** → `.claude/agents/*.md` |
+| `AGENTS.md` when an agent is installed | |
+
+**Not created for `--ai grok`:** `.github/agents`, `.claude/agents`, `.idea/sdd-agent-notes.md`.  
+Installing one host **removes** other hosts’ agent directories (so leftover multi-host installs get cleaned up).
+
+```bash
+# Later only
+sdd agents install --ai copilot --force   # switch away from grok
+sdd agents refresh                        # update active-context.md after stages
 ```
 
 ---

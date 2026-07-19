@@ -64,6 +64,15 @@ describe("CLI integration", () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-grok-"));
     temps.push(root);
 
+    // Pollute with stale multi-host leftovers (old SDD / mistaken install)
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    await mkdir(join(root, ".github/agents"), { recursive: true });
+    await writeFile(join(root, ".github/agents/sdd.agent.md"), "stale\n");
+    await mkdir(join(root, ".claude/agents"), { recursive: true });
+    await writeFile(join(root, ".claude/agents/sdd.md"), "stale\n");
+    await mkdir(join(root, ".idea"), { recursive: true });
+    await writeFile(join(root, ".idea/sdd-agent-notes.md"), "stale\n");
+
     const r = runSdd(root, ["init", "--here", "--ai", "grok"]);
     expect(r.status, r.stderr + r.stdout).toBe(0);
     expect(await exists(join(root, ".sdd/config.yaml"))).toBe(true);
@@ -71,7 +80,10 @@ describe("CLI integration", () => {
     expect(await exists(join(root, ".grok/rules/sdd.md"))).toBe(true);
     expect(await exists(join(root, "AGENTS.md"))).toBe(true);
     expect(await exists(join(root, "memory/index.md"))).toBe(true);
+    // Only grok host — stale copilot/claude/idea agent files removed
     expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
+    expect(await exists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await exists(join(root, ".idea/sdd-agent-notes.md"))).toBe(false);
 
     const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
     expect(snap.ai).toBe("grok");

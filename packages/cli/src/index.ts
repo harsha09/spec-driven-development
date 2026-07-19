@@ -31,41 +31,42 @@ const init = defineCommand({
   meta: {
     name: "init",
     description:
-      "Initialize SDD (Speckit-style: project path + AI coding agent integration)",
+      "Initialize SDD in a project and install ONE AI coding agent (default step: pick agent). Example: sdd init --here --ai grok",
   },
   args: {
     path: {
       type: "positional",
-      description: "Project directory (use . or --here for current dir)",
+      description: "Project directory name, or \".\" for current dir (same as --here)",
       required: false,
     },
     here: {
       type: "boolean",
-      description: "Initialize in the current directory (Speckit --here)",
+      description: "Use current directory (do not create a subfolder)",
       default: false,
     },
     force: {
       type: "boolean",
-      description: "Merge/overwrite when directory exists or re-init",
+      description: "Re-init / merge into non-empty dir; rewrite agent stubs",
       default: false,
     },
     ai: {
       type: "string",
-      description: "AI coding agent: copilot | claude | grok (Speckit-style; skip pick)",
+      description:
+        "Install only this AI agent: grok | copilot | claude. Does NOT create the other hosts' folders.",
       alias: "a",
     },
     integration: {
       type: "string",
-      description: "Same as --ai (Speckit --integration alias)",
+      description: "Alias for --ai (Speckit-style)",
     },
     "no-agents": {
       type: "boolean",
-      description: "Skip AI agent files",
+      description: "Skip AI agent files (shared .sdd/memory/changes still created)",
       default: false,
     },
     "ignore-agent-tools": {
       type: "boolean",
-      description: "Skip checks that agent CLIs (e.g. claude) are on PATH",
+      description: "Do not require agent CLI on PATH (e.g. claude)",
       default: false,
     },
   },
@@ -421,24 +422,28 @@ const agentsInstall = defineCommand({
   meta: {
     name: "install",
     description:
-      "Install agent files for one AI coding agent (Speckit-style; prompts if --ai omitted)",
+      "Install or switch AI agent files for ONE host (removes other hosts' agent dirs). Example: sdd agents install --ai grok --force",
   },
   args: {
     target: {
       type: "string",
-      description: "copilot | claude | grok (alias of --ai)",
+      description: "Alias of --ai: grok | copilot | claude",
       alias: "t",
     },
     ai: {
       type: "string",
-      description: "AI coding agent: copilot | claude | grok",
+      description: "AI agent to install: grok | copilot | claude (only this host)",
       alias: "a",
     },
     integration: {
       type: "string",
-      description: "Same as --ai (Speckit --integration)",
+      description: "Alias for --ai",
     },
-    force: { type: "boolean", description: "Overwrite existing agent files", default: false },
+    force: {
+      type: "boolean",
+      description: "Overwrite stubs for the selected agent",
+      default: false,
+    },
   },
   async run({ args }) {
     await withInitialized(async (root) => {
@@ -505,17 +510,35 @@ const help = defineCommand({
   meta: { name: "help", description: "Show help overview" },
   async run() {
     const root = projectRoot();
-    consola.log(pc.bold("sdd") + pc.dim(" — structured vibe coding (local SDD)"));
+    consola.log(pc.bold("sdd") + " — local Spec-Driven Development (change packs + gates)");
     consola.log("");
-    consola.log(
-      "Commands: init · new · status · next · skip · use · gate · verify · complete · workflows · agent · agents · checkout",
-    );
+    consola.log(pc.bold("First-time setup (one command):"));
+    consola.log(`  ${pc.cyan("sdd init --here --ai grok")}     Grok Build only`);
+    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}  GitHub Copilot only`);
+    consola.log(`  ${pc.cyan("sdd init --here --ai claude")}   Claude Code only`);
+    consola.log(pc.dim("  → creates .sdd/, memory/, changes/, archive/, domains/"));
+    consola.log(pc.dim("  → plus agent files for the chosen AI only (not all hosts)"));
+    consola.log("");
+    consola.log(pc.bold("Everyday:"));
+    consola.log(`  ${pc.cyan('sdd new "My change"')}   start a change pack`);
+    consola.log(`  ${pc.cyan("sdd status")}            show stage`);
+    consola.log(`  ${pc.cyan("sdd next")}              advance stage`);
+    consola.log(`  ${pc.cyan("sdd verify")}            local verify`);
+    consola.log(`  ${pc.cyan("sdd complete")}          archive change`);
+    consola.log("");
+    consola.log(pc.bold("Agents (optional after init):"));
+    consola.log(`  ${pc.cyan("sdd agents install --ai grok")}   switch/reinstall one AI host`);
+    consola.log(`  ${pc.cyan("sdd agents refresh")}             update .sdd/active-context.md`);
+    consola.log(`  ${pc.cyan("sdd agent")}                      print handoff prompt`);
+    consola.log("");
+    consola.log(pc.dim("Docs: https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md"));
+    consola.log(pc.dim("More: sdd <command> --help"));
     if (await isInitialized(root)) {
       const config = await loadConfig(root);
       const active = await getActiveChangeId(root, config);
       if (active) consola.log(pc.dim(`Active change: ${active}`));
     } else {
-      consola.log(pc.dim("Not initialized. Run: sdd init"));
+      consola.log(pc.dim("This directory is not initialized. Run: sdd init --here --ai grok"));
     }
   },
 });
@@ -523,8 +546,9 @@ const help = defineCommand({
 const main = defineCommand({
   meta: {
     name: "sdd",
-    description: "Structured vibe coding — flexible local Spec-Driven Development",
-    version: "0.1.0",
+    description:
+      "Local Spec-Driven Development. Start with: sdd init --here --ai grok|copilot|claude",
+    version: "0.5.4",
   },
   subCommands: {
     init,

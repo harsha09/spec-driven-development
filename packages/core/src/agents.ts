@@ -1,5 +1,5 @@
 import { join } from "pathe";
-import { pathExists, writeText } from "./fs.js";
+import { pathExists, removePath, writeText } from "./fs.js";
 import { loadConfig } from "./config.js";
 import { buildContext, getActiveChangeId } from "./change-context.js";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
@@ -121,6 +121,71 @@ export function integrationKeyFor(target: AgentTarget): string {
 
 export function optionForTarget(target: AgentTarget): AgentTargetOption {
   return getIntegration(target);
+}
+
+/**
+ * Paths this integration owns (safe to delete when switching agents).
+ * Never includes shared SDD dirs (memory, changes, .sdd) or whole .github (workflows stay).
+ */
+export function agentHostPaths(target: AgentTarget): string[] {
+  switch (target) {
+    case "copilot":
+      return [".github/agents"];
+    case "claude-code":
+      return [".claude/agents"];
+    case "grok":
+      return [".grok/rules"];
+    default:
+      return [];
+  }
+}
+
+/** Legacy paths from older SDD versions that installed IntelliJ notes as an "agent". */
+const LEGACY_AGENT_PATHS = [".idea/sdd-agent-notes.md"];
+
+/**
+ * Remove agent files for hosts other than `keep` (and legacy IntelliJ notes).
+ * Does not touch .sdd/, memory/, changes/, or non-agent .github content.
+ */
+export async function removeOtherAgentHosts(
+  projectRoot: string,
+  keep: AgentTarget,
+): Promise<string[]> {
+  const removed: string[] = [];
+  for (const integ of AGENT_INTEGRATIONS) {
+    if (integ.id === keep) continue;
+    for (const rel of agentHostPaths(integ.id)) {
+      const full = join(projectRoot, rel);
+      if (await pathExists(full)) {
+        await removePath(full);
+        removed.push(rel);
+      }
+    }
+  }
+  for (const rel of LEGACY_AGENT_PATHS) {
+    const full = join(projectRoot, rel);
+    if (await pathExists(full)) {
+      await removePath(full);
+      removed.push(rel);
+    }
+  }
+  // Prune empty .claude / .idea parents if we emptied them
+  for (const parent of [".claude", ".idea", ".grok"]) {
+    if (keep === "grok" && parent === ".grok") continue;
+    const full = join(projectRoot, parent);
+    if (!(await pathExists(full))) continue;
+    try {
+      const { readdir } = await import("node:fs/promises");
+      const kids = await readdir(full);
+      if (kids.length === 0) {
+        await removePath(full);
+        removed.push(parent);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return removed;
 }
 
 /** Parse one Speckit-style integration key. */
@@ -263,6 +328,9 @@ export async function installAgentIntegration(
   const skipped: string[] = [];
   const root = opts.projectRoot;
   const force = opts.force ?? false;
+
+  // Single-agent product rule: never leave other hosts' agent trees around
+  await removeOtherAgentHosts(root, opts.target);
 
   const write = async (rel: string, content: string) => {
     const full = join(root, rel);
