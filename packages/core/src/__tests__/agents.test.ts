@@ -36,13 +36,8 @@ afterEach(async () => {
 });
 
 describe("agent integrations (registry)", () => {
-  it("installs protocol + thin agents via registry (both hosts)", async () => {
+  it("installs protocol + thin agents for one host only", async () => {
     const root = await tempProject();
-    await installAgentIntegration({
-      projectRoot: root,
-      target: "copilot",
-      force: true,
-    });
     await installAgentIntegration({
       projectRoot: root,
       target: "claude-code",
@@ -56,27 +51,42 @@ describe("agent integrations (registry)", () => {
 
     for (const role of SDD_AGENT_ROLES) {
       expect(await pathExists(join(root, `.claude/agents/${role.id}.md`))).toBe(true);
-      expect(await pathExists(join(root, `.github/agents/${role.id}.agent.md`))).toBe(true);
     }
+    // Single-agent: no other hosts
+    expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(false);
     expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
-    expect(await pathExists(join(root, ".github/copilot-instructions.md"))).toBe(false);
 
     const impl = await readFile(join(root, ".claude/agents/sdd-implementer.md"), "utf8");
     expect(impl.length).toBeLessThan(1200);
     expect(impl).toMatch(/\.sdd\/protocol\.md/);
 
-    const claude = await readFile(join(root, ".claude/agents/sdd.md"), "utf8");
+    // Same body generator for copilot vs claude when each installed alone
+    await installAgentIntegration({ projectRoot: root, target: "copilot", force: true });
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
     const copilot = await readFile(join(root, ".github/agents/sdd.agent.md"), "utf8");
-    expect(claude).toBe(copilot);
+    expect(copilot).toMatch(/protocol\.md/);
 
     expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
-    // Single snapshot only (no init-options.json)
     expect(await pathExists(join(root, ".sdd/agents.json"))).toBe(true);
     expect(await pathExists(join(root, ".sdd/init-options.json"))).toBe(false);
     const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
     expect(snap.version).toBe(3);
-    expect(snap.ai).toBe("claude");
-    expect(snap.integration).toBe("claude");
+    expect(snap.ai).toBe("copilot");
+  });
+
+  it("switching to grok removes other agent host dirs", async () => {
+    const root = await tempProject();
+    await installAgentIntegration({ projectRoot: root, target: "copilot", force: true });
+    await installAgentIntegration({ projectRoot: root, target: "claude-code", force: true });
+    // last install was claude — copilot already removed
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(true);
+
+    await installAgentIntegration({ projectRoot: root, target: "grok", force: true });
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".github/agents"))).toBe(false);
+    expect(await pathExists(join(root, ".claude/agents"))).toBe(false);
+    expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(false);
   });
 
   it("registry drives role paths and public keys", () => {

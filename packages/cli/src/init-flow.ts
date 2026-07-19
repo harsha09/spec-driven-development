@@ -269,25 +269,46 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   p.log.step(`Config: .sdd/config.yaml`);
   if (result.agents?.created.length) {
     p.log.step(
-      `Agents: ${result.agents.created.slice(0, 5).join(", ")}${result.agents.created.length > 5 ? "…" : ""}`,
+      `Agent files (${agentDetail}): ${result.agents.created.slice(0, 8).join(", ")}${result.agents.created.length > 8 ? "…" : ""}`,
     );
   }
 
+  // Clear separation: SDD project dirs vs AI host files
+  p.note(
+    [
+      pc.bold("Always created (not AI agents):"),
+      `  .sdd/   memory/   changes/   archive/   domains/`,
+      "",
+      pc.bold("AI agent only (selected host):"),
+      selected === false
+        ? `  (none — use sdd agents install --ai grok|copilot|claude later)`
+        : selected === "grok"
+          ? `  .grok/rules/sdd.md  +  AGENTS.md  +  .sdd/protocol.md`
+          : selected === "claude-code"
+            ? `  .claude/agents/*.md  +  AGENTS.md  +  .sdd/protocol.md`
+            : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
+      "",
+      pc.dim("Other hosts (.github/agents, .claude/agents, .idea notes) are removed when you pick one AI."),
+    ].join("\n"),
+    "What was installed",
+  );
+
   const next = [
-    `cd ${here ? "." : projectRoot}`,
+    here ? `# already in project` : `cd ${projectRoot}`,
     `sdd new "Your first change"`,
     `sdd status`,
   ];
   if (selected !== false) {
     next.push(
-      `# agent: ${agentDetail} · playbook .sdd/protocol.md · context .sdd/active-context.md`,
+      `# agent: ${agentDetail} · read .sdd/active-context.md then .sdd/protocol.md`,
     );
-  } else {
-    next.push(`sdd agents install --ai copilot   # or --ai claude | grok`);
   }
 
   p.outro(
     pc.green("Initialized") +
+      (selected !== false
+        ? pc.dim(` · AI agent: ${agentDetail} only`)
+        : pc.dim(" · no AI agent files")) +
       "\n\n" +
       pc.dim("Next:") +
       "\n" +

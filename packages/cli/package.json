@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "pnpm run build && vitest run",
+    "test": "pnpm --filter @structured-vibe-coding/core run build && pnpm run build && vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "prepublishOnly": "pnpm run build"

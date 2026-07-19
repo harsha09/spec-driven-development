@@ -227,13 +227,16 @@ sdd next
 
 ### Step 5 — Implement (with or without an AI agent)
 
-`sdd init` mirrors **GitHub Speckit**: project path (`.` / `--here` / name) → pick **one** AI coding agent (`copilot`, `claude`, or **`grok`**) → install shared SDD files + that integration only. Non-interactive sessions default to **copilot**. VS Code / IntelliJ are IDEs, not agent choices. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
+**One command setup.** `sdd init` installs SDD **and** a single AI agent. You do **not** need `sdd agents install` afterward.
 
 ```bash
-sdd init --here --ai copilot
-sdd init --here --ai claude
-sdd init --here --ai grok      # Grok Build (.grok/rules/sdd.md + AGENTS.md)
+sdd init --here --ai grok      # Grok only (.grok/rules) — not .github/.claude
+sdd init --here --ai copilot   # Copilot only (.github/agents)
+sdd init --here --ai claude    # Claude Code only (.claude/agents)
 ```
+
+Shared dirs always: `.sdd/`, `memory/`, `changes/`, `archive/`, `domains/`.  
+Only the chosen AI host gets agent stubs. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
 
 When you reach an `implement` stage:
 
