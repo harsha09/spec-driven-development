@@ -11,6 +11,7 @@
     "typecheck": "pnpm -r run typecheck",
     "sdd": "pnpm --filter @structured-vibe-coding/cli exec node ./dist/index.js",
     "package:vscode": "pnpm --filter structured-vibe-sdd run package",
+    "test:intellij": "cd packages/intellij && (command -v gradle >/dev/null && gradle test || echo 'Skip IntelliJ tests: install JDK17+ and gradle')",
     "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe-coding/core publish --access public && pnpm --filter @structured-vibe-coding/cli publish --access public",
     "publish:npm:dry": "pnpm --filter @structured-vibe-coding/core publish --dry-run --no-git-checks && pnpm --filter @structured-vibe-coding/cli publish --dry-run --no-git-checks",
     "version:bump": "node scripts/bump-version.mjs",

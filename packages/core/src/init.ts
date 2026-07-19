@@ -16,16 +16,20 @@ import {
   sddRoot,
 } from "./paths.js";
 import type { Config } from "./schemas.js";
+import { installAgentIntegrations, type AgentTarget } from "./agents.js";
 
 export interface InitOptions {
   projectRoot: string;
   force?: boolean;
   pack?: "default" | "enterprise";
+  /** Install Copilot / Claude Code / IntelliJ agent files (default: all). */
+  agents?: boolean | AgentTarget[];
 }
 
 export interface InitResult {
   created: string[];
   config: Config;
+  agents?: { created: string[]; skipped: string[] };
 }
 
 export async function initProject(opts: InitOptions): Promise<InitResult> {
@@ -125,5 +129,20 @@ sdd complete
     created.push(sddReadme);
   }
 
-  return { created, config };
+  let agentsResult: InitResult["agents"];
+  if (opts.agents !== false) {
+    const targets =
+      Array.isArray(opts.agents) && opts.agents.length
+        ? opts.agents
+        : undefined;
+    const ag = await installAgentIntegrations({
+      projectRoot,
+      targets,
+      force,
+    });
+    created.push(...ag.created);
+    agentsResult = { created: ag.created, skipped: ag.skipped };
+  }
+
+  return { created, config, agents: agentsResult };
 }

@@ -11,17 +11,20 @@ import {
   formatStatus,
   getActiveChangeId,
   initProject,
+  installAgentIntegrations,
   isInitialized,
   listChanges,
   listWorkflowNames,
   loadConfig,
   loadWorkflow,
   recommendWorkflow,
+  refreshActiveAgentContext,
   resolveChangeId,
   runLocalVerify,
   setActiveChange,
   skipStage,
   switchWorkflow,
+  type AgentTarget,
 } from "@structured-vibe-coding/core";
 
 function projectRoot(): string {
@@ -39,21 +42,30 @@ const init = defineCommand({
   meta: { name: "init", description: "Initialize SDD in the current directory" },
   args: {
     force: { type: "boolean", description: "Overwrite default workflows/templates", default: false },
+    "no-agents": {
+      type: "boolean",
+      description: "Skip Copilot / Claude Code / IntelliJ agent files",
+      default: false,
+    },
   },
   async run({ args }) {
     try {
       const result = await initProject({
         projectRoot: projectRoot(),
         force: args.force,
+        agents: args["no-agents"] ? false : true,
       });
       consola.success("Initialized structured vibe coding (SDD)");
       consola.info(`Config: .sdd/config.yaml`);
       consola.info(`Workflows: .sdd/workflows/ (${(await listWorkflowNames(projectRoot())).join(", ")})`);
+      if (result.agents?.created.length) {
+        consola.info(`Agents: ${result.agents.created.slice(0, 6).join(", ")}${result.agents.created.length > 6 ? "…" : ""}`);
+      }
       consola.log("");
       consola.log(pc.dim("Next:"));
       consola.log(`  ${pc.cyan("sdd new")} "Your first change"`);
       consola.log(`  ${pc.cyan("sdd status")}`);
-      void result;
+      consola.log(pc.dim("Agents: GitHub Copilot (.github/), Claude Code (.claude/), AGENTS.md"));
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);
@@ -437,6 +449,7 @@ const agent = defineCommand({
     try {
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
+      await refreshActiveAgentContext(root);
       const prompt = await buildAgentPrompt(ctx, config, root);
       // raw stdout for easy piping
       process.stdout.write(prompt);
@@ -445,6 +458,75 @@ const agent = defineCommand({
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);
     }
+  },
+});
+
+const agentsInstall = defineCommand({
+  meta: {
+    name: "install",
+    description: "Install GitHub Copilot / Claude Code / IntelliJ agent files",
+  },
+  args: {
+    target: {
+      type: "string",
+      description: "copilot | claude-code | intellij (repeatable / comma-separated)",
+      alias: "t",
+    },
+    force: { type: "boolean", description: "Overwrite existing agent files", default: false },
+  },
+  async run({ args }) {
+    await requireInit();
+    const root = projectRoot();
+    try {
+      const raw = args.target;
+      let targets: AgentTarget[] | undefined;
+      if (raw) {
+        const list = (Array.isArray(raw) ? raw : String(raw).split(","))
+          .flatMap((s) => String(s).split(","))
+          .map((s) => s.trim())
+          .filter(Boolean) as AgentTarget[];
+        targets = list;
+      }
+      const result = await installAgentIntegrations({
+        projectRoot: root,
+        targets,
+        force: args.force,
+      });
+      consola.success(`Installed agent integrations: ${result.targets.join(", ")}`);
+      for (const f of result.created) consola.log(`  + ${f}`);
+      for (const f of result.skipped) consola.log(pc.dim(`  = ${f} (exists, use --force)`));
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  },
+});
+
+const agentsRefresh = defineCommand({
+  meta: {
+    name: "refresh",
+    description: "Refresh .sdd/active-context.md for Copilot / Claude Code",
+  },
+  async run() {
+    await requireInit();
+    try {
+      const path = await refreshActiveAgentContext(projectRoot());
+      consola.success(path ? `Updated ${path}` : "SDD not ready");
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  },
+});
+
+const agents = defineCommand({
+  meta: {
+    name: "agents",
+    description: "Manage coding-agent integrations (Copilot, Claude Code, IntelliJ)",
+  },
+  subCommands: {
+    install: agentsInstall,
+    refresh: agentsRefresh,
   },
 });
 
@@ -475,7 +557,7 @@ const help = defineCommand({
     consola.log(pc.bold("sdd") + pc.dim(" — structured vibe coding (local SDD)"));
     consola.log("");
     consola.log(
-      "Commands: init · new · status · next · skip · use · gate · verify · complete · workflows · agent · checkout",
+      "Commands: init · new · status · next · skip · use · gate · verify · complete · workflows · agent · agents · checkout",
     );
     if (await isInitialized(root)) {
       const config = await loadConfig(root);
@@ -505,6 +587,7 @@ const main = defineCommand({
     complete,
     workflows,
     agent,
+    agents,
     checkout: useChange,
     help,
   },

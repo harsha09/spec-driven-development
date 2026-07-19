@@ -106,6 +106,14 @@ export async function createChange(input: CreateChangeInput): Promise<ChangeCont
   await materializeStageArtifacts(projectRoot, config, id, workflow, meta, firstStage);
   await setActiveChange(projectRoot, config, id);
 
+  // Keep agent context in sync for Copilot / Claude Code / IDEs
+  try {
+    const { refreshActiveAgentContext } = await import("./agents.js");
+    await refreshActiveAgentContext(projectRoot);
+  } catch {
+    // optional
+  }
+
   return buildContext(projectRoot, config, id);
 }
 
@@ -425,6 +433,13 @@ export async function advanceStage(
     ctx.meta,
     stage,
   );
+
+  try {
+    const { refreshActiveAgentContext } = await import("./agents.js");
+    await refreshActiveAgentContext(projectRoot);
+  } catch {
+    // optional
+  }
 
   const updated = await buildContext(projectRoot, config, changeId);
   return {

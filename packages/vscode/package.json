@@ -112,6 +112,16 @@
         "command": "structuredVibe.openChangeFolder",
         "title": "SDD: Open Change Folder",
         "category": "Structured Vibe"
+      },
+      {
+        "command": "structuredVibe.agentsInstall",
+        "title": "SDD: Install Agent Integrations (Copilot / Claude)",
+        "category": "Structured Vibe"
+      },
+      {
+        "command": "structuredVibe.agentsRefresh",
+        "title": "SDD: Refresh Agent Context",
+        "category": "Structured Vibe"
       }
     ],
     "viewsContainers": {
@@ -168,7 +178,7 @@
     "dev": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "package": "pnpm run build && vsce package --no-dependencies",
     "publish:vsce": "pnpm run build && vsce publish --no-dependencies",
     "vscode:prepublish": "pnpm run build"

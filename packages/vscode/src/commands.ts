@@ -8,11 +8,13 @@ import {
   createChange,
   formatStatus,
   initProject,
+  installAgentIntegrations,
   isInitialized,
   listChanges,
   listWorkflowNames,
   loadWorkflow,
   recommendWorkflow,
+  refreshActiveAgentContext,
   resolveChangeId,
   runLocalVerify,
   setActiveChange,
@@ -294,6 +296,38 @@ export function registerCommands(
 
   reg("structuredVibe.openArtifact", async () => {
     /* tree items open via vscode.open command */
+  });
+
+  reg("structuredVibe.agentsInstall", async () => {
+    const root = await requireWorkspaceRoot();
+    if (!(await isInitialized(root))) {
+      throw new Error("Initialize SDD first.");
+    }
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: "All (Copilot + Claude Code + IntelliJ)", targets: undefined },
+        { label: "GitHub Copilot only", targets: ["copilot" as const] },
+        { label: "Claude Code only", targets: ["claude-code" as const] },
+        { label: "IntelliJ notes only", targets: ["intellij" as const] },
+      ],
+      { title: "Install agent integrations" },
+    );
+    if (!pick) return;
+    const result = await installAgentIntegrations({
+      projectRoot: root,
+      targets: pick.targets,
+      force: true,
+    });
+    showInfo(`Agent files: +${result.created.length} written`);
+  });
+
+  reg("structuredVibe.agentsRefresh", async () => {
+    const root = await requireWorkspaceRoot();
+    const path = await refreshActiveAgentContext(root);
+    if (path) {
+      showInfo(`Updated ${path}`);
+      await openPath(path);
+    }
   });
 }
 
