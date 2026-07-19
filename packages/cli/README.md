@@ -33,7 +33,7 @@ sdd complete
 | `--ignore-agent-tools` | skip CLI-on-PATH check |
 | `--force` | merge into existing dir / re-init |
 
-Full documentation: [repository README](https://github.com/structured-vibe-coding/spec-driven-development).
+Full documentation: [docs hub](https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md) · [repository README](https://github.com/structured-vibe-coding/spec-driven-development).
 
 ## License
 

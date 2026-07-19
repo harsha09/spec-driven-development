@@ -30,7 +30,7 @@ const change = await createChange({
 await advanceStage(root, config, change.id);
 ```
 
-See the [repository README](https://github.com/structured-vibe-coding/spec-driven-development) for workflows, customization, and CLI docs.
+See the [docs hub](https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md) and [repository README](https://github.com/structured-vibe-coding/spec-driven-development) for workflows, customization, and CLI docs.
 
 ## License
 
