@@ -7,6 +7,7 @@ import {
   installAgentIntegrations,
   createChange,
   loadConfig,
+  parseAgentTargets,
   refreshActiveAgentContext,
   pathExists,
   renderThinAgent,
@@ -35,7 +36,7 @@ describe("agent integrations (agents-only)", () => {
     const root = await tempProject();
     const result = await installAgentIntegrations({
       projectRoot: root,
-      targets: ["copilot", "claude-code", "intellij"],
+      targets: ["copilot", "claude-code"],
       force: true,
     });
     expect(result.created.length).toBeGreaterThan(5);
@@ -68,10 +69,16 @@ describe("agent integrations (agents-only)", () => {
     expect(claude).toBe(copilot);
 
     expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
-    expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(true);
+    expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(false);
   });
 
-  it("init does not install agents unless platforms are specified", async () => {
+  it("rejects IDE names as agent targets", () => {
+    expect(() => parseAgentTargets("intellij")).toThrow(/IDE/i);
+    expect(() => parseAgentTargets("vscode")).toThrow(/IDE/i);
+    expect(() => parseAgentTargets("cursor")).toThrow(/IDE/i);
+  });
+
+  it("init does not install agents unless AI agents are specified", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sdd-init-none-"));
     temps.push(dir);
     const res = await initProject({ projectRoot: dir });
@@ -80,7 +87,7 @@ describe("agent integrations (agents-only)", () => {
     expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(false);
   });
 
-  it("init installs only the requested platform (no skills)", async () => {
+  it("init installs only the requested AI agent (no skills)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sdd-init-ag-"));
     temps.push(dir);
     const res = await initProject({

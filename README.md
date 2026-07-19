@@ -214,7 +214,7 @@ sdd next
 
 ### Step 5 — Implement (with or without an AI agent)
 
-`sdd init` asks **which coding agent platform** (GitHub Copilot, Claude Code, or IntelliJ) — Speckit-style, one host at a time, never all by default. Installs thin agent stubs + one playbook (`.sdd/protocol.md`) and live `.sdd/active-context.md`. Use `--ai copilot` / `--no-agents` when non-interactive. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
+`sdd init` asks **which AI coding agent** (GitHub Copilot or Claude Code) — Speckit-style, never all by default. VS Code / IntelliJ are **IDEs**, not choices here; pick the AI tool those IDEs host. Installs thin agent stubs + one playbook (`.sdd/protocol.md`) and live `.sdd/active-context.md`. Use `--ai copilot` / `--no-agents` when non-interactive. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
 
 When you reach an `implement` stage:
 

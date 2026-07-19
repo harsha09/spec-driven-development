@@ -46,16 +46,21 @@ Install zip: **Settings → Plugins → ⚙️ → Install Plugin from Disk…**
 | Refresh Agent Context | `sdd agents refresh` |
 | Install Agent Files | `sdd agents install` |
 
-## GitHub Copilot in IntelliJ
+## AI agents (not the IDE itself)
+
+IntelliJ is an **IDE**. Agent files are for **AI coding agents**:
+
+| AI agent | Install |
+|----------|---------|
+| **GitHub Copilot** | `sdd init --ai copilot` → `.github/agents/*.agent.md` + protocol |
+| **Claude Code** | `sdd init --ai claude-code` → `.claude/agents/` (terminal; not IntelliJ-specific) |
+
+### GitHub Copilot in IntelliJ
 
 1. Install **GitHub Copilot** JetBrains plugin  
-2. `sdd init` or **Install Agent Integrations** → `.github/agents/*.agent.md` + `.sdd/protocol.md`  
+2. `sdd init --ai copilot` (or interactive pick **GitHub Copilot**)  
 3. After stages: **Refresh Agent Context**  
-4. Select SDD agents in Copilot (e.g. `sdd-implementer`)  
-
-## Claude Code
-
-Agents under `.claude/agents/` (not skills). Same protocol file. Terminal-based; IntelliJ optional.
+4. Select SDD agents in Copilot (e.g. `sdd-implementer`)
 
 ## Tests
 

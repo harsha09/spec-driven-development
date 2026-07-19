@@ -2,6 +2,8 @@
 
 **No skills.** One playbook, thin role agents, live context.
 
+**IDEs ≠ AI agents.** VS Code, Cursor, and IntelliJ are editors. `sdd init` asks which **AI coding agent** to install files for (GitHub Copilot or Claude Code), not which IDE you use.
+
 | Layer | Path | Size |
 |-------|------|------|
 | **Protocol** (only full playbook) | `.sdd/protocol.md` | ~1 page |
@@ -12,15 +14,20 @@
 
 ---
 
-## Targets
+## AI agents vs IDEs
+
+| Kind | Examples | What SDD installs |
+|------|----------|-------------------|
+| **AI coding agent** | GitHub Copilot, Claude Code | Thin role agents + protocol |
+| **IDE** | VS Code, Cursor, IntelliJ | Extension/plugin only — runs `sdd`; does **not** get its own agent target |
 
 | Surface | Integration |
 |---------|-------------|
 | **CLI** | `sdd` |
-| **VS Code / Cursor** | Extension + Copilot agents |
-| **IntelliJ** | Plugin → `sdd` CLI; Copilot uses `.github/agents/` |
-| **GitHub Copilot** | Custom **agents** only (not skills, not fat instructions) |
-| **Claude Code** | Custom **agents** in `.claude/agents/` only (not skills) |
+| **VS Code / Cursor** (IDE) | Extension + pick **Copilot** and/or use **Claude Code** terminal |
+| **IntelliJ** (IDE) | Plugin → `sdd` CLI; pick **Copilot** for `.github/agents/` |
+| **GitHub Copilot** (AI agent) | Custom **agents** only (not skills, not fat instructions) |
+| **Claude Code** (AI agent) | Custom **agents** in `.claude/agents/` only (not skills) |
 
 ---
 
@@ -40,10 +47,10 @@ All real rules live in **`.sdd/protocol.md` once**.
 
 ## Commands
 
-`sdd init` asks **which platform** (like Speckit) — it does **not** install every host by default.
+`sdd init` asks **which AI coding agent** (like Speckit) — never installs every agent by default, and never offers IDEs as choices.
 
 ```bash
-sdd init                      # interactive: pick copilot | claude-code | intellij | none
+sdd init                      # interactive: pick copilot | claude-code | none
 sdd init --ai copilot         # non-interactive: GitHub Copilot only
 sdd init --ai claude-code     # Claude Code only
 sdd init --no-agents          # skip agent files
@@ -69,10 +76,10 @@ sdd agents refresh            # refresh active-context.md
 
 | Package | Coverage |
 |---------|----------|
-| `core` | protocol + agents-only install; opt-in platforms; no skills; thin body |
-| `vscode` unit | init with explicit platform only |
-| `vscode` UI | Electron: init installs only selected platform |
-| `intellij` | CLI argv for `agents install/refresh` |
+| `core` | protocol + agents-only; AI agents only (not IDEs); thin body |
+| `vscode` unit | init with explicit AI agent only |
+| `vscode` UI | Electron: init installs only selected AI agent |
+| `intellij` plugin | CLI argv for `agents install/refresh` (IDE shell) |
 
 ```bash
 pnpm test

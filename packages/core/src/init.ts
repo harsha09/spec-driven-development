@@ -23,9 +23,10 @@ export interface InitOptions {
   force?: boolean;
   pack?: "default" | "enterprise";
   /**
-   * Agent platforms to install. Opt-in only — never defaults to all platforms.
+   * AI coding agents to install (copilot | claude-code). Not IDEs.
+   * Opt-in only — never defaults to all agents.
    * - omit / `false` — no agent files
-   * - `AgentTarget[]` — install only those hosts
+   * - `AgentTarget[]` — install only those AI agents
    */
   agents?: false | AgentTarget[];
 }
