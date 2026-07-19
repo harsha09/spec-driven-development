@@ -30,13 +30,13 @@ describe("VS Code extension use-cases (core path)", () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-vsc-"));
     temps.push(root);
 
-    // structuredVibe.init
-    await initProject({ projectRoot: root });
+    // structuredVibe.init with explicit platform (picker in UI)
+    await initProject({ projectRoot: root, agents: ["copilot"] });
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(true);
-    // Agents only (no skills / fat instructions)
+    // Agents only for selected platform (no skills / fat instructions)
     expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
     expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
-    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
     expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
 
     // structuredVibe.new

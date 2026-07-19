@@ -71,14 +71,26 @@ describe("agent integrations (agents-only)", () => {
     expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(true);
   });
 
-  it("init installs agents by default (no skills)", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sdd-init-ag-"));
+  it("init does not install agents unless platforms are specified", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sdd-init-none-"));
     temps.push(dir);
     const res = await initProject({ projectRoot: dir });
+    expect(res.agents).toBeUndefined();
+    expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(false);
+  });
+
+  it("init installs only the requested platform (no skills)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sdd-init-ag-"));
+    temps.push(dir);
+    const res = await initProject({
+      projectRoot: dir,
+      agents: ["claude-code"],
+    });
     expect(res.agents?.created.length).toBeGreaterThan(0);
     expect(await pathExists(join(dir, ".sdd/protocol.md"))).toBe(true);
     expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(true);
-    expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(true);
+    expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(false);
     expect(await pathExists(join(dir, ".claude/skills/sdd/SKILL.md"))).toBe(false);
   });
 

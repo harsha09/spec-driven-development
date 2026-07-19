@@ -22,8 +22,12 @@ export interface InitOptions {
   projectRoot: string;
   force?: boolean;
   pack?: "default" | "enterprise";
-  /** Install Copilot / Claude Code / IntelliJ agent files (default: all). */
-  agents?: boolean | AgentTarget[];
+  /**
+   * Agent platforms to install. Opt-in only — never defaults to all platforms.
+   * - omit / `false` — no agent files
+   * - `AgentTarget[]` — install only those hosts
+   */
+  agents?: false | AgentTarget[];
 }
 
 export interface InitResult {
@@ -130,14 +134,10 @@ sdd complete
   }
 
   let agentsResult: InitResult["agents"];
-  if (opts.agents !== false) {
-    const targets =
-      Array.isArray(opts.agents) && opts.agents.length
-        ? opts.agents
-        : undefined;
+  if (Array.isArray(opts.agents) && opts.agents.length > 0) {
     const ag = await installAgentIntegrations({
       projectRoot,
-      targets,
+      targets: opts.agents,
       force,
     });
     created.push(...ag.created);

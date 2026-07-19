@@ -17,6 +17,7 @@ import {
   listWorkflowNames,
   loadConfig,
   loadWorkflow,
+  parseAgentTargets,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
@@ -24,6 +25,7 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
+  AGENT_TARGET_OPTIONS,
   type AgentTarget,
 } from "@structured-vibe-coding/core";
 
@@ -38,34 +40,142 @@ async function requireInit(): Promise<void> {
   }
 }
 
+/** Speckit-style: pick one (or more via flag) coding agent platform — never all by default. */
+async function resolveAgentTargets(opts: {
+  /** --ai / --agents raw value */
+  agentsFlag?: string | boolean;
+  noAgents?: boolean;
+  /** When true, allow multiselect in interactive mode */
+  multi?: boolean;
+}): Promise<AgentTarget[] | false> {
+  if (opts.noAgents) return false;
+
+  const flag = opts.agentsFlag;
+  if (flag === true || flag === "") {
+    // bare --agents without value → prompt
+  } else if (typeof flag === "string" && flag.trim()) {
+    return parseAgentTargets(flag);
+  }
+
+  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (!interactive) {
+    consola.info(
+      "Non-interactive session: skipping agent files. Pass " +
+        pc.cyan("--ai copilot") +
+        " (or claude-code, intellij) or " +
+        pc.cyan("--no-agents") +
+        ".",
+    );
+    return false;
+  }
+
+  consola.log("");
+  consola.log(pc.bold("Select your coding agent platform"));
+  consola.log(pc.dim("Only the chosen host gets agent files (not all platforms)."));
+
+  if (opts.multi) {
+    const ids = AGENT_TARGET_OPTIONS.map((o) => o.id);
+    const labels = AGENT_TARGET_OPTIONS.map((o) => `${o.label}  (${o.hint})`);
+    const picked = await consola.prompt("Platforms to install:", {
+      type: "multiselect",
+      options: labels,
+      required: false,
+    });
+    if (picked === undefined || typeof picked === "symbol") {
+      consola.error("Cancelled");
+      process.exit(1);
+    }
+    if (!Array.isArray(picked) || picked.length === 0) {
+      return false;
+    }
+    // Map selected labels back to ids
+    const selected: AgentTarget[] = [];
+    for (const label of picked) {
+      const idx = labels.indexOf(String(label));
+      if (idx >= 0) selected.push(ids[idx]!);
+    }
+    return selected.length ? selected : false;
+  }
+
+  const choices = [
+    ...AGENT_TARGET_OPTIONS.map((o) => `${o.label}  (${o.hint})`),
+    "None  (skip agent files — sdd agents install later)",
+  ];
+  const picked = await consola.prompt("Which platform?", {
+    type: "select",
+    options: choices,
+  });
+
+  if (picked === undefined || typeof picked === "symbol") {
+    consola.error("Cancelled");
+    process.exit(1);
+  }
+  const choice = String(picked);
+  if (choice.startsWith("None")) return false;
+  const idx = choices.indexOf(choice);
+  if (idx < 0 || idx >= AGENT_TARGET_OPTIONS.length) return false;
+  return [AGENT_TARGET_OPTIONS[idx]!.id];
+}
+
 const init = defineCommand({
-  meta: { name: "init", description: "Initialize SDD in the current directory" },
+  meta: {
+    name: "init",
+    description: "Initialize SDD in the current directory (asks which agent platform)",
+  },
   args: {
     force: { type: "boolean", description: "Overwrite default workflows/templates", default: false },
+    ai: {
+      type: "string",
+      description:
+        "Agent platform to install: copilot | claude-code | intellij (skip interactive pick)",
+      alias: "a",
+    },
+    agents: {
+      type: "string",
+      description: "Same as --ai (comma-separated allowed)",
+    },
     "no-agents": {
       type: "boolean",
-      description: "Skip Copilot / Claude Code / IntelliJ agent files",
+      description: "Skip agent files entirely",
       default: false,
     },
   },
   async run({ args }) {
     try {
+      const agentsFlag = args.ai ?? args.agents;
+      const resolved = await resolveAgentTargets({
+        agentsFlag,
+        noAgents: args["no-agents"],
+        multi: false,
+      });
+
       const result = await initProject({
         projectRoot: projectRoot(),
         force: args.force,
-        agents: args["no-agents"] ? false : true,
+        agents: resolved === false ? false : resolved,
       });
       consola.success("Initialized structured vibe coding (SDD)");
       consola.info(`Config: .sdd/config.yaml`);
       consola.info(`Workflows: .sdd/workflows/ (${(await listWorkflowNames(projectRoot())).join(", ")})`);
       if (result.agents?.created.length) {
-        consola.info(`Agents: ${result.agents.created.slice(0, 6).join(", ")}${result.agents.created.length > 6 ? "…" : ""}`);
+        consola.info(
+          `Agents (${resolved === false ? "none" : (resolved as AgentTarget[]).join(", ")}): ` +
+            `${result.agents.created.slice(0, 6).join(", ")}${result.agents.created.length > 6 ? "…" : ""}`,
+        );
+      } else {
+        consola.info(pc.dim("Agents: skipped (run sdd agents install later)"));
       }
       consola.log("");
       consola.log(pc.dim("Next:"));
       consola.log(`  ${pc.cyan("sdd new")} "Your first change"`);
       consola.log(`  ${pc.cyan("sdd status")}`);
-      consola.log(pc.dim("Agents only: .claude/agents/ · .github/agents/ · playbook .sdd/protocol.md"));
+      if (resolved !== false) {
+        consola.log(
+          pc.dim(
+            "Playbook: .sdd/protocol.md · live: .sdd/active-context.md · thin agents for selected platform only",
+          ),
+        );
+      }
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);
@@ -464,13 +574,18 @@ const agent = defineCommand({
 const agentsInstall = defineCommand({
   meta: {
     name: "install",
-    description: "Install GitHub Copilot / Claude Code / IntelliJ agent files",
+    description: "Install agent files for a selected platform (prompts if -t omitted)",
   },
   args: {
     target: {
       type: "string",
-      description: "copilot | claude-code | intellij (repeatable / comma-separated)",
+      description: "copilot | claude-code | intellij (comma-separated; skip interactive pick)",
       alias: "t",
+    },
+    ai: {
+      type: "string",
+      description: "Same as --target / -t",
+      alias: "a",
     },
     force: { type: "boolean", description: "Overwrite existing agent files", default: false },
   },
@@ -478,18 +593,18 @@ const agentsInstall = defineCommand({
     await requireInit();
     const root = projectRoot();
     try {
-      const raw = args.target;
-      let targets: AgentTarget[] | undefined;
-      if (raw) {
-        const list = (Array.isArray(raw) ? raw : String(raw).split(","))
-          .flatMap((s) => String(s).split(","))
-          .map((s) => s.trim())
-          .filter(Boolean) as AgentTarget[];
-        targets = list;
+      const raw = args.target ?? args.ai;
+      const resolved = await resolveAgentTargets({
+        agentsFlag: raw,
+        multi: true,
+      });
+      if (resolved === false || !resolved.length) {
+        consola.info("No platforms selected — nothing installed.");
+        return;
       }
       const result = await installAgentIntegrations({
         projectRoot: root,
-        targets,
+        targets: resolved,
         force: args.force,
       });
       consola.success(`Installed agent integrations: ${result.targets.join(", ")}`);
