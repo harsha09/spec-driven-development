@@ -1,7 +1,6 @@
 import { defineCommand, runMain } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
-import * as clack from "@clack/prompts";
 import {
   advanceStage,
   approveGate,
@@ -17,7 +16,6 @@ import {
   listWorkflowNames,
   loadConfig,
   loadWorkflow,
-  parseAgentTargets,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
@@ -25,11 +23,8 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
-  AGENT_TARGET_OPTIONS,
-  DEFAULT_INIT_INTEGRATION,
-  type AgentTarget,
 } from "@structured-vibe-coding/core";
-import { runSpeckitStyleInit } from "./init-flow.js";
+import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 
 function projectRoot(): string {
   return process.cwd();
@@ -40,51 +35,6 @@ async function requireInit(): Promise<void> {
     consola.error("SDD is not initialized here. Run `sdd init` first.");
     process.exit(1);
   }
-}
-
-/**
- * Speckit-style single integration pick for `sdd agents install`.
- * Non-interactive without flag → default copilot (like Speckit).
- */
-async function resolveAgentTargets(opts: {
-  agentsFlag?: string | boolean;
-  noAgents?: boolean;
-}): Promise<AgentTarget[] | false> {
-  if (opts.noAgents) return false;
-
-  const flag = opts.agentsFlag;
-  if (typeof flag === "string" && flag.trim()) {
-    return parseAgentTargets(flag);
-  }
-
-  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-  if (!interactive) {
-    consola.info(
-      pc.dim(
-        `Non-interactive: defaulting to '${DEFAULT_INIT_INTEGRATION}'. Use --ai copilot|claude.`,
-      ),
-    );
-    return [DEFAULT_INIT_INTEGRATION];
-  }
-
-  const choice = await clack.select({
-    message: "Choose your AI coding agent integration:",
-    options: [
-      ...AGENT_TARGET_OPTIONS.map((o) => ({
-        value: o.id,
-        label: o.label,
-        hint: o.hint,
-      })),
-      { value: "none" as const, label: "None", hint: "skip" },
-    ],
-    initialValue: DEFAULT_INIT_INTEGRATION,
-  });
-  if (clack.isCancel(choice)) {
-    consola.error("Cancelled");
-    process.exit(1);
-  }
-  if (choice === "none") return false;
-  return [choice as AgentTarget];
 }
 
 const init = defineCommand({
@@ -562,17 +512,18 @@ const agentsInstall = defineCommand({
     await requireInit();
     const root = projectRoot();
     try {
-      const raw = args.ai ?? args.integration ?? args.target;
-      const resolved = await resolveAgentTargets({ agentsFlag: raw });
-      if (resolved === false || !resolved.length) {
+      const selected = await selectIntegration({
+        ai: args.ai ?? args.target,
+        integration: args.integration,
+        requireAgent: true,
+      });
+      if (selected === false) {
         consola.info("No AI coding agent selected — nothing installed.");
         return;
       }
-      // Speckit installs one integration; if multiple flags passed, honor first
-      const targets = [resolved[0]!];
       const result = await installAgentIntegrations({
         projectRoot: root,
-        targets,
+        targets: [selected],
         force: args.force,
       });
       consola.success(`Installed AI integration: ${result.targets.join(", ")}`);

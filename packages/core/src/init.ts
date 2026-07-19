@@ -21,7 +21,6 @@ import { installAgentIntegrations, type AgentTarget } from "./agents.js";
 export interface InitOptions {
   projectRoot: string;
   force?: boolean;
-  pack?: "default" | "enterprise";
   /**
    * AI coding agents to install (copilot | claude-code). Not IDEs.
    * Opt-in only — never defaults to all agents.

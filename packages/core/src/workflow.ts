@@ -106,19 +106,6 @@ export function nextStageId(workflow: Workflow, meta: ChangeMeta): string | null
   return null;
 }
 
-export function previousStageId(workflow: Workflow, meta: ChangeMeta): string | null {
-  const all = resolveStages(workflow, meta);
-  const activeIds = new Set(activeStages(workflow, meta).map((s) => s.id));
-  const start = all.findIndex((s) => s.id === meta.stage);
-  if (start <= 0) return null;
-
-  for (let i = start - 1; i >= 0; i--) {
-    const id = all[i]!.id;
-    if (activeIds.has(id)) return id;
-  }
-  return null;
-}
-
 /** First active stage (honors skip / skip_when). */
 export function firstActiveStageId(workflow: Workflow, meta: ChangeMeta): string | null {
   return activeStages(workflow, meta)[0]?.id ?? null;

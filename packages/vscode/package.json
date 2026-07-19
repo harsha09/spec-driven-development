@@ -104,18 +104,13 @@
         "category": "Structured Vibe"
       },
       {
-        "command": "structuredVibe.openArtifact",
-        "title": "SDD: Open Artifact",
-        "category": "Structured Vibe"
-      },
-      {
         "command": "structuredVibe.openChangeFolder",
         "title": "SDD: Open Change Folder",
         "category": "Structured Vibe"
       },
       {
         "command": "structuredVibe.agentsInstall",
-        "title": "SDD: Install Agent Integrations (Copilot / Claude)",
+        "title": "SDD: Install AI Agent Integration",
         "category": "Structured Vibe"
       },
       {
@@ -152,13 +147,6 @@
           "command": "structuredVibe.new",
           "when": "view == structuredVibe.stages",
           "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "structuredVibe.openArtifact",
-          "when": "view == structuredVibe.stages && viewItem == artifact",
-          "group": "inline"
         }
       ]
     },

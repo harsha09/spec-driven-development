@@ -14,7 +14,7 @@ import {
   listChanges,
   listWorkflowNames,
   loadWorkflow,
-  parseAgentTargets,
+  parseIntegration,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
@@ -52,8 +52,8 @@ export function registerCommands(
 
   /**
    * @param forceArg when true, re-init without confirm (UI tests / automation)
-   * @param agentsArg platforms to install — string, string[], or false/"none" to skip.
-   *   When omitted, shows a platform picker (never installs all by default).
+   * @param agentsArg AI agent(s) — string, string[], or false/"none" to skip.
+   *   When omitted, shows a single-agent picker (Speckit-style).
    */
   reg("structuredVibe.init", async (forceArg?: unknown, agentsArg?: unknown) => {
     const root = await requireWorkspaceRoot();
@@ -77,11 +77,11 @@ export function registerCommands(
       force: force || (await isInitialized(root)),
       agents,
     });
-    const platformNote =
+    const agentNote =
       agents === false
         ? "No agent files (use SDD: Install Agent Integrations)."
-        : `Agents for: ${agents.join(", ")}.`;
-    showInfo(`Initialized. ${platformNote} Use SDD: New Change to start.`);
+        : `AI agent: ${agents.join(", ")}.`;
+    showInfo(`Initialized. ${agentNote} Use SDD: New Change to start.`);
   });
 
   /**
@@ -336,12 +336,8 @@ export function registerCommands(
     await openPath(ctx.path);
   });
 
-  reg("structuredVibe.openArtifact", async () => {
-    /* tree items open via vscode.open command */
-  });
-
   /**
-   * @param agentsArg platforms (string | string[]) to skip picker; never installs all unless listed
+   * @param agentsArg AI agent key/string[] to skip picker (Speckit-style single agent)
    */
   reg("structuredVibe.agentsInstall", async (agentsArg?: unknown) => {
     const root = await requireWorkspaceRoot();
@@ -355,7 +351,7 @@ export function registerCommands(
       targets,
       force: true,
     });
-    showInfo(`Agent files (${targets.join(", ")}): +${result.created.length} written`);
+    showInfo(`AI agent (${targets.join(", ")}): +${result.created.length} files`);
   });
 
   reg("structuredVibe.agentsRefresh", async () => {
@@ -369,10 +365,8 @@ export function registerCommands(
 }
 
 /**
- * Resolve agent platforms for IDE commands.
- * - explicit args → use them
- * - otherwise QuickPick one platform (or none)
- * Returns `undefined` if the user cancelled.
+ * Resolve AI coding agent for IDE commands (not IDEs).
+ * Speckit-style: one agent. Returns `undefined` if cancelled.
  */
 async function resolveAgentTargetsForIde(
   agentsArg: unknown,
@@ -382,16 +376,17 @@ async function resolveAgentTargetsForIde(
 
   if (agentsArg === false || agentsArg === "none") return false;
   if (typeof agentsArg === "string" && agentsArg.trim()) {
-    return parseAgentTargets(agentsArg);
+    return [parseIntegration(agentsArg)];
   }
   if (Array.isArray(agentsArg) && agentsArg.length) {
-    return parseAgentTargets(agentsArg.map(String));
+    // Prefer first entry only (one integration at a time)
+    return [parseIntegration(String(agentsArg[0]))];
   }
 
   const items: { label: string; description?: string; targets: false | AgentTarget[] }[] =
     AGENT_TARGET_OPTIONS.map((o) => ({
       label: o.label,
-      description: o.hint,
+      description: `${o.key} · ${o.hint}`,
       targets: [o.id] as AgentTarget[],
     }));
   if (allowNone) {
@@ -403,8 +398,8 @@ async function resolveAgentTargetsForIde(
   }
 
   const pick = await vscode.window.showQuickPick(items, {
-    title: "Which AI coding agent?",
-    placeHolder: "Copilot or Claude Code — not VS Code / IntelliJ (those are IDEs)",
+    title: "Choose your AI coding agent integration",
+    placeHolder: "copilot | claude — not VS Code / IntelliJ",
     ignoreFocusOut: true,
   });
   if (!pick) return undefined;
