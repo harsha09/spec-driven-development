@@ -4,7 +4,6 @@ import pc from "picocolors";
 import {
   advanceStage,
   approveGate,
-  buildAgentPrompt,
   buildContext,
   completeChange,
   createChange,
