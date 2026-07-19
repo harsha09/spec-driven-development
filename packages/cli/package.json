@@ -1,6 +1,6 @@
 {
   "name": "@structured-vibe-coding/cli",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "CLI (sdd) for structured vibe coding — local-first Spec-Driven Development",
   "type": "module",
   "bin": {
