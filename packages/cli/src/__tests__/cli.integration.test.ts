@@ -96,8 +96,17 @@ describe("CLI integration", () => {
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
     expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
 
-    const created = runSdd(root, ["new", "CLI integration hotfix typo", "-y", "-w", "hotfix"]);
+    // --no-agent: CI has no TTY agent; still writes handoff
+    const created = runSdd(root, [
+      "new",
+      "CLI integration hotfix typo",
+      "-y",
+      "-w",
+      "hotfix",
+      "--no-agent",
+    ]);
     expect(created.status, created.stderr + created.stdout).toBe(0);
+    expect(await exists(join(root, ".sdd/handoff.md"))).toBe(true);
 
     const { readdir } = await import("node:fs/promises");
     const changes = join(root, "changes");

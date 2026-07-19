@@ -15,6 +15,7 @@ import {
   listChanges,
   listWorkflowNames,
   loadConfig,
+  loadInstalledAgent,
   loadWorkflow,
   recommendWorkflow,
   refreshActiveAgentContext,
@@ -23,8 +24,10 @@ import {
   setActiveChange,
   skipStage,
   switchWorkflow,
+  writeAgentHandoff,
 } from "@structured-vibe-coding/core";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
+import { launchAgentAfterNew } from "./launch-agent.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 
 const init = defineCommand({
@@ -89,7 +92,11 @@ const init = defineCommand({
 });
 
 const newCmd = defineCommand({
-  meta: { name: "new", description: "Start a new change (spec-first)" },
+  meta: {
+    name: "new",
+    description:
+      "Start a new change, write agent handoff, and launch the AI agent from init (use --no-agent to skip)",
+  },
   args: {
     title: { type: "positional", description: "Change title", required: false },
     workflow: { type: "string", description: "Workflow pack name (skip recommend)", alias: "w" },
@@ -103,6 +110,11 @@ const newCmd = defineCommand({
       type: "boolean",
       description: "Accept recommended workflow without prompt",
       alias: "y",
+      default: false,
+    },
+    "no-agent": {
+      type: "boolean",
+      description: "Do not launch the AI coding agent after creating the change",
       default: false,
     },
   },
@@ -178,8 +190,35 @@ const newCmd = defineCommand({
       consola.log(`Path:     ${ctx.path}`);
       consola.log("");
       consola.log(formatStatus(ctx));
+
+      // Launch AI agent configured at sdd init (from .sdd/agents.json)
+      const launch = await launchAgentAfterNew({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+      });
       consola.log("");
-      consola.log(pc.dim("Edit artifacts, then: sdd next · sdd agent · sdd status"));
+      consola.info(`Handoff: ${launch.handoffPath}`);
+      if (launch.launched) {
+        consola.success(
+          `Started ${launch.target} (${(launch.command ?? []).join(" ")})`,
+        );
+      } else {
+        const installed = await loadInstalledAgent(root);
+        const label = installed?.integration.label ?? "AI agent";
+        consola.info(
+          pc.dim(
+            launch.reason ??
+              `${label}: open the tool in this project and read .sdd/handoff.md`,
+          ),
+        );
+        if (launch.target === "grok") {
+          consola.log(pc.dim("  Or: open Grok Build here — it loads AGENTS.md + .grok/rules/sdd.md"));
+        }
+      }
+      consola.log("");
+      consola.log(pc.dim("After the agent fills this stage: sdd next · sdd status · sdd verify"));
     });
   },
 });
@@ -402,18 +441,25 @@ const workflows = defineCommand({
 });
 
 const agent = defineCommand({
-  meta: { name: "agent", description: "Export agent handoff prompt for current stage" },
+  meta: {
+    name: "agent",
+    description:
+      "Write .sdd/handoff.md and print it (does not launch the AI — use sdd new for auto-launch)",
+  },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
-      const ctx = await buildContext(root, config, id);
       await refreshActiveAgentContext(root);
-      const prompt = await buildAgentPrompt(ctx, config, root);
-      process.stdout.write(prompt);
-      if (!prompt.endsWith("\n")) process.stdout.write("\n");
+      const path = await writeAgentHandoff(root, config, id);
+      const body = await import("node:fs/promises").then((fs) =>
+        fs.readFile(path, "utf8"),
+      );
+      process.stdout.write(body);
+      if (!body.endsWith("\n")) process.stdout.write("\n");
+      consola.info(pc.dim(`Also written to ${path}`));
     });
   },
 });
@@ -520,16 +566,17 @@ const help = defineCommand({
     consola.log(pc.dim("  → plus agent files for the chosen AI only (not all hosts)"));
     consola.log("");
     consola.log(pc.bold("Everyday:"));
-    consola.log(`  ${pc.cyan('sdd new "My change"')}   start a change pack`);
+    consola.log(`  ${pc.cyan('sdd new "My change"')}   create change + launch AI from init`);
+    consola.log(`  ${pc.cyan('sdd new "…" --no-agent')}  create change without launching AI`);
     consola.log(`  ${pc.cyan("sdd status")}            show stage`);
     consola.log(`  ${pc.cyan("sdd next")}              advance stage`);
     consola.log(`  ${pc.cyan("sdd verify")}            local verify`);
     consola.log(`  ${pc.cyan("sdd complete")}          archive change`);
     consola.log("");
-    consola.log(pc.bold("Agents (optional after init):"));
-    consola.log(`  ${pc.cyan("sdd agents install --ai grok")}   switch/reinstall one AI host`);
+    consola.log(pc.bold("Agents:"));
+    consola.log(`  ${pc.cyan("sdd agents install --ai grok")}   switch AI host (optional later)`);
     consola.log(`  ${pc.cyan("sdd agents refresh")}             update .sdd/active-context.md`);
-    consola.log(`  ${pc.cyan("sdd agent")}                      print handoff prompt`);
+    consola.log(`  ${pc.cyan("sdd agent")}                      write/print .sdd/handoff.md only`);
     consola.log("");
     consola.log(pc.dim("Docs: https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md"));
     consola.log(pc.dim("More: sdd <command> --help"));

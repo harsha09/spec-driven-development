@@ -101,13 +101,13 @@ sdd agents refresh                        # update active-context.md after stage
 
 ### Grok Build
 
-1. `sdd init --here --ai grok` (or interactive pick **Grok Build**)  
-2. Open the project in Grok Build (loads `AGENTS.md` + `.grok/rules/sdd.md`)  
-3. `sdd new "…"` then `sdd agents refresh` when stages change  
-4. Ask Grok to follow SDD (or rely on installed rules): implement the active change only  
-5. Run in shell (you or Grok): `sdd verify` → `sdd next` / `sdd complete`  
+1. `sdd init --here --ai grok`  
+2. `sdd new "…"` — creates the change pack, writes `.sdd/handoff.md`, and **starts Grok** (if `grok` is on PATH and the session is interactive)  
+3. Grok reads active-context + handoff + protocol; fills the current stage  
+4. You run: `sdd next` → … → `sdd verify` → `sdd complete`  
 
-Optional denser brief: `sdd agent` and paste into the chat.
+Skip launch: `sdd new "…" --no-agent`  
+Print handoff only (no launch): `sdd agent`
 
 ---
 
