@@ -9,6 +9,9 @@ import {
   loadConfig,
   refreshActiveAgentContext,
   pathExists,
+  renderThinAgent,
+  SDD_AGENT_ROLES,
+  PROTOCOL_MD,
 } from "../index.js";
 
 const temps: string[] = [];
@@ -27,38 +30,61 @@ afterEach(async () => {
   }
 });
 
-describe("agent integrations", () => {
-  it("installs copilot + claude-code + intellij files", async () => {
+describe("agent integrations (agents-only)", () => {
+  it("installs protocol + thin agents for copilot and claude — no skills", async () => {
     const root = await tempProject();
     const result = await installAgentIntegrations({
       projectRoot: root,
       targets: ["copilot", "claude-code", "intellij"],
+      force: true,
     });
-    expect(result.created.length).toBeGreaterThan(3);
-    expect(await pathExists(join(root, ".github/copilot-instructions.md"))).toBe(true);
-    expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
-    expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(true);
+    expect(result.created.length).toBeGreaterThan(5);
+
+    // Single playbook
+    expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
+    const protocol = await readFile(join(root, ".sdd/protocol.md"), "utf8");
+    expect(protocol).toContain("SDD protocol");
+    expect(protocol.length).toBeGreaterThan(PROTOCOL_MD.length - 50);
+
+    // Claude agents (not skills)
+    for (const role of SDD_AGENT_ROLES) {
+      expect(await pathExists(join(root, `.claude/agents/${role.id}.md`))).toBe(true);
+      expect(await pathExists(join(root, `.github/agents/${role.id}.agent.md`))).toBe(true);
+    }
+    expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
+    expect(await pathExists(join(root, ".github/copilot-instructions.md"))).toBe(false);
+    expect(await pathExists(join(root, ".github/skills"))).toBe(false);
+
+    // Thin: agent body is short and points at protocol
+    const impl = await readFile(join(root, ".claude/agents/sdd-implementer.md"), "utf8");
+    expect(impl.length).toBeLessThan(1200);
+    expect(impl).toMatch(/\.sdd\/protocol\.md/);
+    expect(impl).toMatch(/\.sdd\/active-context\.md/);
+    expect(impl).toMatch(/Role: \*\*implementer\*\*|Implementer:/i);
+
+    // Same body generator for both hosts
+    const claude = await readFile(join(root, ".claude/agents/sdd.md"), "utf8");
+    const copilot = await readFile(join(root, ".github/agents/sdd.agent.md"), "utf8");
+    expect(claude).toBe(copilot);
+
     expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
     expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(true);
-
-    const skill = await readFile(join(root, ".claude/skills/sdd/SKILL.md"), "utf8");
-    expect(skill).toMatch(/sdd status|active-context/);
-    const copilot = await readFile(join(root, ".github/copilot-instructions.md"), "utf8");
-    expect(copilot).toMatch(/Spec-Driven|active-context/);
   });
 
-  it("init installs agents by default", async () => {
+  it("init installs agents by default (no skills)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sdd-init-ag-"));
     temps.push(dir);
     const res = await initProject({ projectRoot: dir });
     expect(res.agents?.created.length).toBeGreaterThan(0);
-    expect(await pathExists(join(dir, ".github/copilot-instructions.md"))).toBe(true);
-    expect(await pathExists(join(dir, ".claude/skills/sdd/SKILL.md"))).toBe(true);
+    expect(await pathExists(join(dir, ".sdd/protocol.md"))).toBe(true);
+    expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(true);
+    expect(await pathExists(join(dir, ".github/agents/sdd.agent.md"))).toBe(true);
+    expect(await pathExists(join(dir, ".claude/skills/sdd/SKILL.md"))).toBe(false);
   });
 
-  it("refreshActiveAgentContext writes active change", async () => {
+  it("refreshActiveAgentContext writes active change and mentions protocol", async () => {
     const root = await tempProject();
-    await installAgentIntegrations({ projectRoot: root, targets: ["copilot"] });
+    await installAgentIntegrations({ projectRoot: root, targets: ["copilot"], force: true });
     const config = await loadConfig(root);
     await createChange({
       projectRoot: root,
@@ -70,6 +96,15 @@ describe("agent integrations", () => {
     expect(path).toBeTruthy();
     const body = await readFile(path!, "utf8");
     expect(body).toMatch(/Agent context feature/);
-    expect(body).toMatch(/hotfix|intent|implement/);
+    expect(body).toMatch(/protocol\.md/);
+  });
+
+  it("renderThinAgent stays concise", () => {
+    for (const role of SDD_AGENT_ROLES) {
+      const body = renderThinAgent(role);
+      expect(body.length).toBeLessThan(1200);
+      expect(body).not.toMatch(/Hard rules/); // full rules live in protocol only
+      expect(body).toMatch(/protocol\.md/);
+    }
   });
 });

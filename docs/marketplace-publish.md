@@ -39,24 +39,98 @@ If the ID `structured-vibe-coding` is taken, either:
 - Claim it under your org, or  
 - Change `"publisher"` in `package.json` to an available ID and use that everywhere  
 
-### 3. Personal Access Token (PAT)
+### 3. Auth: PAT vs Microsoft Entra ID
 
-1. Open Azure DevOps: [https://dev.azure.com](https://dev.azure.com)  
-   - If you have no org, create one (e.g. `structured-vibe-coding`)  
-2. User settings (top right) → **Personal access tokens** → **+ New Token**  
-3. Settings that work for `vsce publish`:
+Microsoft is steering people to **Entra ID** (Azure AD). That is **not** the same screen as a classic **Personal Access Token**.
 
-| Setting | Value |
-|---------|--------|
-| Name | `vsce-publish` |
-| Organization | **All accessible organizations** (recommended) |
-| Expiration | 90 days or custom |
-| Scopes | **Custom defined** → **Marketplace** → **Manage** |
+| Goal | What to use |
+|------|-------------|
+| First publish from your laptop (simplest) | **Option A** – upload VSIX in Marketplace UI (no PAT) |
+| Local `vsce login` / `vsce publish` | **Option B** – Azure DevOps **PAT** with Marketplace Manage |
+| Fully automated CI (Microsoft’s long-term path) | **Option C** – Entra + managed identity + `vsce publish --azure-credential` |
 
-4. **Create** → **copy the token once** (you won’t see it again)
+**Important:** Global PATs (“All accessible organizations”) are being retired (blocked/new creation limited; full retirement **Dec 1, 2026**). Prefer an **org-scoped** PAT if the portal forces that, or use **Option A** / **Option C**.
 
-Do **not** commit the PAT. Store it as a GitHub secret later if you automate publish (`VSCE_PAT`).
+---
 
+#### Option A — No token (easiest first publish)
+
+1. Build a VSIX:
+   ```bash
+   cd /path/to/spec-driven-development
+   pnpm build && pnpm package:vscode
+   # → packages/vscode/structured-vibe-sdd-*.vsix
+   ```
+2. Open [https://marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage)  
+3. Select publisher **`structured-vibe-coding`**  
+4. **New extension** / **+** → upload the `.vsix`  
+5. Wait for validation / listing  
+
+This only needs your Microsoft account + publisher; no PAT/Entra app for a one-off.
+
+---
+
+#### Option B — Generate a PAT for `vsce` (Azure DevOps, not Entra app registration)
+
+You do **not** create this under Azure Portal → Entra ID → App registrations for basic `vsce login`.
+
+1. Go to **Azure DevOps** (not only Azure portal): [https://dev.azure.com](https://dev.azure.com)  
+2. Create or open an **organization** (e.g. `structured-vibe-coding`)  
+3. Top-right **user icon** → **Personal access tokens**  
+   - Direct pattern: `https://dev.azure.com/{your-org}/_usersSettings/tokens`  
+4. **+ New Token** and set:
+
+| Field | Value for `vsce` |
+|-------|------------------|
+| **Name** | `vsce-publish` (any name) |
+| **Organization** | Prefer **your Azure DevOps org** (org-scoped). If offered and still allowed: *All accessible organizations* — Microsoft is deprecating that “global” type. |
+| **Expiration** | 30–90 days (short is safer) |
+| **Scopes** | **Custom defined** |
+| | Click **Show all scopes** |
+| | Scroll to **Marketplace** |
+| | Check **Manage** only (enough for publish) |
+
+5. **Create** → **copy the token immediately**
+
+If the UI only shows **Entra / “sign in with work account”** loops:
+
+- Use an **incognito** window  
+- Sign in with the **same** Microsoft account you used for the Marketplace publisher  
+- Or create the PAT from Marketplace manage if available: publisher → **Security** / tokens (when shown)  
+- Avoid mixing personal + work Entra tenants in the same browser session  
+
+Use with vsce:
+
+```bash
+cd packages/vscode
+pnpm exec vsce login structured-vibe-coding
+# paste PAT when prompted
+
+# or one-shot:
+pnpm exec vsce publish --no-dependencies -p "$VSCE_PAT"
+```
+
+Do **not** commit the PAT. For CI later, store as GitHub secret `VSCE_PAT`.
+
+---
+
+#### Option C — Microsoft Entra ID (CI / “no PAT” path Microsoft recommends)
+
+Use this for **Azure Pipelines** (or advanced automation), not the first local publish.
+
+High-level attributes / objects (not a single “Entra PAT” string):
+
+| Piece | What it is |
+|-------|------------|
+| **User-assigned managed identity** (Azure) | Identity that can act without a stored password |
+| **Azure DevOps Service Connection** | Type: **Azure Resource Manager** → **Workload Identity Federation (manual)** |
+| **Federated credential** | Links DevOps issuer/subject ↔ managed identity |
+| **Marketplace publisher membership** | Add that identity’s resource ID as **Contributor** on publisher `structured-vibe-coding` |
+| **Pipeline publish** | AzureCLI task + `vsce publish --azure-credential` (needs recent `@vscode/vsce`) |
+
+Official outline: [Publishing Extensions – Secure automated publishing](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#secure-automated-publishing-to-visual-studio-marketplace).
+
+You **do not** fill “scopes: Marketplace Manage” on an Entra **app registration** the same way as a DevOps PAT. Entra uses **workload identity federation** + marketplace membership of the managed identity.
 ---
 
 ## Local publish (recommended first time)

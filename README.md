@@ -214,11 +214,15 @@ sdd next
 
 ### Step 5 — Implement (with or without an AI agent)
 
+`sdd init` installs **agents only** (no skills): thin role stubs for Claude Code and GitHub Copilot that all read one playbook (`.sdd/protocol.md`) plus live `.sdd/active-context.md`. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
+
 When you reach an `implement` stage:
 
 ```bash
 # Copy a handoff prompt into Cursor / Claude Code / etc.
 sdd agent
+# Or pick agent sdd / sdd-implementer in Copilot or Claude
+sdd agents refresh   # refresh active-context after stage changes
 ```
 
 Or:

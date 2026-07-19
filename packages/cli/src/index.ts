@@ -65,7 +65,7 @@ const init = defineCommand({
       consola.log(pc.dim("Next:"));
       consola.log(`  ${pc.cyan("sdd new")} "Your first change"`);
       consola.log(`  ${pc.cyan("sdd status")}`);
-      consola.log(pc.dim("Agents: GitHub Copilot (.github/), Claude Code (.claude/), AGENTS.md"));
+      consola.log(pc.dim("Agents only: .claude/agents/ · .github/agents/ · playbook .sdd/protocol.md"));
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);

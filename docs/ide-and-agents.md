@@ -1,97 +1,76 @@
-# IDEs & coding agents
+# IDEs & coding agents (agents only)
 
-Target surfaces for Structured Vibe Coding:
+**No skills.** One playbook, thin role agents, live context.
 
-| Surface | How SDD integrates |
-|---------|-------------------|
-| **CLI** | `sdd` binary |
-| **VS Code / Cursor** | Extension (`packages/vscode`) |
-| **IntelliJ / WebStorm** | Plugin (`packages/intellij`) → shells out to `sdd` |
-| **GitHub Copilot** | `.github/copilot-instructions.md`, `.github/agents/sdd.agent.md`, path instructions |
-| **Claude Code** | `.claude/skills/sdd/SKILL.md`, `.claude/CLAUDE.md` |
-
-Shared live context: **`.sdd/active-context.md`** (refresh via `sdd agents refresh`).
+| Layer | Path | Size |
+|-------|------|------|
+| **Protocol** (only full playbook) | `.sdd/protocol.md` | ~1 page |
+| **Live task** | `.sdd/active-context.md` | generated |
+| **Claude Code agents** | `.claude/agents/*.md` | ~10 lines each |
+| **GitHub Copilot agents** | `.github/agents/*.agent.md` | **same text** as Claude agents |
+| **Optional pointer** | `AGENTS.md` | tiny index |
 
 ---
 
-## Install agent files
+## Targets
 
-After `sdd init` (agents on by default):
+| Surface | Integration |
+|---------|-------------|
+| **CLI** | `sdd` |
+| **VS Code / Cursor** | Extension + Copilot agents |
+| **IntelliJ** | Plugin → `sdd` CLI; Copilot uses `.github/agents/` |
+| **GitHub Copilot** | Custom **agents** only (not skills, not fat instructions) |
+| **Claude Code** | Custom **agents** in `.claude/agents/` only (not skills) |
+
+---
+
+## Roles (same on both hosts)
+
+| Agent id | Role |
+|----------|------|
+| `sdd` | Router — plan or implement from current stage |
+| `sdd-planner` | Specs / design / tasks only |
+| `sdd-implementer` | Code for active change |
+| `sdd-reviewer` | Check against acceptance before verify |
+
+Bodies are **stubs**: role + “read `active-context.md` then `protocol.md`”.  
+All real rules live in **`.sdd/protocol.md` once**.
+
+---
+
+## Commands
 
 ```bash
-sdd agents install
+sdd init                      # installs agents + protocol
+sdd init --no-agents
+sdd agents install            # copilot + claude-code + intellij
 sdd agents install -t copilot,claude-code
-sdd agents install -t intellij --force
-sdd agents refresh
+sdd agents install --force    # rewrite stubs + protocol
+sdd agents refresh            # refresh active-context.md
 ```
 
-### GitHub Copilot (VS Code **and** IntelliJ)
+---
 
-Creates:
+## Engineer workflow
 
-- `.github/copilot-instructions.md` — workspace rules for Copilot Chat / Edits  
-- `.github/agents/sdd.agent.md` — dedicated **sdd** agent definition  
-- `.github/instructions/sdd.instructions.md` — path-scoped guidance for `changes/**`  
-- `AGENTS.md` — cross-tool agent brief  
-- `.sdd/active-context.md` — current change/stage handoff  
-
-**Workflow for engineers using Copilot:**
-
-1. `sdd new "…"` / IDE **New Change**  
-2. `sdd agents refresh` (or auto on stage advance)  
-3. Open Copilot Chat → use project instructions / **sdd** agent  
-4. Implement → `sdd verify` → `sdd complete`  
-
-### Claude Code
-
-Creates:
-
-- `.claude/skills/sdd/SKILL.md` — skill Claude Code loads for SDD work  
-- `.claude/CLAUDE.md` — project pointer to the skill  
-
-Run Claude Code in the repo root; the skill tells the agent to read active context and respect stages.
-
-### IntelliJ + Copilot
-
-1. Install SDD plugin (from disk zip) + GitHub Copilot plugin  
-2. `npm i -g @structured-vibe-coding/cli` so `sdd` is on PATH  
-3. **Tools → SDD → Initialize** / **Install Agent Integrations**  
-4. Copilot in IntelliJ picks up `.github/copilot-instructions.md`  
+1. `sdd new "…"` / IDE New Change  
+2. `sdd agents refresh` (also runs on new/next)  
+3. Pick agent **sdd** / **sdd-implementer** (Copilot or Claude `/agents`)  
+4. Agent reads active-context + protocol  
+5. Human: `sdd verify` → `sdd complete`  
 
 ---
 
 ## Tests
 
-| Package | What |
-|---------|------|
-| `packages/core` | Unit tests for agent file install + active context |
-| `packages/vscode` | Unit tests + **full Electron UI tests** (`@vscode/test-electron`) |
-| `packages/intellij` | JUnit tests for CLI argv contract (`./gradlew test`) |
-
-### VS Code UI tests
+| Package | Coverage |
+|---------|----------|
+| `core` | protocol + agents-only install; no skills; thin body; Claude≡Copilot text |
+| `vscode` unit | init creates agents + protocol |
+| `vscode` UI | Electron: init creates agents, not skills |
+| `intellij` | CLI argv for `agents install/refresh` |
 
 ```bash
-pnpm --filter structured-vibe-sdd run test:ui
-# or from monorepo root:
+pnpm test
 pnpm test:vscode-ui
-```
-
-Launches a real VS Code instance, activates `structured-vibe-coding.structured-vibe-sdd`, and exercises:
-
-- command registration  
-- `structuredVibe.init` → `.sdd/` + Copilot/Claude agent files  
-- `structuredVibe.new` (programmatic title/workflow args)  
-- `structuredVibe.next` stage advance  
-- `structuredVibe.agentsRefresh` → `.sdd/active-context.md`  
-- status / tree refresh  
-
-CI runs these under **Xvfb** on Linux.
----
-
-## Init flags
-
-```bash
-sdd init                 # includes agent files
-sdd init --no-agents     # SDD only
-sdd agents install       # add agents later
 ```

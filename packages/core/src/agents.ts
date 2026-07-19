@@ -13,6 +13,65 @@ export type AgentTarget = "copilot" | "claude-code" | "intellij";
 
 export const ALL_AGENT_TARGETS: AgentTarget[] = ["copilot", "claude-code", "intellij"];
 
+/** Roles emitted as thin agents (shared body generator — no skill files). */
+export type SddAgentRoleId =
+  | "sdd"
+  | "sdd-planner"
+  | "sdd-implementer"
+  | "sdd-reviewer";
+
+export interface SddAgentRole {
+  id: SddAgentRoleId;
+  description: string;
+  roleLine: string;
+  /** Extra one-liner constraints for this role only */
+  roleRules: string[];
+}
+
+export const SDD_AGENT_ROLES: SddAgentRole[] = [
+  {
+    id: "sdd",
+    description:
+      "Default SDD agent. Use for any Spec-Driven Development work on the active change pack.",
+    roleLine: "Router: inspect stage in active-context; plan or implement accordingly.",
+    roleRules: [
+      "If stage is intent/feature/design/tasks/stories/research: act as planner (artifacts, little or no product code).",
+      "If stage is implement: act as implementer (scoped code only).",
+      "If stage is local_verify: act as reviewer (gaps vs acceptance; fixes only).",
+    ],
+  },
+  {
+    id: "sdd-planner",
+    description:
+      "SDD planner. Use when filling intent, design, research, stories, or tasks — not large code changes.",
+    roleLine: "Planner: produce/update stage markdown only.",
+    roleRules: [
+      "Do not make large product code changes unless the user explicitly overrides.",
+      "Keep artifacts short and actionable.",
+    ],
+  },
+  {
+    id: "sdd-implementer",
+    description:
+      "SDD implementer. Use when coding the active change (implement stage).",
+    roleLine: "Implementer: code only for the active change pack.",
+    roleRules: [
+      "Follow tasks.md / acceptance; honor arb-decision and design constraints.",
+      "Do not expand scope beyond the change title/intent.",
+    ],
+  },
+  {
+    id: "sdd-reviewer",
+    description:
+      "SDD reviewer. Use before verify/complete or to check work against the change pack.",
+    roleLine: "Reviewer: compare work to acceptance and stage artifacts.",
+    roleRules: [
+      "List gaps; suggest minimal fixes only.",
+      "Remind user to run sdd verify before sdd complete.",
+    ],
+  },
+];
+
 export interface InstallAgentsOptions {
   projectRoot: string;
   targets?: AgentTarget[];
@@ -26,8 +85,11 @@ export interface InstallAgentsResult {
 }
 
 /**
- * Install IDE / coding-agent integration files so GitHub Copilot, Claude Code,
- * and JetBrains (via shared instructions) follow SDD.
+ * Install **agents only** (no skills, no fat instructions).
+ *
+ * Single playbook: `.sdd/protocol.md`
+ * Live state:      `.sdd/active-context.md`
+ * Thin agents:     `.claude/agents/*` and `.github/agents/*` (pointers + role)
  */
 export async function installAgentIntegrations(
   opts: InstallAgentsOptions,
@@ -48,44 +110,41 @@ export async function installAgentIntegrations(
     created.push(rel);
   };
 
-  // Always refresh active context pointer used by all agents
+  // Always: one protocol + live context
+  await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
   await refreshActiveAgentContext(root);
 
-  if (targets.includes("copilot")) {
-    await write(
-      ".github/copilot-instructions.md",
-      COPILOT_INSTRUCTIONS,
-    );
-    await write(
-      ".github/agents/sdd.agent.md",
-      COPILOT_SDD_AGENT,
-    );
-    await write(
-      ".github/instructions/sdd.instructions.md",
-      COPILOT_PATH_INSTRUCTIONS,
-    );
-  }
-
-  if (targets.includes("claude-code")) {
-    await write(".claude/skills/sdd/SKILL.md", CLAUDE_SDD_SKILL);
-    await write(".claude/CLAUDE.md", CLAUDE_PROJECT_MD);
+  if (targets.includes("copilot") || targets.includes("claude-code")) {
+    for (const role of SDD_AGENT_ROLES) {
+      const body = renderThinAgent(role);
+      if (targets.includes("claude-code")) {
+        await write(`.claude/agents/${role.id}.md`, body);
+      }
+      if (targets.includes("copilot")) {
+        // Copilot custom agent file naming
+        await write(`.github/agents/${role.id}.agent.md`, body);
+      }
+    }
   }
 
   if (targets.includes("intellij")) {
-    // JetBrains + GitHub Copilot read repo instructions; also drop IntelliJ-oriented notes
     await write(".idea/sdd-agent-notes.md", INTELLIJ_NOTES);
-    // Shared AGENTS.md is useful for Copilot in IntelliJ and other tools
-    await write("AGENTS.md", AGENTS_MD);
-  } else if (targets.includes("copilot") || targets.includes("claude-code")) {
-    await write("AGENTS.md", AGENTS_MD);
   }
 
-  // Marker under .sdd
+  // Tiny shared pointer for any host that reads AGENTS.md (not a second playbook)
+  if (targets.includes("copilot") || targets.includes("claude-code") || targets.includes("intellij")) {
+    await write("AGENTS.md", AGENTS_MD_THIN);
+  }
+
   await write(
     join(".sdd", "agents.json"),
     JSON.stringify(
       {
-        version: 1,
+        version: 2,
+        mode: "agents-only",
+        protocol: ".sdd/protocol.md",
+        activeContext: ".sdd/active-context.md",
+        roles: SDD_AGENT_ROLES.map((r) => r.id),
         installed: targets,
         updated: new Date().toISOString(),
       },
@@ -97,11 +156,46 @@ export async function installAgentIntegrations(
   return { created, skipped, targets };
 }
 
+/** Thin agent body shared by Claude Code and GitHub Copilot (same text). */
+export function renderThinAgent(role: SddAgentRole): string {
+  const rules = role.roleRules.map((r) => `- ${r}`).join("\n");
+  return `---
+name: ${role.id}
+description: ${role.description}
+---
+
+# ${role.id}
+
+${role.roleLine}
+
+## Required reads (in order)
+
+1. \`.sdd/active-context.md\` — current change and stage
+2. \`.sdd/protocol.md\` — SDD rules for this repo (single playbook)
+3. Active change files under \`changes/<id>/\` as listed in active-context
+
+## Role rules
+
+${rules}
+
+## Done
+
+Remind the human: \`sdd verify\` then \`sdd next\` / \`sdd complete\` as appropriate.
+Do not claim the change is complete without local verification when the workflow requires it.
+`;
+}
+
 /** Write .sdd/active-context.md for the current change (all agents read this). */
 export async function refreshActiveAgentContext(projectRoot: string): Promise<string | null> {
   const markerDir = sddRoot(projectRoot);
   if (!(await pathExists(join(markerDir, "config.yaml")))) {
     return null;
+  }
+
+  // Ensure protocol exists for agents that only got a partial install
+  const protocolPath = join(markerDir, "protocol.md");
+  if (!(await pathExists(protocolPath))) {
+    await writeText(protocolPath, PROTOCOL_MD);
   }
 
   const config = await loadConfig(projectRoot);
@@ -114,6 +208,8 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
 _No active change._ Run \`sdd new "…"\` or **SDD: New Change** in the IDE.
 
 Then re-run \`sdd agents refresh\` (or advance a stage) to update this file.
+
+Protocol: \`.sdd/protocol.md\`
 `;
     await writeText(outPath, empty);
     return outPath;
@@ -125,8 +221,9 @@ Then re-run \`sdd agents refresh\` (or advance a stage) to update this file.
 
   const body = `# SDD active context
 
-> Auto-generated for GitHub Copilot, Claude Code, and IDE agents.  
-> Change: **${ctx.meta.title}** · \`${ctx.id}\` · stage **${ctx.meta.stage}**
+> Auto-generated for coding agents.  
+> Change: **${ctx.meta.title}** · \`${ctx.id}\` · stage **${ctx.meta.stage}**  
+> Protocol: \`.sdd/protocol.md\`
 
 ## Status
 
@@ -141,195 +238,86 @@ ${handoff}
   return outPath;
 }
 
-const AGENTS_MD = `# Agent instructions — Structured Vibe Coding (SDD)
+/** Single playbook — only long agent-facing content we author once. */
+export const PROTOCOL_MD = `# SDD protocol
 
-This repository uses **Spec-Driven Development** via the \`sdd\` tool (CLI / VS Code / IntelliJ).
+This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this file plus \`.sdd/active-context.md\`. Do not invent a parallel process.
 
-## Always
+## Source of truth
 
-1. Prefer the **active change pack** under \`changes/<id>/\` as the source of truth for the current task.
-2. Read \`.sdd/active-context.md\` at the start of a coding session (refresh with \`sdd agents refresh\`).
-3. Read \`memory/\` for product and architecture constraints.
-4. Do **not** invent large features outside the current change intent.
-5. Respect **ARB / gate decisions** (e.g. \`arb-decision.md\`) and workflow constraints.
-6. When implementation is done, remind the human to run **local verify** (\`sdd verify\`) before \`sdd complete\`.
+| What | Where |
+|------|--------|
+| Process state | \`changes/<id>/meta.yaml\` (workflow, stage, gates) |
+| Current task snapshot | \`.sdd/active-context.md\` |
+| Stable product/tech rules | \`memory/*.md\` |
+| Stage artifacts | files in \`changes/<id>/\` for the active change |
 
-## Workflows
+## Required read order
 
-Process is defined in \`.sdd/workflows/*.yaml\`. Stages produce markdown artifacts in the change folder. Do not skip hard gates.
+1. \`.sdd/active-context.md\`
+2. This file (\`.sdd/protocol.md\`)
+3. \`meta.yaml\` + artifacts for the **current stage** (and prior stages if needed)
+4. \`memory/\` when architecture or conventions matter
 
-## Tools
+## Stage behavior
 
-| Surface | How |
-|---------|-----|
-| CLI | \`sdd status\`, \`sdd next\`, \`sdd agent\`, \`sdd verify\` |
-| VS Code / Cursor | Command Palette → **SDD:*** |
-| IntelliJ | Tools → **SDD** actions (runs CLI) |
-| GitHub Copilot | \`.github/copilot-instructions.md\` + agent \`sdd\` |
-| Claude Code | \`.claude/skills/sdd/SKILL.md\` |
+| Stage kind | Agent focus |
+|------------|-------------|
+| intent / feature / stories | Clarify scope; write short artifacts |
+| design / lld / db / research / hl_arb | Specs and decisions; minimal product code |
+| tasks | Break work into implementable checklist |
+| implement | Code only for this change; follow tasks/acceptance |
+| local_verify | Check acceptance; fix only; prepare for complete |
 
-## Local only
+## Hard rules
 
-Verification is **local development**. Do not assume CI replaced \`sdd verify\`.
-`;
+1. **Do not skip hard gates.** If blocked, tell the human to run \`sdd gate approve\` (or fix the gate).
+2. **Stay in scope** of the active change title/intent. No drive-by refactors or new features.
+3. **Honor constraints** in \`arb-decision.md\`, design, and memory non-negotiables.
+4. **Local verify** is part of done when the workflow has a verify stage: \`sdd verify\`.
+5. Prefer small, reviewable diffs.
 
-const COPILOT_INSTRUCTIONS = `<!-- Structured Vibe Coding (SDD) — GitHub Copilot instructions -->
-
-# Project coding agent rules
-
-This repo uses **Spec-Driven Development (SDD)** with the \`sdd\` CLI / IDE plugins.
-
-## Before writing code
-
-1. Open and follow \`.sdd/active-context.md\` if present.
-2. Open the active change under \`changes/\` (see \`changes/.active\` or the latest in-progress folder).
-3. Prefer artifacts for the **current stage** (intent/feature/design/tasks) over guessing.
-4. Honor \`memory/product.md\`, \`memory/architecture.md\`, \`memory/conventions.md\`.
-
-## While coding
-
-- Stay within the change scope (title + intent/feature).
-- Match patterns described in \`research.md\` / design when present.
-- Do not violate constraints in \`arb-decision.md\` or gate notes.
-- Prefer small, reviewable diffs.
-
-## When finishing
-
-- Suggest \`sdd verify\` (local) and only then \`sdd complete\`.
-- Do not claim the change is complete without local verification when the workflow has a verify stage.
-
-## Commands the human may run
+## Commands (human / shell)
 
 \`\`\`bash
 sdd status
 sdd next
-sdd agent          # print handoff
-sdd agents refresh # refresh .sdd/active-context.md
+sdd agent              # print handoff
+sdd agents refresh     # refresh active-context.md
 sdd verify
 sdd complete
 \`\`\`
+
+## Out of scope for agents
+
+- Replacing CI/CD or team process tools
+- Deleting \`.sdd\` / archive history
+- Claiming complete without verify when required
 `;
 
-const COPILOT_SDD_AGENT = `---
-name: sdd
-description: Spec-Driven Development agent for this repo. Use when implementing the active sdd change, advancing stages, or following .sdd workflows.
----
+const AGENTS_MD_THIN = `# Agents
 
-# SDD agent (GitHub Copilot)
+This repo uses **SDD agents only** (no skills).
 
-You are the **SDD implementer** for this workspace.
+| Read first | |
+|------------|--|
+| Live task | \`.sdd/active-context.md\` |
+| Playbook | \`.sdd/protocol.md\` |
 
-## Mission
+| Host | Agents |
+|------|--------|
+| Claude Code | \`.claude/agents/\` (\`sdd\`, \`sdd-planner\`, \`sdd-implementer\`, \`sdd-reviewer\`) |
+| GitHub Copilot | \`.github/agents/*.agent.md\` (same roles) |
 
-Implement only what the **active change pack** specifies. Specs and gates win over improvisation.
-
-## Required reads (in order)
-
-1. \`.sdd/active-context.md\`
-2. \`changes/<active-id>/meta.yaml\` (workflow + stage)
-3. Artifacts for the current stage and prior stages in that folder
-4. \`memory/*.md\`
-
-## Behavior
-
-- If there is no active change, tell the user to run \`sdd new "…"\` or **SDD: New Change**.
-- If \`meta.yaml\` stage is not \`implement\`, help fill the current stage artifact instead of large code rewrites—unless the user explicitly wants implementation early.
-- On implement stage: execute tasks from \`tasks.md\` / acceptance criteria; keep diffs scoped.
-- After code changes: remind them to run **local** \`sdd verify\`.
-
-## Out of scope
-
-- Redesigning the whole product
-- Skipping hard gates
-- Inventing requirements not in the change pack
+Refresh context: \`sdd agents refresh\`.
 `;
 
-const COPILOT_PATH_INSTRUCTIONS = `---
-applyTo: "changes/**,memory/**,.sdd/**"
----
+const INTELLIJ_NOTES = `# SDD + IntelliJ
 
-# SDD paths
+Agents only. Playbook: \`.sdd/protocol.md\`. Live: \`.sdd/active-context.md\`.
 
-Files under \`changes/\`, \`memory/\`, and \`.sdd/\` drive Spec-Driven Development.
-
-- Treat \`changes/**/meta.yaml\` as process state (do not invent fields).
-- Prefer editing stage artifacts over deleting workflow history.
-- When modifying code for an active change, keep alignment with that change's intent/design/tasks.
-`;
-
-const CLAUDE_SDD_SKILL = `---
-name: sdd
-description: Use Spec-Driven Development (sdd) for this repository — read active change, follow stages, implement within scope, local verify.
----
-
-# Skill: Structured Vibe Coding (SDD)
-
-## When to use
-
-- User asks to implement a feature/fix in this repo
-- User mentions sdd, change packs, stages, ARB, or local verify
-- You need the source of truth for the current task
-
-## Instructions
-
-1. Read \`.sdd/active-context.md\` (if missing, run \`sdd agents refresh\` via bash or ask the user).
-2. Read \`changes/<id>/meta.yaml\` for \`workflow\` and \`stage\`.
-3. Read relevant artifacts in that change folder (intent/feature/design/tasks/acceptance).
-4. Read \`memory/\` for global constraints.
-5. Implement **only** in-scope work for the current change.
-6. Prefer project conventions in \`memory/conventions.md\`.
-7. When done coding, instruct the user to run:
-
-\`\`\`bash
-sdd verify
-sdd gate approve   # if hard gate
-sdd next           # or sdd complete on last stage
-\`\`\`
-
-## Bash helpers (if tools allow)
-
-\`\`\`bash
-sdd status
-sdd agent
-sdd agents refresh
-\`\`\`
-
-## Do not
-
-- Skip hard gates
-- Expand scope beyond the change title/intent
-- Delete \`.sdd\` or archive history casually
-`;
-
-const CLAUDE_PROJECT_MD = `# Claude Code — this repo uses SDD
-
-Load the **sdd** skill under \`.claude/skills/sdd/\` for implementation work.
-
-Always check \`.sdd/active-context.md\` and the active folder under \`changes/\` before large edits.
-
-CLI: \`sdd\` (npm: \`@structured-vibe-coding/cli\`).
-`;
-
-const INTELLIJ_NOTES = `# SDD + IntelliJ / GitHub Copilot
-
-This project uses Structured Vibe Coding (\`sdd\`).
-
-## IntelliJ plugin
-
-Install the **Structured Vibe Coding (SDD)** plugin (or run the Gradle plugin from \`packages/intellij\`).  
-Actions under **Tools → SDD** shell out to the \`sdd\` CLI — install the CLI on PATH:
-
-\`\`\`bash
-npm i -g @structured-vibe-coding/cli
-\`\`\`
-
-## GitHub Copilot in IntelliJ
-
-Copilot respects repository instructions:
-
-- \`.github/copilot-instructions.md\`
-- \`AGENTS.md\`
-- \`.sdd/active-context.md\` (refresh often)
-
-Use the SDD plugin action **Refresh agent context** after \`sdd new\` / stage changes.
+1. Install \`sdd\` on PATH: \`npm i -g @structured-vibe-coding/cli\`
+2. Tools → SDD → Initialize / Install Agent Integrations
+3. GitHub Copilot uses \`.github/agents/*\` + active-context (same as VS Code)
+4. After stage changes: **Refresh Agent Context**
 `;
