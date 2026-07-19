@@ -1,7 +1,8 @@
 import { join } from "pathe";
-import { pathExists, removePath, writeText } from "./fs.js";
+import { pathExists, readText, removePath, writeText } from "./fs.js";
 import { loadConfig } from "./config.js";
 import { buildContext, getActiveChangeId } from "./change-context.js";
+import type { Config } from "./schemas.js";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
 import { sddRoot } from "./paths.js";
 
@@ -432,6 +433,77 @@ ${rules}
 Remind the human: \`sdd verify\` then \`sdd next\` / \`sdd complete\` as appropriate.
 Do not claim the change is complete without local verification when the workflow requires it.
 `;
+}
+
+export interface InstalledAgentSnapshot {
+  /** Public key: copilot | claude | grok */
+  ai: string;
+  target: AgentTarget;
+  integration: AgentIntegration;
+}
+
+/** Read which AI agent was configured at `sdd init` / last agents install. */
+export async function loadInstalledAgent(
+  projectRoot: string,
+): Promise<InstalledAgentSnapshot | null> {
+  const path = join(sddRoot(projectRoot), "agents.json");
+  if (!(await pathExists(path))) return null;
+  try {
+    const raw = JSON.parse(await readText(path)) as {
+      ai?: string;
+      integration?: string;
+      installed?: string[];
+    };
+    const key = raw.ai ?? raw.integration ?? raw.installed?.[0];
+    if (!key || typeof key !== "string") return null;
+    const target = parseIntegration(key);
+    return { ai: integrationKeyFor(target), target, integration: getIntegration(target) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write `.sdd/handoff.md` for the active (or given) change — full agent brief.
+ * Used by `sdd agent` and auto-launch after `sdd new`.
+ */
+export async function writeAgentHandoff(
+  projectRoot: string,
+  config: Config,
+  changeId: string,
+): Promise<string> {
+  const ctx = await buildContext(projectRoot, config, changeId);
+  const body = await buildAgentPrompt(ctx, config, projectRoot);
+  const outPath = join(sddRoot(projectRoot), "handoff.md");
+  const header = `# SDD handoff (auto)
+
+> Generated for the AI coding agent configured at init.  
+> Change: **${ctx.meta.title}** · \`${ctx.id}\` · stage **${ctx.meta.stage}**
+
+Also read: \`.sdd/active-context.md\`, \`.sdd/protocol.md\`, \`memory/constitution.md\` if present.
+
+---
+
+`;
+  await writeText(outPath, header + body + "\n");
+  return outPath;
+}
+
+/** Short kickoff line to pass into agent CLIs (full brief is in handoff.md). */
+export function agentKickoffMessage(opts: {
+  title: string;
+  stage: string;
+  changeId: string;
+}): string {
+  return [
+    `SDD: new change started.`,
+    `Title: ${opts.title}`,
+    `Change: ${opts.changeId}`,
+    `Stage: ${opts.stage}`,
+    `Read in order: .sdd/active-context.md, .sdd/handoff.md, .sdd/protocol.md, memory/constitution.md (if present).`,
+    `Fill/update current stage artifacts only under changes/${opts.changeId}/. Do not expand scope.`,
+    `When the stage is done, tell the human to run: sdd next`,
+  ].join(" ");
 }
 
 /** Write .sdd/active-context.md for the current change. */

@@ -241,16 +241,14 @@ Only the chosen AI host gets agent stubs. Details: [`docs/ide-and-agents.md`](do
 When you reach an `implement` stage:
 
 ```bash
-# Copy a handoff prompt into Cursor / Claude Code / etc.
+# Creates change pack + launches the AI you chose at init (grok/copilot/claude)
+sdd new "Add CSV export"
+# Skip launch:
+sdd new "Add CSV export" --no-agent
+
+# Handoff only (writes .sdd/handoff.md, does not start the agent):
 sdd agent
-# Or pick agent sdd / sdd-implementer in Copilot or Claude
 sdd agents refresh   # refresh active-context after stage changes
-```
-
-Or:
-
-```bash
-sdd agent | pbcopy   # macOS
 ```
 
 Implement code in the normal way in your app. Artifacts under `changes/…` and `memory/` are the source of truth for intent and constraints.

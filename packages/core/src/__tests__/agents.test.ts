@@ -7,12 +7,15 @@ import {
   installAgentIntegration,
   createChange,
   loadConfig,
+  loadInstalledAgent,
   parseAgentTargets,
   parseIntegration,
   DEFAULT_INIT_INTEGRATION,
   AGENT_INTEGRATIONS,
   getIntegration,
   refreshActiveAgentContext,
+  writeAgentHandoff,
+  agentKickoffMessage,
   pathExists,
   renderThinAgent,
   SDD_AGENT_ROLES,
@@ -188,5 +191,40 @@ describe("agent integrations (registry)", () => {
       expect(body).not.toMatch(/Hard rules/);
       expect(body).toMatch(/protocol\.md/);
     }
+  });
+
+  it("loadInstalledAgent reads agents.json from init", async () => {
+    const root = await tempProject();
+    expect(await loadInstalledAgent(root)).toBeNull();
+    await installAgentIntegration({ projectRoot: root, target: "grok", force: true });
+    const snap = await loadInstalledAgent(root);
+    expect(snap?.target).toBe("grok");
+    expect(snap?.ai).toBe("grok");
+    expect(snap?.integration.label).toMatch(/Grok/i);
+  });
+
+  it("writeAgentHandoff writes .sdd/handoff.md for active change", async () => {
+    const root = await tempProject();
+    await installAgentIntegration({ projectRoot: root, target: "grok", force: true });
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Handoff write test",
+      workflowName: "hotfix",
+    });
+    const path = await writeAgentHandoff(root, config, ctx.id);
+    expect(path).toMatch(/handoff\.md$/);
+    expect(await pathExists(path)).toBe(true);
+    const body = await readFile(path, "utf8");
+    expect(body).toMatch(/Handoff write test/);
+    expect(body).toMatch(/active-context|protocol/i);
+    const kick = agentKickoffMessage({
+      title: ctx.meta.title,
+      stage: ctx.meta.stage,
+      changeId: ctx.id,
+    });
+    expect(kick).toMatch(/sdd next/i);
+    expect(kick).toContain(ctx.id);
   });
 });
