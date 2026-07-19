@@ -152,6 +152,21 @@ describe("agent integrations (registry)", () => {
     expect(await pathExists(join(dir, ".claude/agents/sdd.md"))).toBe(false);
     expect(await pathExists(join(dir, "memory/index.md"))).toBe(true);
     expect(await pathExists(join(dir, "memory/product.md"))).toBe(true);
+    expect(await pathExists(join(dir, "memory/constitution.md"))).toBe(true);
+    const index = await readFile(join(dir, "memory/index.md"), "utf8");
+    expect(index).toMatch(/constitution/i);
+  });
+
+  it("agent surfaces mention constitution", () => {
+    expect(PROTOCOL_MD).toMatch(/constitution/i);
+    expect(agentKickoffMessage({
+      title: "T",
+      stage: "implement",
+      changeId: "2026-01-01-x",
+    })).toMatch(/constitution/i);
+    for (const role of SDD_AGENT_ROLES) {
+      expect(renderThinAgent(role)).toMatch(/constitution/i);
+    }
   });
 
   it("init installs only the requested AI agent", async () => {
@@ -219,6 +234,7 @@ describe("agent integrations (registry)", () => {
     const body = await readFile(path, "utf8");
     expect(body).toMatch(/Handoff write test/);
     expect(body).toMatch(/active-context|protocol/i);
+    expect(body).toMatch(/constitution/i);
     const kick = agentKickoffMessage({
       title: ctx.meta.title,
       stage: ctx.meta.stage,
@@ -228,5 +244,6 @@ describe("agent integrations (registry)", () => {
     expect(kick).toMatch(/sdd next/i);
     expect(kick).toContain(ctx.id);
     expect(kick).toMatch(/advanced intent/i);
+    expect(kick).toMatch(/constitution/i);
   });
 });

@@ -65,6 +65,32 @@ export async function copyDir(src: string, dest: string): Promise<void> {
   }
 }
 
+/**
+ * Copy directory tree but never overwrite existing files (stable docs like
+ * memory/constitution.md survive `sdd init --force`).
+ */
+export async function copyDirSkipExisting(src: string, dest: string): Promise<void> {
+  await ensureDir(dest);
+  const entries = await fs.readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const from = `${src}/${entry.name}`;
+    const to = `${dest}/${entry.name}`;
+    if (entry.isDirectory()) {
+      await copyDirSkipExisting(from, to);
+    } else if (!(await pathExists(to))) {
+      await ensureDir(dirname(to));
+      await fs.copyFile(from, to);
+    }
+  }
+}
+
+/** Write only when the path does not already exist. */
+export async function writeTextIfMissing(path: string, content: string): Promise<boolean> {
+  if (await pathExists(path)) return false;
+  await writeText(path, content);
+  return true;
+}
+
 export async function removePath(path: string): Promise<void> {
   await fs.rm(path, { recursive: true, force: true });
 }
