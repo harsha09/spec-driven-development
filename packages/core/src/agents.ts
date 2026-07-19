@@ -7,9 +7,9 @@ import { sddRoot } from "./paths.js";
 
 /**
  * AI coding agents (not IDEs).
- * Speckit-style: one integration at a time; public keys are short (`copilot`, `claude`).
+ * Speckit-style: one integration at a time; public keys: `copilot` | `claude` | `grok`.
  */
-export type AgentTarget = "copilot" | "claude-code";
+export type AgentTarget = "copilot" | "claude-code" | "grok";
 
 /** Registry entry — add a new AI agent by appending here only. */
 export interface AgentIntegration {
@@ -25,6 +25,12 @@ export interface AgentIntegration {
   cliBinary?: string;
   /** Relative path for a thin role agent file. */
   rolePath: (roleId: string) => string;
+  /**
+   * Which thin roles to install. Default: all SDD_AGENT_ROLES.
+   * Grok loads every `*.md` under `.grok/rules/`, so only install the router
+   * role there to avoid conflicting planner/implementer instructions.
+   */
+  rolesToInstall?: SddAgentRoleId[];
   /** One markdown table row for AGENTS.md. */
   agentsMdRow: string;
 }
@@ -54,6 +60,21 @@ export const AGENT_INTEGRATIONS: AgentIntegration[] = [
     rolePath: (roleId) => `.claude/agents/${roleId}.md`,
     agentsMdRow:
       "| Claude Code | `.claude/agents/` (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) |",
+  },
+  {
+    id: "grok",
+    key: "grok",
+    aliases: ["grok-build", "grokbuild", "xai", "xai-grok"],
+    label: "Grok Build",
+    hint: ".grok/rules/sdd.md + AGENTS.md (terminal TUI from xAI)",
+    requiresCli: false,
+    cliBinary: "grok",
+    installUrl: "https://docs.x.ai",
+    // Single rules file: Grok auto-loads all .grok/rules/*.md
+    rolePath: () => `.grok/rules/sdd.md`,
+    rolesToInstall: ["sdd"],
+    agentsMdRow:
+      "| Grok Build | `.grok/rules/sdd.md` + `AGENTS.md` (reads protocol + active-context; run `sdd` in shell) |",
   },
 ];
 
@@ -112,7 +133,7 @@ export function parseIntegration(raw: string): AgentTarget {
   }
   if (IDE_NAMES.has(p)) {
     throw new Error(
-      `"${p}" is an IDE, not an AI coding agent. Choose: copilot or claude (Claude Code).`,
+      `"${p}" is an IDE, not an AI coding agent. Choose: ${AGENT_INTEGRATIONS.map((i) => i.key).join(", ")}.`,
     );
   }
   for (const integ of AGENT_INTEGRATIONS) {
@@ -256,7 +277,11 @@ export async function installAgentIntegration(
   await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
   await refreshActiveAgentContext(root);
 
-  for (const role of SDD_AGENT_ROLES) {
+  const roles =
+    integ.rolesToInstall?.length
+      ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
+      : SDD_AGENT_ROLES;
+  for (const role of roles) {
     await write(integ.rolePath(role.id), renderThinAgent(role));
   }
 

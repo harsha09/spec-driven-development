@@ -12,7 +12,7 @@ Root [README](../README.md) = product pitch + install + quickstart.
 | If you want… | Open |
 |--------------|------|
 | Install and first change | [../README.md](../README.md) → *How to use it* |
-| AI agents (Copilot / Claude), not IDEs | [ide-and-agents.md](ide-and-agents.md) |
+| AI agents (Copilot / Claude / **Grok Build**), not IDEs | [ide-and-agents.md](ide-and-agents.md) |
 | CI, Node version, publish automation | [ci-cd.md](ci-cd.md) |
 | VS Marketplace / VSIX publish | [marketplace-publish.md](marketplace-publish.md) |
 | When SDD fits real teams | [scenario-evaluation.md](scenario-evaluation.md) |
