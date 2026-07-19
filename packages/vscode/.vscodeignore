@@ -1,7 +1,10 @@
 .vscode/**
 src/**
+out/**
 esbuild.mjs
 tsconfig.json
+tsconfig.test.json
+vitest.config.ts
 node_modules/**
 **/*.ts
 **/*.map
@@ -11,4 +14,5 @@ README.md
 ../**
 ../../**
 !dist/**
+!media/icon.png
 !media/icon.svg

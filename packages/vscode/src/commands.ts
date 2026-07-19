@@ -47,15 +47,21 @@ export function registerCommands(
     refresh();
   });
 
-  reg("structuredVibe.init", async () => {
+  /**
+   * @param forceArg when true, re-init without prompting (UI tests / automation)
+   */
+  reg("structuredVibe.init", async (forceArg?: unknown) => {
     const root = await requireWorkspaceRoot();
+    const force = forceArg === true;
     if (await isInitialized(root)) {
-      const again = await vscode.window.showWarningMessage(
-        "SDD already initialized. Re-copy default workflows/templates?",
-        "Force re-init",
-        "Cancel",
-      );
-      if (again !== "Force re-init") return;
+      if (!force) {
+        const again = await vscode.window.showWarningMessage(
+          "SDD already initialized. Re-copy default workflows/templates?",
+          "Force re-init",
+          "Cancel",
+        );
+        if (again !== "Force re-init") return;
+      }
       await initProject({ projectRoot: root, force: true });
     } else {
       await initProject({ projectRoot: root });
@@ -63,39 +69,57 @@ export function registerCommands(
     showInfo("Initialized. Use SDD: New Change to start.");
   });
 
-  reg("structuredVibe.new", async () => {
+  /**
+   * @param titleArg optional title (skips input box when string)
+   * @param workflowArg optional workflow name (skips quick pick when string)
+   */
+  reg("structuredVibe.new", async (titleArg?: unknown, workflowArg?: unknown) => {
     const { root, config } = await requireInit();
-    const title = await vscode.window.showInputBox({
-      prompt: "Change title (spec-first intent)",
-      placeHolder: "Add CSV export for expenses",
-      ignoreFocusOut: true,
-    });
+    let title =
+      typeof titleArg === "string" && titleArg.trim()
+        ? titleArg.trim()
+        : undefined;
+    if (!title) {
+      title = await vscode.window.showInputBox({
+        prompt: "Change title (spec-first intent)",
+        placeHolder: "Add CSV export for expenses",
+        ignoreFocusOut: true,
+      });
+    }
     if (!title?.trim()) return;
+    title = title.trim();
 
-    const rec = await recommendWorkflow(root, title.trim(), config);
-    const names = await listWorkflowNames(root);
-    const picks = [
-      {
-        label: rec.name,
-        description: `Recommended — ${rec.reason}`,
-        picked: true,
-      },
-      ...names
-        .filter((n) => n !== rec.name)
-        .map((n) => ({ label: n, description: "Workflow pack" })),
-    ];
-    const chosen = await vscode.window.showQuickPick(picks, {
-      title: "Select workflow",
-      placeHolder: rec.name,
-      ignoreFocusOut: true,
-    });
-    if (!chosen) return;
+    let workflowName =
+      typeof workflowArg === "string" && workflowArg.trim()
+        ? workflowArg.trim()
+        : undefined;
+    if (!workflowName) {
+      const rec = await recommendWorkflow(root, title, config);
+      const names = await listWorkflowNames(root);
+      const picks = [
+        {
+          label: rec.name,
+          description: `Recommended — ${rec.reason}`,
+          picked: true,
+        },
+        ...names
+          .filter((n) => n !== rec.name)
+          .map((n) => ({ label: n, description: "Workflow pack" })),
+      ];
+      const chosen = await vscode.window.showQuickPick(picks, {
+        title: "Select workflow",
+        placeHolder: rec.name,
+        ignoreFocusOut: true,
+      });
+      if (!chosen) return;
+      workflowName = chosen.label;
+    }
 
     const ctx = await createChange({
       projectRoot: root,
       config,
-      title: title.trim(),
-      workflowName: chosen.label,
+      title,
+      workflowName,
     });
     showInfo(`Created ${ctx.id} (${ctx.meta.workflow}) · stage ${ctx.meta.stage}`);
     await openPath(ctx.path);
@@ -228,15 +252,18 @@ export function registerCommands(
     }
   });
 
-  reg("structuredVibe.complete", async () => {
+  /** @param forceArg when true, skip confirm dialog (UI tests) */
+  reg("structuredVibe.complete", async (forceArg?: unknown) => {
     const { root, config } = await requireInit();
     const id = await resolveChangeId(root, config);
-    const confirm = await vscode.window.showWarningMessage(
-      `Complete and archive change ${id}?`,
-      "Complete",
-      "Cancel",
-    );
-    if (confirm !== "Complete") return;
+    if (forceArg !== true) {
+      const confirm = await vscode.window.showWarningMessage(
+        `Complete and archive change ${id}?`,
+        "Complete",
+        "Cancel",
+      );
+      if (confirm !== "Complete") return;
+    }
     const { archivedTo } = await completeChange(root, config, id);
     showInfo(archivedTo ? `Completed and archived to ${archivedTo}` : `Completed ${id}`);
   });
@@ -298,24 +325,31 @@ export function registerCommands(
     /* tree items open via vscode.open command */
   });
 
-  reg("structuredVibe.agentsInstall", async () => {
+  /** @param allArg when true, install all targets without picker (UI tests) */
+  reg("structuredVibe.agentsInstall", async (allArg?: unknown) => {
     const root = await requireWorkspaceRoot();
     if (!(await isInitialized(root))) {
       throw new Error("Initialize SDD first.");
     }
-    const pick = await vscode.window.showQuickPick(
-      [
-        { label: "All (Copilot + Claude Code + IntelliJ)", targets: undefined },
-        { label: "GitHub Copilot only", targets: ["copilot" as const] },
-        { label: "Claude Code only", targets: ["claude-code" as const] },
-        { label: "IntelliJ notes only", targets: ["intellij" as const] },
-      ],
-      { title: "Install agent integrations" },
-    );
-    if (!pick) return;
+    let targets: ("copilot" | "claude-code" | "intellij")[] | undefined;
+    if (allArg === true) {
+      targets = undefined; // all
+    } else {
+      const pick = await vscode.window.showQuickPick(
+        [
+          { label: "All (Copilot + Claude Code + IntelliJ)", targets: undefined as undefined },
+          { label: "GitHub Copilot only", targets: ["copilot" as const] },
+          { label: "Claude Code only", targets: ["claude-code" as const] },
+          { label: "IntelliJ notes only", targets: ["intellij" as const] },
+        ],
+        { title: "Install agent integrations" },
+      );
+      if (!pick) return;
+      targets = pick.targets;
+    }
     const result = await installAgentIntegrations({
       projectRoot: root,
-      targets: pick.targets,
+      targets,
       force: true,
     });
     showInfo(`Agent files: +${result.created.length} written`);
