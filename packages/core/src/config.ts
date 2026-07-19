@@ -1,6 +1,6 @@
 import { ConfigSchema, type Config } from "./schemas.js";
 import { pathExists, readYaml, writeYaml, ensureDir } from "./fs.js";
-import { configPath, sddRoot, workflowsDir, templatesDir, memoryDir } from "./paths.js";
+import { configPath, sddRoot } from "./paths.js";
 
 export async function isInitialized(projectRoot: string): Promise<boolean> {
   return pathExists(configPath(projectRoot));
@@ -24,14 +24,4 @@ export async function saveConfig(projectRoot: string, config: Config): Promise<v
 
 export function defaultConfig(): Config {
   return ConfigSchema.parse({});
-}
-
-export function projectPaths(projectRoot: string, config: Config) {
-  return {
-    sdd: sddRoot(projectRoot),
-    config: configPath(projectRoot),
-    workflows: workflowsDir(projectRoot),
-    templates: templatesDir(projectRoot),
-    memory: memoryDir(projectRoot, config),
-  };
 }

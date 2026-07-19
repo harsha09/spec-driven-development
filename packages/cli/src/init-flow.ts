@@ -1,6 +1,5 @@
 /**
  * Speckit-style init UX: project path, single AI integration, steps, tool check.
- * Mirrors `specify init` patterns without skills.
  */
 import { mkdir, readdir } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
@@ -41,44 +40,46 @@ function toolOnPath(bin: string): boolean {
 }
 
 /** Resolve project directory like Speckit: name | . | --here */
-export async function resolveProjectPath(args: InitCliArgs): Promise<{
+async function resolveProjectPath(args: InitCliArgs): Promise<{
   projectRoot: string;
   here: boolean;
-  createdDir: boolean;
 }> {
   const hereFlag = Boolean(args.here);
-  let name = args.path?.trim();
+  const name = args.path?.trim();
 
   if (name === ".") {
-    return { projectRoot: process.cwd(), here: true, createdDir: false };
+    return { projectRoot: process.cwd(), here: true };
   }
   if (hereFlag) {
     if (name) {
       throw new Error("Cannot specify both a project name and --here");
     }
-    return { projectRoot: process.cwd(), here: true, createdDir: false };
+    return { projectRoot: process.cwd(), here: true };
   }
   if (!name) {
-    // Bare `sdd init` → current directory (common DX; Speckit uses --here / .)
-    return { projectRoot: process.cwd(), here: true, createdDir: false };
+    // Bare `sdd init` → current directory
+    return { projectRoot: process.cwd(), here: true };
   }
 
   const projectRoot = isAbsolute(name) ? name : resolve(process.cwd(), name);
-  let createdDir = false;
-  try {
-    await mkdir(projectRoot, { recursive: true });
-    createdDir = true;
-  } catch {
-    // exists
-  }
-  // mkdir recursive is fine if exists; mark created only if was empty new - ok either way
-  return { projectRoot, here: false, createdDir };
+  await mkdir(projectRoot, { recursive: true });
+  return { projectRoot, here: false };
 }
 
-export async function selectIntegration(args: InitCliArgs): Promise<AgentTarget | false> {
-  if (args.noAgents) return false;
+/**
+ * Speckit-style single AI integration pick.
+ * Used by `sdd init` and `sdd agents install`.
+ */
+export async function selectIntegration(opts: {
+  ai?: string;
+  integration?: string;
+  noAgents?: boolean;
+  /** When true (agents install), omit "None" and always pick an agent. */
+  requireAgent?: boolean;
+}): Promise<AgentTarget | false> {
+  if (opts.noAgents) return false;
 
-  const raw = args.ai ?? args.integration;
+  const raw = opts.ai ?? opts.integration;
   if (raw?.trim()) {
     return parseIntegration(raw);
   }
@@ -93,20 +94,24 @@ export async function selectIntegration(args: InitCliArgs): Promise<AgentTarget 
     return DEFAULT_INIT_INTEGRATION;
   }
 
+  const options = [
+    ...AGENT_TARGET_OPTIONS.map((o) => ({
+      value: o.id as AgentTarget | "none",
+      label: o.label,
+      hint: o.hint,
+    })),
+  ];
+  if (!opts.requireAgent) {
+    options.push({
+      value: "none",
+      label: "None",
+      hint: "Skip agent files — sdd agents install later",
+    });
+  }
+
   const choice = await p.select({
     message: "Choose your AI coding agent integration:",
-    options: [
-      ...AGENT_TARGET_OPTIONS.map((o) => ({
-        value: o.id,
-        label: o.label,
-        hint: o.hint,
-      })),
-      {
-        value: "none" as const,
-        label: "None",
-        hint: "Skip agent files — sdd agents install later",
-      },
-    ],
+    options,
     initialValue: DEFAULT_INIT_INTEGRATION,
   });
 
@@ -118,7 +123,7 @@ export async function selectIntegration(args: InitCliArgs): Promise<AgentTarget 
   return choice as AgentTarget;
 }
 
-export async function maybeConfirmNonEmpty(
+async function maybeConfirmNonEmpty(
   projectRoot: string,
   force: boolean,
   here: boolean,
@@ -130,10 +135,8 @@ export async function maybeConfirmNonEmpty(
   } catch {
     return;
   }
-  // Ignore nothing meaningful if only empty
   if (!items.length) return;
 
-  // Already SDD — force required for re-init of scaffold is handled by core
   if (await isInitialized(projectRoot)) {
     if (!isInteractive()) {
       throw new Error(
@@ -152,7 +155,6 @@ export async function maybeConfirmNonEmpty(
   }
 
   if (!here && items.length) {
-    // Speckit: non-empty named dir without --force is error unless merge confirm
     if (!isInteractive()) {
       throw new Error(
         `Directory is not empty (${items.length} items). Use --force to merge.`,
@@ -169,7 +171,7 @@ export async function maybeConfirmNonEmpty(
   }
 }
 
-export async function checkAgentTool(
+async function checkAgentTool(
   target: AgentTarget,
   ignoreAgentTools: boolean,
 ): Promise<void> {
@@ -177,7 +179,6 @@ export async function checkAgentTool(
   const opt = optionForTarget(target);
   if (!opt?.requiresCli) return;
 
-  // Claude Code binary is typically `claude`
   const bin = target === "claude-code" ? "claude" : opt.key;
   if (toolOnPath(bin)) return;
 
@@ -209,20 +210,26 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
 
   await maybeConfirmNonEmpty(projectRoot, force, here);
 
-  const selected = await selectIntegration(args);
+  const selected = await selectIntegration({
+    ai: args.ai,
+    integration: args.integration,
+    noAgents: args.noAgents,
+  });
 
-  // Setup panel (Speckit-style summary)
-  const lines = [
-    `${pc.bold("Project")}     ${basename(projectRoot)}`,
-    `${pc.bold("Path")}        ${pc.dim(projectRoot)}`,
-    `${pc.bold("Mode")}        ${here ? "current directory (--here)" : "project path"}`,
-    `${pc.bold("AI agent")}    ${
-      selected === false
-        ? pc.dim("none")
-        : `${optionForTarget(selected)?.label ?? selected} ${pc.dim(`(${optionForTarget(selected)?.key ?? selected})`)}`
-    }`,
-  ];
-  p.note(lines.join("\n"), "SDD project setup");
+  const agentLabel =
+    selected === false
+      ? pc.dim("none")
+      : `${optionForTarget(selected)?.label ?? selected} ${pc.dim(`(${optionForTarget(selected)?.key ?? selected})`)}`;
+
+  p.note(
+    [
+      `${pc.bold("Project")}     ${basename(projectRoot)}`,
+      `${pc.bold("Path")}        ${pc.dim(projectRoot)}`,
+      `${pc.bold("Mode")}        ${here ? "current directory (--here)" : "project path"}`,
+      `${pc.bold("AI agent")}    ${agentLabel}`,
+    ].join("\n"),
+    "SDD project setup",
+  );
 
   if (selected !== false) {
     await checkAgentTool(selected, Boolean(args.ignoreAgentTools));
@@ -235,7 +242,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   const result = await initProject({
     projectRoot,
     force: force || already,
-    agents: false, // install agents as separate Speckit-like step
+    agents: false,
   });
   s.stop("Shared infrastructure ready");
 
@@ -271,7 +278,9 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
     `sdd status`,
   ];
   if (selected !== false) {
-    next.push(`# agent: ${agentDetail} · playbook .sdd/protocol.md · context .sdd/active-context.md`);
+    next.push(
+      `# agent: ${agentDetail} · playbook .sdd/protocol.md · context .sdd/active-context.md`,
+    );
   } else {
     next.push(`sdd agents install --ai copilot   # or --ai claude`);
   }

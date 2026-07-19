@@ -40,7 +40,9 @@ private fun runSdd(e: AnActionEvent, args: List<String>, successPrefix: String =
 }
 
 class SddInitAction : AnAction() {
-    override fun actionPerformed(e: AnActionEvent) = runSdd(e, listOf("init"), "Initialized")
+    // Non-TTY process: Speckit-style default AI = copilot (use agents install to switch)
+    override fun actionPerformed(e: AnActionEvent) =
+        runSdd(e, listOf("init", "--here", "--ai", "copilot"), "Initialized")
 }
 
 class SddNewAction : AnAction() {
@@ -90,5 +92,5 @@ class SddAgentsRefreshAction : AnAction() {
 
 class SddAgentsInstallAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) =
-        runSdd(e, listOf("agents", "install", "--force"), "Agent integrations installed")
+        runSdd(e, listOf("agents", "install", "--ai", "copilot", "--force"), "Copilot agents installed")
 }
