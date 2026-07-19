@@ -11,7 +11,7 @@ import {
   createChange,
   loadConfig,
   advanceStage,
-  installAgentIntegrations,
+  installAgentIntegration,
   refreshActiveAgentContext,
   pathExists,
 } from "@structured-vibe-coding/core";
@@ -30,8 +30,8 @@ describe("VS Code extension use-cases (core path)", () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-vsc-"));
     temps.push(root);
 
-    // structuredVibe.init with explicit platform (picker in UI)
-    await initProject({ projectRoot: root, agents: ["copilot"] });
+    // structuredVibe.init with explicit AI agent (picker in UI)
+    await initProject({ projectRoot: root, agents: "copilot" });
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(true);
     // Agents only for selected platform (no skills / fat instructions)
     expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
@@ -63,9 +63,9 @@ describe("VS Code extension use-cases (core path)", () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-vsc-cop-"));
     temps.push(root);
     await initProject({ projectRoot: root, agents: false });
-    await installAgentIntegrations({
+    await installAgentIntegration({
       projectRoot: root,
-      targets: ["copilot"],
+      target: "copilot",
       force: true,
     });
     expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);

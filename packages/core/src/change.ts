@@ -18,7 +18,6 @@ import {
   removePath,
 } from "./fs.js";
 import {
-  activePointerPath,
   archiveDir,
   changeMetaPath,
   changePath,
@@ -30,12 +29,32 @@ import {
   activeStages,
   firstActiveStageId,
   getStage,
-  isStageSkipped,
   loadWorkflow,
   nextStageId,
-  resolveStages,
-  shouldAutoSkip,
 } from "./workflow.js";
+import {
+  buildContext,
+  clearActiveIf,
+  saveChangeMeta,
+  setActiveChange,
+  type ChangeContext,
+} from "./change-context.js";
+import { canLeaveStage } from "./stage-gates.js";
+
+// Re-export split modules so public API stays `from "./change.js"` / core index
+export type { ChangeContext } from "./change-context.js";
+export {
+  buildContext,
+  clearActiveIf,
+  getActiveChangeId,
+  listChanges,
+  loadChangeMeta,
+  resolveChangeId,
+  saveChangeMeta,
+  setActiveChange,
+} from "./change-context.js";
+export { canLeaveStage, approveGate } from "./stage-gates.js";
+export { formatStatus, buildAgentPrompt } from "./agent-handoff.js";
 
 export interface CreateChangeInput {
   projectRoot: string;
@@ -47,13 +66,13 @@ export interface CreateChangeInput {
   branch?: string;
 }
 
-export interface ChangeContext {
-  id: string;
-  path: string;
-  meta: ChangeMeta;
-  workflow: Workflow;
-  stages: Stage[];
-  active: Stage[];
+export interface AdvanceResult {
+  ctx: ChangeContext;
+  from: string;
+  to: string | null;
+  completed: boolean;
+  artifactsCreated: string[];
+  warnings: string[];
 }
 
 async function existingChangeIds(projectRoot: string, config: Config): Promise<Set<string>> {
@@ -74,7 +93,6 @@ export async function createChange(input: CreateChangeInput): Promise<ChangeCont
   const dir = changePath(projectRoot, config, id);
   await ensureDir(dir);
 
-  // Provisional meta so skip_when / flags apply when choosing the first stage
   let meta: ChangeMeta = ChangeMetaSchema.parse({
     id,
     title,
@@ -106,7 +124,6 @@ export async function createChange(input: CreateChangeInput): Promise<ChangeCont
   await materializeStageArtifacts(projectRoot, config, id, workflow, meta, firstStage);
   await setActiveChange(projectRoot, config, id);
 
-  // Keep agent context in sync for Copilot / Claude Code / IDEs
   try {
     const { refreshActiveAgentContext } = await import("./agents.js");
     await refreshActiveAgentContext(projectRoot);
@@ -133,7 +150,6 @@ async function materializeStageArtifacts(
     const target = join(dir, artifact.path);
     if (await pathExists(target)) continue;
 
-    // directory artifacts (e.g. evidence/)
     if (artifact.path.endsWith("/")) {
       await ensureDir(target);
       created.push(artifact.path);
@@ -143,7 +159,6 @@ async function materializeStageArtifacts(
     let content = defaultArtifactContent(artifact.id, meta, stage, workflow);
     if (artifact.template) {
       const templatePath = join(tdir, artifact.template.replace(/^templates\//, ""));
-      // also try as-is relative to templates dir
       const candidates = [
         join(tdir, artifact.template),
         templatePath,
@@ -151,8 +166,7 @@ async function materializeStageArtifacts(
       ];
       for (const c of candidates) {
         if (await pathExists(c)) {
-          const raw = await readText(c);
-          content = interpolate(raw, meta, stage, workflow);
+          content = interpolate(await readText(c), meta, stage, workflow);
           break;
         }
       }
@@ -201,191 +215,6 @@ function defaultArtifactContent(
 `;
 }
 
-export async function loadChangeMeta(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-): Promise<ChangeMeta> {
-  const path = changeMetaPath(projectRoot, config, changeId);
-  if (!(await pathExists(path))) {
-    throw new Error(`Change not found: ${changeId}`);
-  }
-  return ChangeMetaSchema.parse(await readYaml(path));
-}
-
-export async function saveChangeMeta(
-  projectRoot: string,
-  config: Config,
-  meta: ChangeMeta,
-): Promise<void> {
-  meta.updated = nowIso();
-  await writeYaml(changeMetaPath(projectRoot, config, meta.id), ChangeMetaSchema.parse(meta));
-}
-
-export async function buildContext(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-): Promise<ChangeContext> {
-  const meta = await loadChangeMeta(projectRoot, config, changeId);
-  const workflow = await loadWorkflow(projectRoot, meta.workflow);
-  return {
-    id: changeId,
-    path: changePath(projectRoot, config, changeId),
-    meta,
-    workflow,
-    stages: resolveStages(workflow, meta),
-    active: activeStages(workflow, meta),
-  };
-}
-
-export async function listChanges(projectRoot: string, config: Config): Promise<string[]> {
-  return listDirs(changesDir(projectRoot, config));
-}
-
-export async function getActiveChangeId(
-  projectRoot: string,
-  config: Config,
-): Promise<string | null> {
-  const pointer = activePointerPath(projectRoot, config);
-  if (await pathExists(pointer)) {
-    const id = (await readText(pointer)).trim();
-    if (id && (await pathExists(changePath(projectRoot, config, id)))) {
-      return id;
-    }
-    // Stale pointer (e.g. change archived) — clear it
-    if (id) {
-      await writeText(pointer, "");
-    }
-  }
-  // fallback: most recently updated in-progress change
-  const all = await listChanges(projectRoot, config);
-  const inProgress: { id: string; updated: string }[] = [];
-  for (const id of all) {
-    try {
-      const meta = await loadChangeMeta(projectRoot, config, id);
-      if (meta.status === "in_progress" || meta.status === "blocked") {
-        inProgress.push({ id, updated: meta.updated ?? meta.created });
-      }
-    } catch {
-      // ignore
-    }
-  }
-  if (!inProgress.length) return null;
-  inProgress.sort((a, b) => b.updated.localeCompare(a.updated));
-  return inProgress[0]!.id;
-}
-
-/** Clear active pointer if it points at this change id (does not re-resolve). */
-export async function clearActiveIf(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-): Promise<void> {
-  const pointer = activePointerPath(projectRoot, config);
-  if (!(await pathExists(pointer))) return;
-  const id = (await readText(pointer)).trim();
-  if (id === changeId) {
-    await writeText(pointer, "");
-  }
-}
-
-export async function setActiveChange(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-): Promise<void> {
-  await ensureDir(changesDir(projectRoot, config));
-  await writeText(activePointerPath(projectRoot, config), `${changeId}\n`);
-}
-
-export async function resolveChangeId(
-  projectRoot: string,
-  config: Config,
-  changeId?: string,
-): Promise<string> {
-  if (changeId) return changeId;
-  const active = await getActiveChangeId(projectRoot, config);
-  if (!active) {
-    throw new Error("No active change. Pass --change <id> or run `sdd new`.");
-  }
-  return active;
-}
-
-export interface AdvanceResult {
-  ctx: ChangeContext;
-  from: string;
-  to: string | null;
-  completed: boolean;
-  artifactsCreated: string[];
-  warnings: string[];
-}
-
-export async function canLeaveStage(
-  ctx: ChangeContext,
-  config: Config,
-): Promise<{ ok: boolean; errors: string[]; warnings: string[] }> {
-  const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  if (!stage) {
-    return { ok: false, errors: [`Unknown stage: ${ctx.meta.stage}`], warnings };
-  }
-
-  // required artifacts
-  for (const artifact of stage.artifacts) {
-    if (!artifact.required) continue;
-    const target = join(ctx.path, artifact.path);
-    if (!(await pathExists(target))) {
-      errors.push(`Missing required artifact: ${artifact.path}`);
-      continue;
-    }
-    // if file, ensure not only default empty-ish? keep light — just exists
-  }
-
-  // Workflow gate types are authoritative. policy.gates=hard may elevate soft→hard;
-  // policy.gates=soft never demotes an explicit hard gate (that was a serious bug).
-  const declared = stage.gate?.type ?? "soft";
-  let effectiveGate = declared;
-  if (config.policy.gates === "hard" && declared === "soft") {
-    effectiveGate = "hard";
-  }
-
-  const gateState = ctx.meta.gates?.[stage.id];
-  if (effectiveGate === "hard") {
-    if (!gateState || (gateState.status !== "approved" && gateState.status !== "waived")) {
-      errors.push(
-        `Hard gate on stage "${stage.id}" is not approved. Run \`sdd gate approve\` or complete the checklist.`,
-      );
-    }
-  } else if (effectiveGate === "soft" && stage.gate?.checklist?.length) {
-    if (!gateState || gateState.status === "pending") {
-      warnings.push(
-        `Soft gate checklist not signed off on "${stage.id}" (proceeding allowed).`,
-      );
-    }
-  }
-
-  // Required local verify commands must have succeeded (or human gate approve/waive)
-  const requiredCmds = stage.verify?.commands?.filter((c) => c.required) ?? [];
-  if (requiredCmds.length) {
-    const verifyOk = ctx.meta.verify_results?.[stage.id]?.ok === true;
-    const humanOverride =
-      gateState?.status === "waived" || gateState?.status === "approved";
-    if (!verifyOk && !humanOverride) {
-      errors.push(
-        `Required local verify commands have not passed for "${stage.id}". Run \`sdd verify\` (or \`sdd gate approve/waive\` with a note).`,
-      );
-    } else if (!verifyOk && humanOverride) {
-      warnings.push(
-        `Stage "${stage.id}" gate signed off without a successful required verify run.`,
-      );
-    }
-  }
-
-  return { ok: errors.length === 0, errors, warnings };
-}
-
 export async function advanceStage(
   projectRoot: string,
   config: Config,
@@ -406,11 +235,9 @@ export async function advanceStage(
   }
 
   const from = ctx.meta.stage;
-  // nextStageId already walks past skipped / auto-skipped stages
   const next = nextStageId(ctx.workflow, ctx.meta);
 
   if (!next) {
-    // no more stages — ready for complete, stay on last
     return {
       ctx,
       from,
@@ -483,7 +310,6 @@ export async function skipStage(
     { stage: stageId, reason, at: nowIso() },
   ];
 
-  // if skipping current stage, move forward (never backward)
   if (ctx.meta.stage === stageId) {
     const next = nextStageId(ctx.workflow, ctx.meta);
     if (next) {
@@ -523,7 +349,6 @@ export async function switchWorkflow(
   }
 
   ctx.meta.workflow = workflowName;
-  // keep stage if exists in new workflow, else first stage
   const hasStage = workflow.stages.some((s) => s.id === ctx.meta.stage);
   if (!hasStage) {
     ctx.meta.stage = workflow.stages[0]!.id;
@@ -543,24 +368,6 @@ export async function switchWorkflow(
   return buildContext(projectRoot, config, changeId);
 }
 
-export async function approveGate(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-  stageId: string | undefined,
-  note?: string,
-  status: "approved" | "waived" | "failed" = "approved",
-): Promise<ChangeContext> {
-  const ctx = await buildContext(projectRoot, config, changeId);
-  const id = stageId ?? ctx.meta.stage;
-  ctx.meta.gates = {
-    ...ctx.meta.gates,
-    [id]: { status, note, at: nowIso() },
-  };
-  await saveChangeMeta(projectRoot, config, ctx.meta);
-  return buildContext(projectRoot, config, changeId);
-}
-
 export async function completeChange(
   projectRoot: string,
   config: Config,
@@ -569,7 +376,6 @@ export async function completeChange(
   const ctx = await buildContext(projectRoot, config, changeId);
   const next = nextStageId(ctx.workflow, ctx.meta);
   if (next) {
-    // allow complete only if on last active stage or force? require last stage
     const active = activeStages(ctx.workflow, ctx.meta);
     const last = active[active.length - 1];
     if (last && ctx.meta.stage !== last.id) {
@@ -579,7 +385,6 @@ export async function completeChange(
     }
   }
 
-  // verify leave last stage
   const check = await canLeaveStage(ctx, config);
   if (!check.ok) {
     throw new Error(check.errors.join("\n"));
@@ -589,7 +394,6 @@ export async function completeChange(
   ctx.meta.completed_at = nowIso();
   await saveChangeMeta(projectRoot, config, ctx.meta);
 
-  // Clear active pointer before moving the folder (avoids stale pointer bugs)
   await clearActiveIf(projectRoot, config, changeId);
 
   let archivedTo: string | null = null;
@@ -608,7 +412,6 @@ export async function completeChange(
     archivedTo = dest;
   }
 
-  // reload from archive if moved
   if (archivedTo) {
     const meta = ChangeMetaSchema.parse(await readYaml(join(archivedTo, "meta.yaml")));
     return {
@@ -625,92 +428,4 @@ export async function completeChange(
   }
 
   return { archivedTo, ctx: await buildContext(projectRoot, config, changeId) };
-}
-
-export function formatStatus(ctx: ChangeContext): string {
-  const lines: string[] = [];
-  lines.push(`Change: ${ctx.meta.title}`);
-  lines.push(`ID:     ${ctx.id}`);
-  lines.push(`Status: ${ctx.meta.status}`);
-  lines.push(`Workflow: ${ctx.meta.workflow}`);
-  lines.push(`Path: ${ctx.path}`);
-  lines.push("");
-  lines.push("Stages:");
-  for (const stage of ctx.stages) {
-    const skipped =
-      isStageSkipped(ctx.meta, stage.id) || shouldAutoSkip(stage, ctx.meta);
-    let mark = " ";
-    if (skipped) mark = "·";
-    else if (stage.id === ctx.meta.stage) mark = "●";
-    else {
-      const order = ctx.active.map((s) => s.id);
-      const cur = order.indexOf(ctx.meta.stage);
-      const idx = order.indexOf(stage.id);
-      if (idx >= 0 && cur >= 0 && idx < cur) mark = "✓";
-    }
-    const gate = ctx.meta.gates?.[stage.id];
-    const gateInfo = gate ? ` [${gate.status}]` : "";
-    const skipInfo = skipped ? " (skipped)" : "";
-    lines.push(`  [${mark}] ${stage.id}${stage.title ? ` — ${stage.title}` : ""}${gateInfo}${skipInfo}`);
-  }
-  if (ctx.meta.overrides?.skip_stages?.length) {
-    lines.push("");
-    lines.push(`Overrides: skip=${ctx.meta.overrides.skip_stages.join(", ")}`);
-  }
-  return lines.join("\n");
-}
-
-export async function buildAgentPrompt(ctx: ChangeContext, config: Config, projectRoot: string): Promise<string> {
-  const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
-  const parts: string[] = [];
-  parts.push(`# SDD Agent Handoff`);
-  parts.push("");
-  parts.push(`You are implementing a change under Structured Vibe Coding (local SDD).`);
-  parts.push("");
-  parts.push(`## Change`);
-  parts.push(`- Title: ${ctx.meta.title}`);
-  parts.push(`- ID: ${ctx.id}`);
-  parts.push(`- Workflow: ${ctx.meta.workflow}`);
-  parts.push(`- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`);
-  parts.push(`- Change path: ${ctx.path}`);
-  parts.push("");
-
-  if (stage?.summary) {
-    parts.push(`## Stage goal`);
-    parts.push(stage.summary);
-    parts.push("");
-  }
-
-  if (stage?.agent_context?.instructions) {
-    parts.push(`## Instructions`);
-    parts.push(stage.agent_context.instructions);
-    parts.push("");
-  }
-
-  parts.push(`## Constraints`);
-  parts.push(`- Follow artifacts in the change directory as source of truth.`);
-  parts.push(`- Do not skip ARB/decision constraints if present.`);
-  parts.push(`- Local development only — verify on this machine.`);
-  parts.push(`- Prefer small, reviewable commits.`);
-  parts.push("");
-
-  parts.push(`## Artifacts to read`);
-  const memoryHint = join(projectRoot, config.memory_path);
-  parts.push(`- Memory: ${memoryHint}/`);
-  for (const s of ctx.stages) {
-    for (const a of s.artifacts) {
-      parts.push(`- ${join(ctx.path, a.path)}`);
-    }
-  }
-  parts.push("");
-  parts.push(`## Current stage artifacts`);
-  if (stage) {
-    for (const a of stage.artifacts) {
-      parts.push(`- ${a.path}${a.required ? " (required)" : ""}`);
-    }
-  }
-  parts.push("");
-  parts.push(`When done with this stage, the human will run \`sdd next\` or \`sdd verify\` / \`sdd complete\`.`);
-
-  return parts.join("\n");
 }

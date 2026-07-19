@@ -16,18 +16,17 @@ import {
   sddRoot,
 } from "./paths.js";
 import type { Config } from "./schemas.js";
-import { installAgentIntegrations, type AgentTarget } from "./agents.js";
+import { installAgentIntegration, type AgentTarget } from "./agents.js";
 
 export interface InitOptions {
   projectRoot: string;
   force?: boolean;
   /**
-   * AI coding agents to install (copilot | claude-code). Not IDEs.
-   * Opt-in only — never defaults to all agents.
+   * AI coding agent to install (single, Speckit-style). Not an IDE.
    * - omit / `false` — no agent files
-   * - `AgentTarget[]` — install only those AI agents
+   * - `AgentTarget` — install that integration only
    */
-  agents?: false | AgentTarget[];
+  agents?: false | AgentTarget;
 }
 
 export interface InitResult {
@@ -134,10 +133,10 @@ sdd complete
   }
 
   let agentsResult: InitResult["agents"];
-  if (Array.isArray(opts.agents) && opts.agents.length > 0) {
-    const ag = await installAgentIntegrations({
+  if (opts.agents) {
+    const ag = await installAgentIntegration({
       projectRoot,
-      targets: opts.agents,
+      target: opts.agents,
       force,
     });
     created.push(...ag.created);
