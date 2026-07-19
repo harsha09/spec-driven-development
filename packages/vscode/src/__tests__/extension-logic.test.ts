@@ -33,9 +33,11 @@ describe("VS Code extension use-cases (core path)", () => {
     // structuredVibe.init
     await initProject({ projectRoot: root });
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(true);
-    // Copilot + Claude files for agents in VS Code
-    expect(await pathExists(join(root, ".github/copilot-instructions.md"))).toBe(true);
-    expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(true);
+    // Agents only (no skills / fat instructions)
+    expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
+    expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
 
     // structuredVibe.new
     const config = await loadConfig(root);
@@ -57,15 +59,17 @@ describe("VS Code extension use-cases (core path)", () => {
     expect(md).toContain("VS Code feature");
   });
 
-  it("installs only copilot when requested", async () => {
+  it("installs only copilot agents when requested", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-vsc-cop-"));
     temps.push(root);
     await initProject({ projectRoot: root, agents: false });
     await installAgentIntegrations({
       projectRoot: root,
       targets: ["copilot"],
+      force: true,
     });
     expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
-    expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, ".sdd/protocol.md"))).toBe(true);
   });
 });

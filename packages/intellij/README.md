@@ -8,7 +8,7 @@ This plugin is **CLI-backed**: UI actions run the `sdd` binary on your PATH (sam
 
 ```text
 IntelliJ action → Process sdd … → .sdd/ + changes/ on disk
-GitHub Copilot (JetBrains) → reads .github/copilot-instructions.md + .sdd/active-context.md
+GitHub Copilot (JetBrains) → .github/agents/*.agent.md + .sdd/protocol.md + active-context.md
 ```
 
 ## Prerequisites
@@ -49,13 +49,13 @@ Install zip: **Settings → Plugins → ⚙️ → Install Plugin from Disk…**
 ## GitHub Copilot in IntelliJ
 
 1. Install **GitHub Copilot** JetBrains plugin  
-2. In the project: `sdd init` (or **SDD: Install Agent Files**) so `.github/copilot-instructions.md` and `AGENTS.md` exist  
-3. After each stage: **Refresh Agent Context** so `.sdd/active-context.md` is current  
-4. Copilot Chat uses those repo instructions automatically  
+2. `sdd init` or **Install Agent Integrations** → `.github/agents/*.agent.md` + `.sdd/protocol.md`  
+3. After stages: **Refresh Agent Context**  
+4. Select SDD agents in Copilot (e.g. `sdd-implementer`)  
 
 ## Claude Code
 
-Use the same repo files under `.claude/skills/sdd/` (from `sdd agents install`). Claude Code is terminal-based; IntelliJ is optional.
+Agents under `.claude/agents/` (not skills). Same protocol file. Terminal-based; IntelliJ optional.
 
 ## Tests
 
