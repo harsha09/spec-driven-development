@@ -627,7 +627,7 @@ sdd complete
 ## Out of scope for agents
 
 - Replacing CI/CD or team process tools
-- Deleting \`.sdd\` / archive history
+- Deleting \`.sdd\` / completed change history
 - Claiming complete without verify when required
 `;
 

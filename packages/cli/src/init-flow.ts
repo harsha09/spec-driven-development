@@ -277,7 +277,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   p.note(
     [
       pc.bold("Always created (not AI agents):"),
-      `  .sdd/   memory/   changes/   archive/   domains/`,
+      `  .sdd/   memory/   changes/   domains/`,
       "",
       pc.bold("AI agent only (selected host):"),
       selected === false

@@ -19,6 +19,7 @@ import {
   loadWorkflow,
   listChanges,
   activePointerPath,
+  pathExists,
   readText,
   type ChangeMeta,
 } from "../index.js";
@@ -75,20 +76,22 @@ describe("dynamic analysis / edge cases", () => {
     expect(c.meta.stage).not.toBe("intent");
   });
 
-  it("clears active pointer after archive", async () => {
+  it("clears active pointer after complete", async () => {
     const root = await tempProject();
     const config = await loadConfig(root);
     const ctx = await createChange({
       projectRoot: root,
       config,
-      title: "Archive pointer",
+      title: "Complete pointer",
       workflowName: "hotfix",
     });
     await writeFile(join(ctx.path, "intent.md"), meat("Intent"), "utf8");
     await advanceStage(root, config, ctx.id);
     await advanceStage(root, config, ctx.id);
     await writeFile(join(ctx.path, "local-test-results.md"), meat("Results"), "utf8");
-    await completeChange(root, config, ctx.id);
+    const done = await completeChange(root, config, ctx.id);
+    expect(done.archivedTo).toBeNull();
+    expect(await pathExists(ctx.path)).toBe(true);
     const raw = (await readText(activePointerPath(root, config))).trim();
     const active = await getActiveChangeId(root, config);
     expect(active).not.toBe(ctx.id);

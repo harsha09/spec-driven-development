@@ -83,13 +83,16 @@ describe("lifecycle integration", () => {
     });
     expect(verify.stageId).toBe("local_verify");
     expect(verify.ok).toBe(true);
+    expect(verify.evidencePath).toBeNull();
+    expect(await pathExists(join(created.path, "evidence"))).toBe(false);
+    expect(await pathExists(join(created.path, "local-test-results.md"))).toBe(true);
 
-    // On last stage → complete + archive
+    // On last stage → complete in place (no archive by default)
     const { archivedTo, ctx } = await completeChange(root, config, created.id);
     expect(ctx.meta.status).toBe("completed");
-    expect(archivedTo).toBeTruthy();
-    expect(await pathExists(archivedTo!)).toBe(true);
-    expect(await pathExists(join(root, "changes", created.id))).toBe(false);
+    expect(archivedTo).toBeNull();
+    expect(await pathExists(join(root, "changes", created.id))).toBe(true);
+    expect(await pathExists(join(root, "archive", created.id))).toBe(false);
   });
 
   it("init(copilot) alone creates full agent setup without agents install", async () => {

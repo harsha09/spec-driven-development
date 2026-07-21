@@ -74,7 +74,7 @@ export const WorkflowSchema = z.object({
     .optional(),
   on_complete: z
     .object({
-      archive: z.boolean().default(true),
+      archive: z.boolean().default(false),
       domain_sync: z.enum(["never", "recommend", "require"]).default("never"),
     })
     .optional(),
@@ -99,7 +99,7 @@ export const ConfigSchema = z.object({
   persistence: z
     .object({
       default: z.enum(["change_only", "domain_sync"]).default("change_only"),
-      archive_on_complete: z.boolean().default(true),
+      archive_on_complete: z.boolean().default(false),
       domain_sync: z
         .object({
           mode: z.enum(["never", "recommend", "require"]).default("never"),

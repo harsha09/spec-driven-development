@@ -46,5 +46,5 @@ stages:
       checklist:
         - "Clear recommendation recorded"
 on_complete:
-  archive: true
+  archive: false
   domain_sync: never

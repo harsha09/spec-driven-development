@@ -273,7 +273,7 @@ export function registerCommands(
     const id = await resolveChangeId(root, config);
     if (forceArg !== true) {
       const confirm = await vscode.window.showWarningMessage(
-        `Complete and archive change ${id}?`,
+        `Complete change ${id}?`,
         "Complete",
         "Cancel",
       );

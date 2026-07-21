@@ -5,7 +5,7 @@ Date: 2026-07-19 | Tool: sdd CLI @ structured-vibe-coding
 ```
 workflow: hotfix
 ```
-**PASS** — hotfix path, archive trail. Ceremony appropriate.
+**PASS** — hotfix path, completed pack trail. Ceremony appropriate.
 
 ## S2 — Small feature recommend
 ```
@@ -72,7 +72,7 @@ stage_rows_above
 | Spec-first for AI coding | S1–S9: always create change + artifacts first |
 | Governance (ARB/peer) without SaaS | S3, S8: hard gates block progress |
 | Local "done means verified" | S7: complete blocked until verify + approve |
-| Audit / onboarding trail | S1: archive with meta + intent |
+| Audit / onboarding trail | S1: completed pack under `changes/` with meta + intent |
 | Custom team process | S8: YAML only, no code change |
 | Brownfield non-destructive | S6: existing code preserved |
 
