@@ -40,7 +40,7 @@ Root [README](../README.md) = product pitch + install + quickstart.
 |----------|--------|--------|
 | **Stable** (product, architecture, conventions) | `memory/` | Tech lead / architect |
 | **Change-scoped** (this PR/feature) | `changes/<id>/` | Change author |
-| **History** | `archive/<id>/` | — |
+| **History** | `changes/<id>/` with `status: completed` (archive is opt-in) | — |
 | **Optional domains** | `domains/` | Domain owners |
 
 **Parent router in the app:** after `sdd init`, use **`memory/index.md`** as the map. Agents and humans start there, then open the linked stable pages, then the active change pack (see `.sdd/active-context.md`).

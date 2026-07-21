@@ -75,7 +75,7 @@ sdd init --here --no-agents
 |------------------------------------------|---------------------------|
 | `.sdd/` (config, workflows, templates, protocol) | **grok** → `.grok/rules/sdd.md` |
 | `memory/` (incl. `index.md`) | **copilot** → `.github/agents/*.agent.md` |
-| `changes/`, `archive/`, `domains/` | **claude** → `.claude/agents/*.md` |
+| `changes/`, `domains/` | **claude** → `.claude/agents/*.md` |
 | `AGENTS.md` when an agent is installed | |
 
 **Not created for `--ai grok`:** `.github/agents`, `.claude/agents`, `.idea/sdd-agent-notes.md`.  

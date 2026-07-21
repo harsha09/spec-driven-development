@@ -114,10 +114,7 @@ stages:
     title: Implementation
     summary: Execute tasks; respect ARB conditions
     skippable: false
-    artifacts:
-      - id: evidence
-        path: evidence/
-        required: false
+    artifacts: []
     gate:
       type: soft
       checklist:
@@ -142,9 +139,6 @@ stages:
         path: local-test-results.md
         template: local-test-results.md
         required: true
-      - id: evidence
-        path: evidence/local/
-        required: false
     gate:
       type: hard
       overridable: true
@@ -154,8 +148,7 @@ stages:
         - "Failures fixed or filed before complete"
     verify:
       commands: []
-      evidence_dir: evidence/local
 
 on_complete:
-  archive: true
+  archive: false
   domain_sync: recommend

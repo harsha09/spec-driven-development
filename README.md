@@ -119,7 +119,7 @@ Think of `sdd` as a **local process coach** for one unit of work (usually one PR
 
 ```text
 init project → start a change → fill specs → next stage → …
-→ implement with your editor/agent → verify locally → complete (archive)
+→ implement with your editor/agent → verify locally → complete
 ```
 
 ### Step 0 — Open the app you are building
@@ -147,8 +147,7 @@ This creates:
 | `.sdd/templates/` | Markdown templates for stage artifacts |
 | `memory/index.md` | **Documentation map** (parent router for stable docs) |
 | `memory/` | Stable product / architecture / conventions |
-| `changes/` | Active work (one folder per change ≈ PR) |
-| `archive/` | Completed changes |
+| `changes/` | Work packs (active and completed stay here by default) |
 | `domains/` | Optional long-lived domain notes |
 
 Re-copy defaults later with:
@@ -235,7 +234,7 @@ sdd init --here --ai copilot   # Copilot only (.github/agents)
 sdd init --here --ai claude    # Claude Code only (.claude/agents)
 ```
 
-Shared dirs always: `.sdd/`, `memory/`, `changes/`, `archive/`, `domains/`.  
+Shared dirs always: `.sdd/`, `memory/`, `changes/`, `domains/`.  
 Only the chosen AI host gets agent stubs. Details: [`docs/ide-and-agents.md`](docs/ide-and-agents.md).
 
 When you reach an `implement` stage:
@@ -263,7 +262,7 @@ sdd verify
 This stage is **local development only**:
 
 - Runs any commands defined on the stage (if configured)
-- Writes / updates local results and evidence under the change folder
+- Writes / updates `local-test-results.md` (and optional evidence only if the workflow sets `evidence_dir`)
 - Prints checklists (happy path, edge cases, …)
 
 Mark the gate when you are satisfied:
@@ -278,7 +277,7 @@ Optional: dry checklist only (no shell commands):
 sdd verify --no-run
 ```
 
-### Step 7 — Complete and archive
+### Step 7 — Complete
 
 When you are on the **last** stage and ready to close the work:
 
@@ -286,7 +285,7 @@ When you are on the **last** stage and ready to close the work:
 sdd complete
 ```
 
-The change pack is moved to `archive/<id>/` for history and onboarding. Start the next piece of work with another `sdd new`.
+Marks the change complete under `changes/<id>/` (`status: completed`). The pack stays in place by default (archive-on-complete is opt-in). Start the next piece of work with another `sdd new`.
 
 ### Everyday loop (short)
 
@@ -328,7 +327,7 @@ sdd next --force
 
 | Command | What it does | When to use it |
 |---------|----------------|----------------|
-| `sdd init` | Scaffolds `.sdd/`, memory, workflows, changes, archive | Once per app repo |
+| `sdd init` | Scaffolds `.sdd/`, memory, workflows, changes, domains | Once per app repo |
 | `sdd init --force` | Re-copies default workflows/templates | After upgrading the tool |
 | `sdd new "title"` | Creates a change pack; recommends workflow | Start of a PR / task |
 | `sdd new … -w <pack>` | Same, with explicit workflow | You already know the process |
@@ -344,8 +343,8 @@ sdd next --force
 | `sdd gate waive` | Waives a gate with a note | Explicit exception |
 | `sdd gate fail` | Marks gate failed | Send work back |
 | `sdd verify` | Local verification for current stage | Before complete / after implement |
-| `sdd verify --no-run` | Checklist/evidence only, no commands | Manual-only verify |
-| `sdd complete` | Marks done and archives the change | Work finished locally |
+| `sdd verify --no-run` | Checklist/results only, no commands | Manual-only verify |
+| `sdd complete` | Marks the change complete (stays under `changes/`) | Work finished locally |
 | `sdd workflows` | Lists packs in `.sdd/workflows/` | Discover / debug |
 | `sdd agent` | Prints agent handoff for current stage | AI-assisted coding |
 | `sdd checkout <id>` | Sets active change | Switch between PRs |
@@ -377,20 +376,19 @@ my-app/
 │   │   └── spike.yaml
 │   └── templates/            # markdown templates for artifacts
 ├── memory/                   # stable project context
-├── changes/                  # active change packs (≈ open PRs)
+├── changes/                  # change packs (active + completed by default)
 │   └── 2026-07-18-add-csv-export/
 │       ├── meta.yaml
 │       ├── feature.md
 │       ├── design.md
 │       ├── tasks.md
 │       └── …
-├── archive/                  # completed packs
 └── domains/                  # optional long-lived domain specs
 ```
 
 **Persistence model (simple version):**
 
-- **Change pack** = unit of work for one PR (ephemeral while open, archived when done)
+- **Change pack** = unit of work for one PR (stays under `changes/` when complete; archive is opt-in)
 - **Memory** = always-on project context
 - **Domain** = optional living docs for important areas (billing, auth, …)
 
@@ -425,7 +423,7 @@ per_change:
 
 persistence:
   default: change_only
-  archive_on_complete: true
+  archive_on_complete: false       # set true to move packs to archive/ on complete
   domain_sync:
     mode: never                    # never | recommend | require
     anchored_domains: []
@@ -482,9 +480,9 @@ stages:
         - "Checked on this machine"
     verify:
       commands: []                 # optional: { name, run, required }
-      evidence_dir: evidence/local
+      # evidence_dir: evidence/local  # optional opt-in for command logs
 on_complete:
-  archive: true
+  archive: false                   # set true + config archive_on_complete to move pack
   domain_sync: never
 ```
 
@@ -610,10 +608,9 @@ stages:
         # - name: unit
         #   run: "npm test"
         #   required: false
-      evidence_dir: evidence/local
 
 on_complete:
-  archive: true
+  archive: false
   domain_sync: never
 ```
 
@@ -709,10 +706,9 @@ stages:
         # - name: smoke
         #   run: "npm run smoke:local"
         #   required: false
-      evidence_dir: evidence/local
 
 on_complete:
-  archive: true
+  archive: false
   domain_sync: never
 ```
 
@@ -796,7 +792,7 @@ sdd new "Checkout retry UX only" -w enterprise-feature -f no_db=true
         - name: typecheck
           run: "pnpm typecheck"
           required: false
-      evidence_dir: evidence/local
+      # evidence_dir: evidence/local  # optional
     gate:
       type: hard
       checklist:
@@ -986,7 +982,7 @@ pnpm package:vscode
 2. **Progressive structure** — recommend light workflows for small work  
 3. **Local development only** — verify on the engineer’s machine  
 4. **Composable workflows** — your process in YAML, not our fixed religion  
-5. **Change packs** — PR-scoped work with archive for history  
+5. **Change packs** — PR-scoped work; completed packs stay under `changes/` as the durable record  
 
 ---
 

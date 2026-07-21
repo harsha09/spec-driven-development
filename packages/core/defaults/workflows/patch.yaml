@@ -55,9 +55,6 @@ stages:
         path: local-test-results.md
         template: local-test-results.md
         required: false
-      - id: evidence
-        path: evidence/local/
-        required: false
     gate:
       type: soft
       checklist:
@@ -65,7 +62,6 @@ stages:
         - "No obvious regressions on touched paths"
     verify:
       commands: []
-      evidence_dir: evidence/local
 on_complete:
-  archive: true
+  archive: false
   domain_sync: never

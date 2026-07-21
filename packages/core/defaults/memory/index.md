@@ -6,7 +6,7 @@ Parent page for **stable** project docs. Humans and coding agents: start here, t
 |------|--------|----------|
 | **This map + memory** | `memory/*.md` | Long-lived |
 | **Active change** | `changes/<id>/` (see `.sdd/active-context.md`) | Until complete |
-| **Finished work** | `archive/<id>/` | History |
+| **Finished work** | `changes/<id>/` with `status: completed` | History (pack stays in place; archive is opt-in) |
 | **Optional domains** | `domains/` | Long-lived by area |
 
 ## Stable docs

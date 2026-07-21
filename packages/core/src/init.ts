@@ -14,7 +14,6 @@ import {
   defaultWorkflowsDir,
 } from "./defaults.js";
 import {
-  archiveDir,
   changesDir,
   domainsDir,
   memoryDir,
@@ -177,15 +176,13 @@ Active work: \`.sdd/active-context.md\` and \`changes/<id>/\`.
   created.push(mDest);
 
   await ensureDir(changesDir(projectRoot, config));
-  await ensureDir(archiveDir(projectRoot, config));
   await ensureDir(domainsDir(projectRoot, config));
   created.push(changesDir(projectRoot, config));
-  created.push(archiveDir(projectRoot, config));
   created.push(domainsDir(projectRoot, config));
+  // archive/ is not scaffolded by default; created only when a complete actually archives
 
   // gitkeep style
   await writeText(join(changesDir(projectRoot, config), ".gitkeep"), "");
-  await writeText(join(archiveDir(projectRoot, config), ".gitkeep"), "");
   await writeText(join(domainsDir(projectRoot, config), ".gitkeep"), "");
 
   // root pointer README for humans
@@ -202,7 +199,8 @@ This directory configures local Spec-Driven Development for this repo.
 - \`templates/\` — markdown templates for stage artifacts
 - \`protocol.md\` / \`active-context.md\` — agent playbook + live task (after agent install)
 
-Work lives in \`../changes/\` and completed work in \`../archive/\`.
+Work lives in \`../changes/<id>/\`. Completed packs stay there with \`status: completed\`.
+Promote lasting decisions into \`../memory/\`. (Archive-on-complete is opt-in.)
 
 **Documentation map (stable):** \`../memory/index.md\`  
 **Change-scoped docs:** \`../changes/<id>/\`

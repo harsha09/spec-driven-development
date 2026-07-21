@@ -1,4 +1,5 @@
 import { defineCommand, runMain } from "citty";
+import { join } from "node:path";
 import { consola } from "consola";
 import pc from "picocolors";
 import {
@@ -413,7 +414,7 @@ const verify = defineCommand({
     change: { type: "string", description: "Change id", alias: "c" },
     "no-run": {
       type: "boolean",
-      description: "Only write checklist/evidence stubs, do not run commands",
+      description: "Only write checklist/results stubs, do not run commands",
       default: false,
     },
     "no-agent": noAgentArg,
@@ -439,7 +440,13 @@ const verify = defineCommand({
         consola.log(pc.dim("Checklist:"));
         for (const item of result.checklist) consola.log(`  - [ ] ${item}`);
       }
-      consola.info(`Evidence: ${result.evidencePath}`);
+      if (result.evidencePath) {
+        consola.info(`Evidence: ${result.evidencePath}`);
+      } else {
+        consola.info(
+          `Results: ${join(root, config.changes_path, id, "local-test-results.md")}`,
+        );
+      }
       if (!result.ok) {
         consola.warn("Verify did not pass (required commands failed or were skipped).");
         consola.log(
@@ -464,7 +471,7 @@ const verify = defineCommand({
 const complete = defineCommand({
   meta: {
     name: "complete",
-    description: "Complete and archive the change, then notify/launch the AI agent",
+    description: "Complete the change, then notify/launch the AI agent",
   },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
@@ -685,7 +692,7 @@ const help = defineCommand({
     consola.log(`  ${pc.cyan("sdd status")}            status + agent`);
     consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
     consola.log(`  ${pc.cyan("sdd verify")}            verify + agent`);
-    consola.log(`  ${pc.cyan("sdd complete")}          archive + agent`);
+    consola.log(`  ${pc.cyan("sdd complete")}          mark done + agent`);
     consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
     consola.log("");
     consola.log(pc.bold("Skip agent launch:"));

@@ -76,7 +76,7 @@ class SddCompleteAction : AnAction() {
         val project = e.project ?: return
         val ok = Messages.showYesNoDialog(
             project,
-            "Complete and archive the active change?",
+            "Complete the active change?",
             "SDD: Complete",
             Messages.getWarningIcon(),
         )
