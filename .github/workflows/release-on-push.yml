@@ -111,14 +111,7 @@ jobs:
           pnpm test
 
       - name: CLI smoke
-        run: |
-          set -euo pipefail
-          SDD="$(pwd)/packages/cli/dist/index.js"
-          WORK="$(mktemp -d)"
-          cd "$WORK"
-          node "$SDD" init
-          node "$SDD" new "auto release smoke" -w hotfix -y
-          node "$SDD" next && node "$SDD" next && node "$SDD" complete
+        run: bash scripts/cli-smoke.sh
 
       - name: Check NPM_TOKEN
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}

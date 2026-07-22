@@ -66,18 +66,7 @@ jobs:
           pnpm --filter structured-vibe-sdd run test:ui
 
       - name: CLI smoke (init → new → next → complete)
-        run: |
-          set -euo pipefail
-          SDD="$(pwd)/packages/cli/dist/index.js"
-          WORK="$(mktemp -d)"
-          cd "$WORK"
-          node "$SDD" init
-          node "$SDD" new "CI smoke hotfix typo" -w hotfix -y
-          node "$SDD" next
-          node "$SDD" next
-          node "$SDD" complete
-          test -d archive
-          echo "CLI smoke OK"
+        run: bash scripts/cli-smoke.sh
 
       - name: Package VS Code extension (VSIX)
         run: pnpm package:vscode
