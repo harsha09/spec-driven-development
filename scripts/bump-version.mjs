@@ -21,7 +21,6 @@ const PACKAGE_JSONS = [
   "package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
-  "packages/vscode/package.json",
 ];
 
 function sh(cmd, opts = {}) {

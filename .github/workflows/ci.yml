@@ -53,31 +53,8 @@ jobs:
       - name: Test (unit)
         run: pnpm test
 
-      - name: VS Code UI tests
-        run: |
-          # Headless Linux display for Electron
-          if [ "$(uname)" = "Linux" ]; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq xvfb
-            export DISPLAY=:99
-            Xvfb :99 -screen 0 1280x1024x24 >/tmp/xvfb.log 2>&1 &
-            sleep 2
-          fi
-          pnpm --filter structured-vibe-sdd run test:ui
-
       - name: CLI smoke (init → new → next → complete)
         run: bash scripts/cli-smoke.sh
-
-      - name: Package VS Code extension (VSIX)
-        run: pnpm package:vscode
-
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: structured-vibe-sdd-vsix
-          path: packages/vscode/*.vsix
-          if-no-files-found: error
-          retention-days: 14
 
   npm-pack:
     name: npm pack (dry)

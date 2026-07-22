@@ -8,7 +8,7 @@ Use `sdd` to add just enough structure when building apps—without locking your
 |---|---|
 | **Who** | Solo engineers and small teams (scales to larger teams via YAML policy) |
 | **Where** | Your laptop only — no cloud account required |
-| **How** | CLI + VS Code/Cursor extension on the same core |
+| **How** | CLI + AI coding agent (like Spec Kit — no IDE extension required) |
 
 ---
 
@@ -17,7 +17,7 @@ Use `sdd` to add just enough structure when building apps—without locking your
 | | |
 |---|---|
 | **This README** | Install, quickstart, command reference, customization |
-| **[docs/ hub](docs/README.md)** | Full doc map: agents, CI, marketplace, scenarios, package links |
+| **[docs/ hub](docs/README.md)** | Full doc map: agents, CI, scenarios, package links |
 | **In an app after `sdd init`** | Stable map: `memory/index.md` · change packs: `changes/<id>/` |
 
 ### In-repo map (this repository)
@@ -30,10 +30,9 @@ Use `sdd` to add just enough structure when building apps—without locking your
 6. [Three workflow customization examples](#three-workflow-customization-examples)
 7. [Per-PR customization](#per-pr-customization)
 8. [Default workflow packs](#default-workflow-packs)
-9. [VS Code / Cursor extension](#vs-code--cursor-extension)
-10. [npm packages](#npm-packages)
-11. [Develop this repo](#develop-this-repo)
-12. [License](#license)
+9. [npm packages](#npm-packages)
+10. [Develop this repo](#develop-this-repo)
+11. [License](#license)
 
 More detail: **[docs/README.md](docs/README.md)**.
 
@@ -94,15 +93,6 @@ node packages/cli/dist/index.js init
 # or
 pnpm --filter @structured-vibe-coding/cli exec node ./dist/index.js init
 ```
-
-### Option C — VS Code / Cursor extension
-
-```bash
-pnpm install && pnpm build
-pnpm package:vscode
-```
-
-Then **Install from VSIX…** in VS Code or Cursor (see [VS Code / Cursor extension](#vs-code--cursor-extension)).
 
 ### Uninstall / unlink
 
@@ -896,36 +886,6 @@ sdd workflows
 
 ---
 
-## VS Code / Cursor extension
-
-Uses the **same core** as the CLI (bundled into the VSIX). No separate CLI install required for IDE use.
-
-| Feature | Command palette |
-|---------|-----------------|
-| Initialize | `SDD: Initialize in Workspace` |
-| New change | `SDD: New Change` |
-| Stages | `SDD: Next Stage`, `Skip Stage`, `Switch Workflow` |
-| Gates | `SDD: Approve Gate`, `Waive Gate` |
-| Local verify | `SDD: Local Verify` |
-| Agent handoff | `SDD: Copy Agent Handoff` |
-| Complete | `SDD: Complete Change` |
-
-**Sidebar:** Activity bar → **Structured Vibe** (changes, stages, artifacts).
-
-```bash
-pnpm install && pnpm build
-pnpm package:vscode
-# → packages/vscode/structured-vibe-sdd-0.1.0.vsix
-```
-
-- VS Code: Extensions → **Install from VSIX…**
-- `code --install-extension packages/vscode/structured-vibe-sdd-*.vsix`
-- `cursor --install-extension packages/vscode/structured-vibe-sdd-*.vsix`
-
-See [`packages/vscode/README.md`](packages/vscode/README.md).
-
----
-
 ## npm packages
 
 | Package | Install |
@@ -945,8 +905,8 @@ pnpm publish:npm       # publish core then cli (local)
 
 | Pipeline | Trigger | What |
 |----------|---------|------|
-| **CI** | PR / push to `main` | Build, test, smoke, VSIX artifact |
-| **Auto release on push** | Push to `main` (`packages/**`) | **Auto version bump** → npm publish → tag → GitHub Release + VSIX |
+| **CI** | PR / push to `main` | Build, test, typecheck, CLI smoke |
+| **Auto release on push** | Push to `main` (`packages/**`) | **Auto version bump** → npm publish → tag → GitHub Release |
 
 1. Secret **`NPM_TOKEN`** (publish + bypass 2FA) — already set if you added it.  
 2. **Settings → Actions → General → Workflow permissions → Read and write** (so the bot can push version commits/tags).  
@@ -964,14 +924,12 @@ Full guide: [`docs/ci-cd.md`](docs/ci-cd.md).
 packages/
   core/     @structured-vibe-coding/core   # engine + default workflows
   cli/      @structured-vibe-coding/cli    # `sdd` binary
-  vscode/   structured-vibe-sdd     # VS Code / Cursor extension
 ```
 
 ```bash
 pnpm install   # also installs git hooks via husky (prepare)
 pnpm build
 pnpm test
-pnpm package:vscode
 ```
 
 ### Pre-commit hooks
@@ -1001,9 +959,8 @@ After `pnpm install`, **husky** installs a `pre-commit` hook that runs `pnpm typ
 - [x] Core engine + CLI  
 - [x] Default + enterprise workflow packs  
 - [x] Per-change workflow / skip / gates  
-- [x] IDE extension (VS Code / Cursor) on the same core  
+- [x] AI agent hosts (Copilot / Claude / Grok) — no IDE extension required  
 - [x] npm package publish setup (CLI + core)  
-- [ ] Marketplace listing for the extension  
 - [ ] Richer recommend heuristics  
 - [ ] `sdd workflow save-as` to promote one-off packs  
 

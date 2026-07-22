@@ -20,13 +20,11 @@
 | Kind | Examples | What SDD installs |
 |------|----------|-------------------|
 | **AI coding agent** | GitHub Copilot, Claude Code, **Grok Build** | Thin stubs/rules + protocol |
-| **IDE** | VS Code, Cursor, IntelliJ | Extension/plugin only — not an agent target |
+| **IDE** | VS Code, Cursor, IntelliJ, etc. | Nothing — edit files + run `sdd` in a terminal (no extension required) |
 
 | Surface | Integration |
 |---------|-------------|
-| **CLI** | `sdd` |
-| **VS Code / Cursor** (IDE) | Extension + pick **Copilot** and/or terminal agents |
-| **IntelliJ** (IDE) | Plugin → `sdd` CLI; pick **Copilot** for `.github/agents/` |
+| **CLI** | `sdd` (process owner; Spec Kit–style) |
 | **GitHub Copilot** (AI agent) | `.github/agents/*.agent.md` |
 | **Claude Code** (AI agent) | `.claude/agents/*.md` |
 | **Grok Build** (AI agent) | `.grok/rules/sdd.md` + `AGENTS.md` (Grok auto-loads both) |
@@ -122,12 +120,9 @@ sdd next --no-agent            # process only
 
 | Package | Coverage |
 |---------|----------|
-| `core` | protocol + agents-only; registry (copilot, claude, grok); no IDE targets |
-| `vscode` unit | init with explicit AI agent only |
-| `vscode` UI | Electron: init installs only selected AI agent |
-| `intellij` plugin | CLI argv for `agents install/refresh` (IDE shell) |
+| `core` | protocol + agents-only; registry (copilot, claude, grok) |
+| `cli` | init / new / status / next integration |
 
 ```bash
 pnpm test
-pnpm test:vscode-ui
 ```

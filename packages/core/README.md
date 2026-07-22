@@ -2,10 +2,7 @@
 
 Core engine for **Structured Vibe Coding** — local-first Spec-Driven Development.
 
-Used by:
-
-- `@structured-vibe-coding/cli` (`sdd` command)
-- VS Code / Cursor extension (`packages/vscode`)
+Used by `@structured-vibe-coding/cli` (`sdd` command).
 
 ## Install
 
