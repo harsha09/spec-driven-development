@@ -96,8 +96,6 @@ suite("Structured Vibe SDD — VS Code UI", () => {
       "hotfix",
     );
 
-    await vscode.commands.executeCommand("structuredVibe.next");
-
     const changesDir = path.join(workspaceRoot(), "changes");
     const kids = fs
       .readdirSync(changesDir)
@@ -106,7 +104,24 @@ suite("Structured Vibe SDD — VS Code UI", () => {
       kids[0] ??
       fs.readdirSync(changesDir).filter((n) => n !== ".gitkeep" && n !== ".active").pop();
     assert.ok(folder, "change folder");
-    const meta = fs.readFileSync(path.join(changesDir, folder!, "meta.yaml"), "utf8");
+    const changePath = path.join(changesDir, folder!);
+
+    // Substantive intent required — empty templates fail advanceStage
+    fs.writeFileSync(
+      path.join(changePath, "intent.md"),
+      [
+        "# Intent",
+        "",
+        "UI test: advance hotfix from intent to implement after filling real intent content.",
+        "Success: structuredVibe.next moves stage to implement without incomplete-artifact errors.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await vscode.commands.executeCommand("structuredVibe.next");
+
+    const meta = fs.readFileSync(path.join(changePath, "meta.yaml"), "utf8");
     assert.match(meta, /stage:\s*implement/);
   });
 
