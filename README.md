@@ -968,11 +968,21 @@ packages/
 ```
 
 ```bash
-pnpm install
+pnpm install   # also installs git hooks via husky (prepare)
 pnpm build
 pnpm test
 pnpm package:vscode
 ```
+
+### Pre-commit hooks
+
+After `pnpm install`, **husky** installs a `pre-commit` hook that runs `pnpm typecheck` (same check as CI). Commits fail locally if TypeScript reports unused locals or other type errors.
+
+| | |
+|---|---|
+| Hook | `.husky/pre-commit` → `pnpm typecheck` |
+| Skip once | `git commit --no-verify` or `HUSKY=0 git commit` |
+| Disable for the shell | `export HUSKY=0` |
 
 ---
 

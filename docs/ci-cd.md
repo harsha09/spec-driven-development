@@ -9,6 +9,10 @@ GitHub Actions pipelines for continuous integration and **automatic releases on 
 - **pnpm**: `pnpm/action-setup@v4` **before** `setup-node`, with `package-manager-cache: false`  
   (`setup-node@v5` otherwise looks for `pnpm` too early and fails with “Unable to locate executable file: pnpm”)
 
+## Local pre-commit (husky)
+
+After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused imports / TS errors fail before push (same gate as CI typecheck). Config: [`.husky/pre-commit`](../.husky/pre-commit). Skip once with `git commit --no-verify` or `HUSKY=0`.
+
 ## Workflows
 
 | Workflow | File | When | What |
