@@ -27,14 +27,18 @@ function runSdd(
   cwd: string,
   args: string[],
 ): { status: number | null; stdout: string; stderr: string } {
+  // Vitest injects NO_COLOR + FORCE_COLOR together; that silences consola in children.
+  // Use a minimal env so CLI output is capturable (status/help use consola).
   const r = spawnSync(process.execPath, [sddBin, ...args], {
     cwd,
     encoding: "utf8",
     env: {
-      ...process.env,
-      // Force non-interactive defaults where applicable
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      TMPDIR: process.env.TMPDIR,
+      USER: process.env.USER,
+      LANG: process.env.LANG,
       CI: "1",
-      FORCE_COLOR: "0",
     },
   });
   return {
@@ -116,19 +120,46 @@ describe("CLI integration", () => {
     expect(await exists(join(changePath, "meta.yaml"))).toBe(true);
     expect(await exists(join(changePath, "intent.md"))).toBe(true);
 
-    // status may write via consola (not always captured on pipe); exit 0 is enough
-    const status = runSdd(root, ["status", "--no-agent"]);
+    // Bare status: inspect only — must not launch / handoff-kickoff the agent
+    const handoffPath = join(root, ".sdd/handoff.md");
+    const handoffBefore = await readFile(handoffPath, "utf8");
+    const status = runSdd(root, ["status"]);
     expect(status.status, status.stderr + status.stdout).toBe(0);
+    const statusOut = status.stderr + status.stdout;
+    expect(statusOut).not.toMatch(/Handoff:|Starting |Started |Copilot Chat|Skipped \(--no-agent/i);
+    expect(statusOut).toMatch(/Change:|Status:|Workflow:/i);
+    // launchConfiguredAgent rewrites handoff; status must not touch it
+    expect(await readFile(handoffPath, "utf8")).toBe(handoffBefore);
 
-    // Ensure intent content for leave checks
+    const statusList = runSdd(root, ["status", "--list"]);
+    expect(statusList.status, statusList.stderr + statusList.stdout).toBe(0);
+    const listOut = statusList.stderr + statusList.stdout;
+    expect(listOut).not.toMatch(/Handoff:|Starting |Started |Copilot Chat|Skipped \(--no-agent/i);
+    expect(listOut).toMatch(/hotfix|intent/i);
+    expect(await readFile(handoffPath, "utf8")).toBe(handoffBefore);
+
+    // Ensure intent content for leave checks (must be substantive, not a stub)
     await import("node:fs/promises").then((fs) =>
-      fs.writeFile(join(changePath, "intent.md"), "# Intent\n\ncli test\n", "utf8"),
+      fs.writeFile(
+        join(changePath, "intent.md"),
+        [
+          "# Intent",
+          "",
+          "Fix a CLI integration regression so bare status does not launch the agent.",
+          "Success: sdd status prints stage progress without handoff or agent spawn.",
+          "",
+        ].join("\n"),
+        "utf8",
+      ),
     );
 
     const next = runSdd(root, ["next", "--no-agent"]);
     expect(next.status, next.stderr + next.stdout).toBe(0);
-    // handoff rewritten after process commands
-    expect(await exists(join(root, ".sdd/handoff.md"))).toBe(true);
+    // handoff rewritten after process commands that still call launchConfiguredAgent
+    expect(await exists(handoffPath)).toBe(true);
+    const nextOut = next.stderr + next.stdout;
+    // next still goes through launchConfiguredAgent; with --no-agent it reports skip / handoff
+    expect(nextOut).toMatch(/Handoff:|Skipped \(--no-agent/i);
 
     const refresh = runSdd(root, ["agents", "refresh", "--no-agent"]);
     expect(refresh.status, refresh.stderr + refresh.stdout).toBe(0);
@@ -137,6 +168,20 @@ describe("CLI integration", () => {
     expect(active).toMatch(/CLI integration|protocol|implement/i);
     const handoff = await readFile(join(root, ".sdd/handoff.md"), "utf8");
     expect(handoff.length).toBeGreaterThan(50);
+  });
+
+  it("sdd status --help does not claim agent launch", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-status-help-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+
+    const help = runSdd(root, ["status", "--help"]);
+    expect(help.status, help.stderr + help.stdout).toBe(0);
+    const out = help.stderr + help.stdout;
+    // Must not advertise status as launching the agent (negative phrases ok)
+    expect(out).not.toMatch(/status \+ agent|refresh handoff, launch AI agent/i);
+    expect(out).not.toMatch(/(?<!does not )launch(es)? (the )?AI agent/i);
+    expect(out).toMatch(/does not launch|active change status/i);
   });
 
   it("sdd init --no-agents then sdd agents install --ai claude", async () => {

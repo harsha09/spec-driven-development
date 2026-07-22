@@ -209,12 +209,11 @@ const newCmd = defineCommand({
 const status = defineCommand({
   meta: {
     name: "status",
-    description: "Show active change status, refresh handoff, launch AI agent",
+    description: "Show active change status (does not launch the AI agent)",
   },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
     list: { type: "boolean", description: "List all open changes", default: false },
-    "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
@@ -242,14 +241,6 @@ const status = defineCommand({
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
       consola.log("");
-      const launch = await launchConfiguredAgent({
-        projectRoot: root,
-        config,
-        ctx,
-        noAgent: args["no-agent"],
-        event: `status · stage ${ctx.meta.stage}`,
-      });
-      await reportAgentLaunch(launch);
     });
   },
 });
@@ -687,15 +678,15 @@ const help = defineCommand({
     consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}  GitHub Copilot only`);
     consola.log(`  ${pc.cyan("sdd init --here --ai claude")}   Claude Code only`);
     consola.log("");
-    consola.log(pc.bold("Everyday (each launches the agent unless --no-agent):"));
+    consola.log(pc.bold("Everyday:"));
     consola.log(`  ${pc.cyan('sdd new "My change"')}   create pack + agent`);
-    consola.log(`  ${pc.cyan("sdd status")}            status + agent`);
+    consola.log(`  ${pc.cyan("sdd status")}            show active change progress (no agent)`);
     consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
     consola.log(`  ${pc.cyan("sdd verify")}            verify + agent`);
     consola.log(`  ${pc.cyan("sdd complete")}          mark done + agent`);
     consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
     consola.log("");
-    consola.log(pc.bold("Skip agent launch:"));
+    consola.log(pc.bold("Skip agent launch (process commands only):"));
     consola.log(`  ${pc.cyan("sdd next --no-agent")}   or  ${pc.cyan("SDD_NO_AGENT=1 sdd next")}`);
     consola.log("");
     consola.log(pc.dim("Docs: docs/ide-and-agents.md · sdd <command> --help"));

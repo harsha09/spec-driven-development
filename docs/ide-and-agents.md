@@ -89,13 +89,14 @@ sdd agents refresh                        # update active-context.md after stage
 
 ---
 
-## Engineer workflow (agent after every command)
+## Engineer workflow (agent after process commands)
 
 **Model:** SDD owns process state; the **AI coding agent from init** does the work.
 
 | After this command… | Agent behavior |
 |---------------------|----------------|
-| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `status` / `checkout` / `agent` / `agents refresh` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
+| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `checkout` / `agent` / `agents refresh` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
+| `sdd status` | Shows active-change progress only (**no** agent launch) |
 | `sdd init` | Installs agent files only (no launch) |
 | `sdd workflows` | List only (no launch) |
 
