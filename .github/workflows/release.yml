@@ -69,14 +69,7 @@ jobs:
           pnpm test
 
       - name: CLI smoke
-        run: |
-          set -euo pipefail
-          SDD="$(pwd)/packages/cli/dist/index.js"
-          WORK="$(mktemp -d)"
-          cd "$WORK"
-          node "$SDD" init
-          node "$SDD" new "release smoke" -w hotfix -y
-          node "$SDD" next && node "$SDD" next && node "$SDD" complete
+        run: bash scripts/cli-smoke.sh
 
   publish-npm:
     name: Publish to npm
