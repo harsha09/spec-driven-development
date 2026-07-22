@@ -1,0 +1,3 @@
+# Match the CI gate that most often blocks PRs (tsc noUnusedLocals, etc.).
+# Skip for a one-off: git commit --no-verify  or  HUSKY=0 git commit
+pnpm typecheck
