@@ -2,7 +2,7 @@
  * Unit tests for VS Code extension wiring (no Electron).
  * Proves commands map to core and agent files exist after init.
  */
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -49,9 +49,22 @@ describe("VS Code extension use-cases (core path)", () => {
     });
     expect(ctx.meta.stage).toBe("intent");
 
-    // structuredVibe.next
+    // Stage leave requires substantive artifacts (not empty templates)
+    await writeFile(
+      join(ctx.path, "feature.md"),
+      [
+        "# Feature",
+        "",
+        "Users need a VS Code command to advance SDD stages from the command palette.",
+        "Non-goals: reimplement the CLI. Success: next advances after intent is filled.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    // structuredVibe.next — feature workflow goes to optional clarify_intent first
     const next = await advanceStage(root, config, ctx.id);
-    expect(next.to).toBe("design");
+    expect(next.to).toBe("clarify_intent");
 
     // structuredVibe agent context refresh
     const active = await refreshActiveAgentContext(root);
