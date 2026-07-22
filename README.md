@@ -963,8 +963,15 @@ After `pnpm install`, **husky** installs a `pre-commit` hook that runs `pnpm typ
 - [x] npm package publish setup (CLI + core)  
 - [ ] Richer recommend heuristics  
 - [ ] `sdd workflow save-as` to promote one-off packs  
+- [ ] **Flexible stages on `sdd new`** — pre-defined workflow templates force a fixed step list; allow removing or deactivating stages that are not required for this change (without hand-editing YAML every time)  
+- [x] **Stage-scoped `sdd refine`** — refine by stage (not hard-coded filenames); prior pack impact; constitution read-only; non-blocking open items  
+- [ ] **Richer clarify loop** — deeper Spec Kit–style Q&A UX on top of refine/analyze  
+
+- [ ] **Document or rework `sdd checkout`** — today it only switches the active change id and launches the agent; make purpose discoverable in help/docs (or rename if “checkout” confuses)  
+- [ ] **Stop / reject / abandon a change** — first-class CLI to cancel a feature/hotfix (schema already has `abandoned`; no user-facing command to stop or reject mid-flight)  
 
 ---
+
 
 ## License
 

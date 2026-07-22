@@ -40,6 +40,11 @@ export interface LaunchAgentOptions {
    * Still launches with kickoff using ctx / changeId.
    */
   reuseHandoff?: boolean;
+  /**
+   * When set, replaces default "do stage work" kickoff instructions
+   * (e.g. sdd refine mode).
+   */
+  kickoffInstructions?: string;
 }
 
 export interface LaunchAgentResult {
@@ -150,6 +155,7 @@ export async function launchConfiguredAgent(
     stage: opts.ctx?.meta.stage ?? stage,
     changeId,
     event: opts.event ?? "SDD command finished",
+    instructions: opts.kickoffInstructions,
   });
 
   const target = installed.target;

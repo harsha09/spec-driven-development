@@ -110,8 +110,32 @@ Skip launch anytime: `--no-agent` or `SDD_NO_AGENT=1`.
 sdd init --here --ai grok
 sdd new "Add feature"          # launches Grok
 sdd next                       # launches Grok again for new stage
+sdd refine                     # refine current stage (+ prior pack impact)
+sdd refine design              # refine a named stage
+sdd refine --analyze           # report only → quality-report.md
 sdd verify                     # launches Grok with verify context
 sdd next --no-agent            # process only
+```
+
+### Refine (stage-scoped, anytime)
+
+`sdd refine [stage]` writes `changes/<id>/refine-brief.md` and launches the agent in **refine** mode:
+
+| Rule | Behavior |
+|------|----------|
+| Address by **stage** | Resolves files from the workflow (not hard-coded paths) |
+| Constitution | **Read-only** — never edit |
+| Focus stage | Primary edit target |
+| Prior artifacts | Auto impact-scan (`rg`/grep); fix mechanical inconsistencies; **highlight** scope/judgment calls |
+| Open items | Only when human **explicitly accepts** + notes (else “proposed” in report) |
+| Process | Never blocks `next` / `complete`; agent must not run `sdd next` |
+
+```bash
+sdd refine                 # current stage
+sdd refine design          # named stage
+sdd refine --focus-only    # edit focus files only (still read prior)
+sdd refine --analyze       # quality-report.md only
+sdd refine --no-agent      # brief only
 ```
 
 ---

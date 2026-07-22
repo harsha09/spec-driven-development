@@ -6,9 +6,13 @@ import {
   advanceStage,
   approveGate,
   buildContext,
+  buildRefinePlan,
+  changePath,
   completeChange,
   createChange,
+  formatJsonSummary,
   formatStatus,
+  generateCodeContext,
   getActiveChangeId,
   installAgentIntegration,
   isInitialized,
@@ -24,6 +28,7 @@ import {
   skipStage,
   switchWorkflow,
   writeAgentHandoff,
+  writeRefineBrief,
 } from "@structured-vibe-coding/core";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
@@ -663,6 +668,268 @@ const useChange = defineCommand({
   },
 });
 
+/** Normalize citty string | string[] flags. */
+function asStringList(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  const s = String(value).trim();
+  return s ? [s] : [];
+}
+
+const contextCmd = defineCommand({
+  meta: {
+    name: "context",
+    description:
+      "Structure-aware (AST) code context for agents — symbols/slices, not full-repo dump",
+  },
+  args: {
+    path: {
+      type: "string",
+      description: "Seed path (file or directory; repeatable)",
+      alias: "p",
+    },
+    symbol: {
+      type: "string",
+      description: "Priority symbol name (repeatable)",
+      alias: "s",
+    },
+    query: {
+      type: "string",
+      description: "Free-text focus for keyword ranking",
+      alias: "q",
+    },
+    change: {
+      type: "string",
+      description: "Change id (default: active)",
+      alias: "c",
+    },
+    out: {
+      type: "string",
+      description:
+        "Write regenerable markdown path, or 'change' for changes/<id>/code-context.md",
+      alias: "o",
+    },
+    stdout: {
+      type: "boolean",
+      description: "Print full markdown to stdout",
+      default: false,
+    },
+    neighbors: {
+      type: "boolean",
+      description: "Include structural import neighbors within caps",
+      default: false,
+    },
+    json: {
+      type: "boolean",
+      description: "Print machine-readable JSON summary to stdout",
+      default: false,
+    },
+    "max-files": {
+      type: "string",
+      description: "Cap: max files to parse (default 40)",
+    },
+    "max-slices": {
+      type: "string",
+      description: "Cap: max code slices (default 20)",
+    },
+    "max-lines-per-slice": {
+      type: "string",
+      description: "Cap: max lines per slice (default 80)",
+    },
+    "max-tokens": {
+      type: "string",
+      description: "Cap: approx token budget (default 12000)",
+    },
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      try {
+        let changeId: string | null = null;
+        if (args.change) {
+          try {
+            changeId = await resolveChangeId(root, config, args.change);
+          } catch (err) {
+            consola.error(err instanceof Error ? err.message : err);
+            process.exit(1);
+          }
+        } else {
+          changeId = await getActiveChangeId(root, config);
+        }
+
+        const paths = asStringList(args.path);
+        const symbols = asStringList(args.symbol);
+
+        let writeArtifactTo: string | null = null;
+        if (args.out) {
+          if (args.out === "change") {
+            if (!changeId) {
+              consola.error(
+                "No active change for --out change. Pass --change <id> or --out <path>.",
+              );
+              process.exit(1);
+            }
+            writeArtifactTo = join(
+              changePath(root, config, changeId),
+              "code-context.md",
+            );
+          } else {
+            writeArtifactTo = args.out.startsWith("/")
+              ? args.out
+              : join(root, args.out);
+          }
+        }
+
+        const num = (v: unknown): number | undefined => {
+          if (v == null || v === "") return undefined;
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0 ? n : undefined;
+        };
+
+        const result = await generateCodeContext({
+          projectRoot: root,
+          changeId,
+          paths: paths.length ? paths : undefined,
+          symbols: symbols.length ? symbols : undefined,
+          query: args.query || undefined,
+          includeNeighbors: Boolean(args.neighbors),
+          writeArtifactTo,
+          caps: {
+            maxFiles: num(args["max-files"]),
+            maxSlices: num(args["max-slices"]),
+            maxLinesPerSlice: num(args["max-lines-per-slice"]),
+            maxTokensApprox: num(args["max-tokens"]),
+          },
+        });
+
+        const wantStdout =
+          args.stdout || (!args.out && !args.json) || (args.out && args.stdout);
+
+        if (args.json) {
+          process.stdout.write(
+            formatJsonSummary(
+              result.summary,
+              result.gaps,
+              result.slices,
+              result.ok,
+            ) + "\n",
+          );
+        } else if (wantStdout) {
+          process.stdout.write(
+            result.markdown.endsWith("\n")
+              ? result.markdown
+              : `${result.markdown}\n`,
+          );
+        } else if (result.artifactPath) {
+          consola.success(
+            `Wrote code context → ${pc.cyan(result.artifactPath)}`,
+          );
+          consola.log(
+            pc.dim(
+              `Files: ${result.summary.filesAnalyzed} · Symbols: ${result.summary.symbolsExtracted} · Slices: ${result.summary.slicesEmitted}${result.summary.truncated ? " · truncated" : ""}`,
+            ),
+          );
+          if (result.gaps.length) {
+            consola.log(pc.dim(`Gaps: ${result.gaps.map((g) => g.code).join(", ")}`));
+          }
+        } else {
+          process.stdout.write(
+            result.markdown.endsWith("\n")
+              ? result.markdown
+              : `${result.markdown}\n`,
+          );
+        }
+
+        if (!result.ok) {
+          process.exit(1);
+        }
+      } catch (err) {
+        consola.error(err instanceof Error ? err.message : err);
+        process.exit(1);
+      }
+    });
+  },
+});
+
+const refine = defineCommand({
+  meta: {
+    name: "refine",
+    description:
+      "Stage-scoped refine agent: improve focus-stage artifacts, impact prior pack files (never edit constitution)",
+  },
+  args: {
+    stage: {
+      type: "positional",
+      description: "Stage id to refine (default: current stage)",
+      required: false,
+    },
+    change: { type: "string", description: "Change id", alias: "c" },
+    analyze: {
+      type: "boolean",
+      description: "Analyze only — write quality-report.md, do not edit pack artifacts",
+      default: false,
+    },
+    "focus-only": {
+      type: "boolean",
+      description: "Edit only focus-stage files (still read prior + constitution)",
+      default: false,
+    },
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      const id = await resolveChangeId(root, config, args.change);
+      const plan = await buildRefinePlan({
+        projectRoot: root,
+        config,
+        changeId: id,
+        stageId: args.stage,
+        focusOnly: Boolean(args["focus-only"]),
+        mode: args.analyze ? "analyze" : "refine",
+      });
+      const briefPath = await writeRefineBrief(plan, root);
+      await refreshActiveAgentContext(root);
+      await writeAgentHandoff(root, config, id);
+
+      consola.success(
+        `Refine brief → ${pc.cyan(briefPath)} (stage ${pc.bold(plan.focusStageId)}, mode ${plan.mode})`,
+      );
+      consola.log(pc.dim(`Focus artifacts: ${plan.focusArtifacts.map((a) => a.path).join(", ") || "(none)"}`));
+      consola.log(
+        pc.dim(
+          `Prior trail: ${plan.priorArtifacts.length} file(s) · constitution ${plan.constitutionExists ? "RO" : "missing"}`,
+        ),
+      );
+      if (plan.mode === "analyze") {
+        consola.info(`Report target: ${plan.reportPath}`);
+      }
+      consola.log("");
+
+      const ctx = await buildContext(root, config, id);
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `${plan.mode} stage ${plan.focusStageId}`,
+        kickoffInstructions: [
+          `Read first: ${briefPath}`,
+          `Also: .sdd/protocol.md, .sdd/active-context.md`,
+          plan.constitutionExists
+            ? `Constitution READ-ONLY: ${plan.constitutionPath}`
+            : `No constitution.md (optional).`,
+          plan.mode === "analyze"
+            ? `Mode ANALYZE: write findings to ${plan.reportPath} only — do not edit pack artifacts.`
+            : `Mode REFINE: improve focus-stage artifacts; impact-scan prior pack files (fix mechanical inconsistencies; highlight judgment). Never edit constitution. Do not run sdd next.`,
+          plan.focusOnly
+            ? `focusOnly=true: edit only focus-stage files.`
+            : `Prior pack files may be fixed for clear contradictions/term drift; scope changes → highlight for human.`,
+        ].join(" "),
+      });
+      await reportAgentLaunch(launch);
+    });
+  },
+});
+
 const help = defineCommand({
   meta: { name: "help", description: "Show help overview" },
   async run() {
@@ -682,9 +949,12 @@ const help = defineCommand({
     consola.log(`  ${pc.cyan('sdd new "My change"')}   create pack + agent`);
     consola.log(`  ${pc.cyan("sdd status")}            show active change progress (no agent)`);
     consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
+    consola.log(`  ${pc.cyan("sdd refine")}            refine current stage (+ prior impact)`);
+    consola.log(`  ${pc.cyan("sdd refine design")}     refine a named stage`);
     consola.log(`  ${pc.cyan("sdd verify")}            verify + agent`);
     consola.log(`  ${pc.cyan("sdd complete")}          mark done + agent`);
     consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
+    consola.log(`  ${pc.cyan("sdd context")}           AST-backed code context for agents`);
     consola.log("");
     consola.log(pc.bold("Skip agent launch (process commands only):"));
     consola.log(`  ${pc.cyan("sdd next --no-agent")}   or  ${pc.cyan("SDD_NO_AGENT=1 sdd next")}`);
@@ -721,6 +991,8 @@ const main = defineCommand({
     agent,
     agents,
     checkout: useChange,
+    context: contextCmd,
+    refine,
     help,
   },
 });
