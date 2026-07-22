@@ -1,7 +1,7 @@
 /**
  * Incomplete design must not advance to tasks; fallback restores incomplete stage.
  */
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
