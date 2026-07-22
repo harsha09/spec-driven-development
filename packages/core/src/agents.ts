@@ -256,6 +256,7 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
       "If stage is intent/feature/design/tasks/stories/research: act as planner (artifacts, little or no product code).",
       "If stage is implement: act as implementer (scoped code only).",
       "If stage is local_verify: act as reviewer (gaps vs acceptance; fixes only).",
+      "If kickoff/brief says refine or analyze: follow changes/<id>/refine-brief.md — stage-scoped refine; never edit constitution; do not sdd next.",
     ],
   },
   {
@@ -497,8 +498,22 @@ export function agentKickoffMessage(opts: {
   changeId: string;
   /** What just happened, e.g. "new change", "advanced to implement" */
   event?: string;
+  /**
+   * When set, replaces the default "do current stage work" tail
+   * (used by sdd refine and other specialized modes).
+   */
+  instructions?: string;
 }): string {
   const event = opts.event ?? "context updated";
+  if (opts.instructions?.trim()) {
+    return [
+      `SDD: ${event}.`,
+      `Title: ${opts.title}`,
+      `Change: ${opts.changeId}`,
+      `Stage: ${opts.stage}`,
+      opts.instructions.trim(),
+    ].join(" ");
+  }
   return [
     `SDD: ${event}.`,
     `Title: ${opts.title}`,

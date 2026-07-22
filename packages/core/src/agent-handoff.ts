@@ -100,6 +100,31 @@ export async function buildAgentPrompt(
     }
   }
   parts.push("");
+
+  // Structure-aware product code context pointer (implement / local_verify only).
+  // Do NOT run the code-context pipeline here — instructional pointer only (ARB #8).
+  const stageId = ctx.meta.stage;
+  if (stageId === "implement" || stageId === "local_verify") {
+    parts.push(`## Code context (product code)`);
+    parts.push("");
+    parts.push(
+      `Process context above is not enough for product code structure.`,
+    );
+    parts.push(
+      `When you need symbols, callers, or package-boundary context:`,
+    );
+    parts.push(
+      `1. Run: \`sdd context\` (optional: \`--path …\`, \`--symbol …\`, \`--out change\`)`,
+    );
+    parts.push(
+      `2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`,
+    );
+    parts.push(
+      `Do not dump unbounded source into the prompt; prefer the sliced output.`,
+    );
+    parts.push("");
+  }
+
   parts.push(
     `When done with this stage, the human will run \`sdd next\` or \`sdd verify\` / \`sdd complete\`.`,
   );
