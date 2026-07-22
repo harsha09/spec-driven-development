@@ -17,8 +17,8 @@ After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused impo
 
 | Workflow | File | When | What |
 |----------|------|------|------|
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, VSIX artifact, npm pack dry-run |
-| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release + VSIX |
+| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, npm pack dry-run |
+| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release |
 | **Release (manual)** | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
 
 ## Automatic version bump on push (default)
@@ -34,7 +34,7 @@ push to main (packages/** changed)
         ↓
   detect bump from conventional commits since last git tag
         ↓
-  bump package.json versions (root, core, cli, vscode) together
+  bump package.json versions (root, core, cli) together
         ↓
   build + test + CLI smoke
         ↓
@@ -43,7 +43,7 @@ push to main (packages/** changed)
   commit chore(release): vX.Y.Z [skip release]
   tag vX.Y.Z + push
         ↓
-  GitHub Release + VSIX attachment
+  GitHub Release
 ```
 
 ### How the bump type is chosen
@@ -131,7 +131,7 @@ node scripts/bump-version.mjs --set 1.0.0
 
 ## CI (every PR)
 
-No secrets. Same quality gate as before; uploads VSIX as an artifact (does **not** publish npm).
+No secrets. Quality gate only (build, typecheck, test, CLI smoke, npm pack dry-run). Does **not** publish npm.
 
 ---
 
@@ -140,8 +140,6 @@ No secrets. Same quality gate as before; uploads VSIX as an artifact (does **not
 ```bash
 npm install -g @structured-vibe-coding/cli
 sdd --help
-
-# VSIX from the GitHub Release assets for that tag
 ```
 
 ---

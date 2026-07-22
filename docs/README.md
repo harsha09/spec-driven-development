@@ -13,11 +13,10 @@ Root [README](../README.md) = product pitch + install + quickstart.
 |--------------|------|
 | Install and first change | [../README.md](../README.md) → *How to use it* |
 | AI agents — **one host only** (Copilot / Claude / Grok) | [ide-and-agents.md](ide-and-agents.md) |
-
-**Setup:** `sdd init --here --ai grok` (or `copilot` / `claude`) is enough. No separate `sdd agents install` for first-time.
 | CI, Node version, publish automation | [ci-cd.md](ci-cd.md) |
-| VS Marketplace / VSIX publish | [marketplace-publish.md](marketplace-publish.md) |
 | When SDD fits real teams | [scenario-evaluation.md](scenario-evaluation.md) |
+
+**Setup:** `sdd init --here --ai grok` (or `copilot` / `claude`) is enough. No separate `sdd agents install` for first-time. No IDE extension required (CLI + AI agent only).
 
 ---
 
@@ -27,8 +26,6 @@ Root [README](../README.md) = product pitch + install + quickstart.
 |---------|-----|
 | CLI (`sdd`) | [../packages/cli/README.md](../packages/cli/README.md) |
 | Core library | [../packages/core/README.md](../packages/core/README.md) |
-| VS Code / Cursor extension | [../packages/vscode/README.md](../packages/vscode/README.md) |
-| IntelliJ plugin | [../packages/intellij/README.md](../packages/intellij/README.md) |
 
 ---
 
