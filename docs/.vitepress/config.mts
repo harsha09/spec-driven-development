@@ -12,9 +12,10 @@ export default defineConfig({
   description:
     "Local-first Spec-Driven Development (sdd) — process CLI + your AI coding agent. Spec Kit–style, no IDE extension required.",
   base,
+  // Clean URLs in the browser; scripts/docs-pages-layout.mjs rewrites dist to */index.html for GitHub Pages
   cleanUrls: true,
   lastUpdated: true,
-  ignoreDeadLinks: true,
+  ignoreDeadLinks: "localhostLinks",
 
   head: [
     ["meta", { name: "theme-color", content: "#0f172a" }],

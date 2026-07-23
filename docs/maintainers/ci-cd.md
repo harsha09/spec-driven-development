@@ -11,16 +11,16 @@ GitHub Actions pipelines for continuous integration and **automatic releases on 
 
 ## Local pre-commit (husky)
 
-After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused imports / TS errors fail before push (same gate as CI typecheck). Config: [`.husky/pre-commit`](../../.husky/pre-commit). Skip once with `git commit --no-verify` or `HUSKY=0`.
+After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused imports / TS errors fail before push (same gate as CI typecheck). Config lives in repo root `.husky/pre-commit`. Skip once with `git commit --no-verify` or `HUSKY=0`.
 
 ## Workflows
 
-| Workflow | File | When | What |
-|----------|------|------|------|
-| **CI** | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, npm pack dry-run |
-| **Docs site** | [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) | Push to `main` affecting `docs/**` | VitePress → GitHub Pages |
-| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release |
-| **Release (manual)** | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
+| Workflow | File (repo root) | When | What |
+|----------|------------------|------|------|
+| **CI** | `.github/workflows/ci.yml` | PR / push to `main` | Build, test, typecheck, CLI smoke, npm pack dry-run |
+| **Docs site** | `.github/workflows/docs.yml` | Push to `main` affecting `docs/**` | VitePress → GitHub Pages |
+| **Auto release on push** | `.github/workflows/release-on-push.yml` | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release |
+| **Release (manual)** | `.github/workflows/release.yml` | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
 
 ## Automatic version bump on push (default)
 
@@ -129,6 +129,16 @@ node scripts/bump-version.mjs --set 1.0.0
    First run will tag `v0.1.1` (patch from `0.1.0`) unless commits since start include `feat:`.
 
 ---
+
+## Docs site (GitHub Pages)
+
+Public site: `https://harsha09.github.io/spec-driven-development/`
+
+1. **Settings → Pages → Source: GitHub Actions** (not “Deploy from a branch /docs”).  
+2. Workflow [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) builds VitePress and deploys.  
+3. Build uses `base: /spec-driven-development/` and rewrites pages to `path/index.html` so both `/path` and `/path/` work (plain `path.html` 404s on trailing-slash requests).
+
+Local: `pnpm docs:dev` · `pnpm docs:build`
 
 ## CI (every PR)
 
