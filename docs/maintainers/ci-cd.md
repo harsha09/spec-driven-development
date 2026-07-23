@@ -11,15 +11,16 @@ GitHub Actions pipelines for continuous integration and **automatic releases on 
 
 ## Local pre-commit (husky)
 
-After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused imports / TS errors fail before push (same gate as CI typecheck). Config: [`.husky/pre-commit`](../.husky/pre-commit). Skip once with `git commit --no-verify` or `HUSKY=0`.
+After `pnpm install`, a **pre-commit** hook runs `pnpm typecheck` so unused imports / TS errors fail before push (same gate as CI typecheck). Config: [`.husky/pre-commit`](../../.husky/pre-commit). Skip once with `git commit --no-verify` or `HUSKY=0`.
 
 ## Workflows
 
 | Workflow | File | When | What |
 |----------|------|------|------|
-| **CI** | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, npm pack dry-run |
-| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release |
-| **Release (manual)** | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
+| **CI** | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) | PR / push to `main` | Build, test, typecheck, CLI smoke, npm pack dry-run |
+| **Docs site** | [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) | Push to `main` affecting `docs/**` | VitePress → GitHub Pages |
+| **Auto release on push** | [`.github/workflows/release-on-push.yml`](../../.github/workflows/release-on-push.yml) | Push to `main` (package changes) | **Auto version bump** → test → **npm publish** → tag → GitHub Release |
+| **Release (manual)** | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) | Manual / classic GitHub Release event | Optional path if you still create releases by hand |
 
 ## Automatic version bump on push (default)
 

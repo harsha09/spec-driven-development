@@ -1,6 +1,24 @@
-# IDEs & coding agents (agents only)
+# AI agents (init + hosts)
 
-**No skills.** One playbook, thin role agents, live context.
+> **How-to:** Install **one** AI coding agent with `sdd init` and run the everyday agent loop.
+
+## Problem · Solution · Benefit
+
+| | |
+|--|--|
+| **Problem** | People confuse IDEs with AI agents, or install every host at once. |
+| **Solution** | Spec Kit–style single host: `--ai grok \| copilot \| claude`. |
+| **Benefit** | Clean stubs, one protocol, no extension required. |
+
+## What / When / How
+
+| | |
+|--|--|
+| **What** | Agent files + `.sdd/protocol.md` + live `active-context.md` |
+| **When** | Once at init; switch later with `sdd agents install` |
+| **How** | Commands in [Setup](#setup-is-one-command) |
+
+**No skills packs.** One playbook, thin role agents, live context.
 
 **IDEs ≠ AI agents.** VS Code, Cursor, and IntelliJ are editors. `sdd init` asks which **AI coding agent** to install files for, not which IDE you use.
 

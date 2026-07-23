@@ -7,3 +7,7 @@ coverage/
 .sdd-test-*/
 tmp/
 .npmrc
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

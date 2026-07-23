@@ -1,5 +1,10 @@
-# SDD Engineering Scenario Evaluation
-Date: 2026-07-19 | Tool: sdd CLI @ structured-vibe-coding
+# Scenario evaluation
+
+> **What:** How `sdd` behaves on real eng scenarios (hotfix → enterprise).  
+> **So what:** Proof the tool fits teams, not only a demo script.  
+> **Now what:** Skim the scenario that matches your team; open a [guide](/guides/everyday-loop) to act.
+
+Date: 2026-07-19 | Tool: sdd CLI
 
 ## S1 — Solo hotfix (typo)
 ```
