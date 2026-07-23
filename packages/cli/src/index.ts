@@ -14,11 +14,13 @@ import {
   formatStatus,
   generateCodeContext,
   getActiveChangeId,
+  getStage,
   installAgentIntegration,
   isInitialized,
   listChanges,
   listWorkflowNames,
   loadConfig,
+  loadInstalledAgent,
   loadWorkflow,
   recommendWorkflow,
   refreshActiveAgentContext,
@@ -198,6 +200,32 @@ const newCmd = defineCommand({
       consola.log("");
       consola.log(formatStatus(ctx));
       consola.log("");
+
+      const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
+      const firstArt =
+        stage?.artifacts.find((a) => a.required) ?? stage?.artifacts[0];
+      if (firstArt) {
+        const artPath = join(ctx.path, firstArt.path);
+        consola.log(pc.bold("Next steps:"));
+        consola.log(`  1. Open ${pc.cyan(artPath)}`);
+        consola.log(
+          `  2. Replace the template with real sentences (what’s wrong, what you’ll do, how you’ll know it worked)`,
+        );
+        consola.log(`  3. Run ${pc.cyan("sdd next")}  (or ${pc.cyan("sdd agent")} to draft with AI)`);
+        consola.log("");
+        consola.log(pc.dim("Example intent/feature body:"));
+        consola.log(
+          pc.dim(
+            "  Empty list crashes the expenses page. Show an empty state instead of throwing.",
+          ),
+        );
+        consola.log(
+          pc.dim(
+            "  Success: open expenses with zero rows — no error, empty state visible.",
+          ),
+        );
+        consola.log("");
+      }
 
       const launch = await launchConfiguredAgent({
         projectRoot: root,
@@ -930,42 +958,103 @@ const refine = defineCommand({
   },
 });
 
+const doctor = defineCommand({
+  meta: {
+    name: "doctor",
+    description: "Check local setup (Node, init, AI host, active change)",
+  },
+  async run() {
+    const root = projectRoot();
+    let ok = true;
+    const line = (label: string, fine: boolean, detail: string) => {
+      const mark = fine ? pc.green("✓") : pc.red("✗");
+      if (!fine) ok = false;
+      consola.log(`  ${mark} ${pc.bold(label)}  ${pc.dim(detail)}`);
+    };
+
+    consola.log(pc.bold("sdd doctor") + pc.dim(` · ${root}`));
+    consola.log("");
+
+    const major = Number(process.versions.node.split(".")[0]);
+    line(
+      "Node.js",
+      major >= 20,
+      `v${process.versions.node}${major < 24 ? " (24+ recommended)" : ""}`,
+    );
+
+    const initialized = await isInitialized(root);
+    line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd init --here --ai copilot");
+
+    if (initialized) {
+      const config = await loadConfig(root);
+      const installed = await loadInstalledAgent(root);
+      line(
+        "AI host",
+        Boolean(installed),
+        installed
+          ? `${installed.target} (${installed.integration.label})`
+          : "none — run: sdd agents install --ai copilot",
+      );
+      const active = await getActiveChangeId(root, config);
+      if (active) {
+        line("Active change", true, active);
+        const ctx = await buildContext(root, config, active);
+        line("Current stage", true, ctx.meta.stage);
+        const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
+        const first = stage?.artifacts.find((a) => a.required) ?? stage?.artifacts[0];
+        if (first) {
+          const p = join(ctx.path, first.path);
+          line("Open next", true, p);
+        }
+      } else {
+        line("Active change", true, "none — run: sdd new \"My first change\"");
+      }
+    }
+
+    consola.log("");
+    if (ok) {
+      consola.success("Looks good. Try: sdd status  or  sdd new \"…\"");
+    } else {
+      consola.warn("Fix the ✗ items above, then re-run sdd doctor.");
+      process.exitCode = 1;
+    }
+  },
+});
+
 const help = defineCommand({
   meta: { name: "help", description: "Show help overview" },
   async run() {
     const root = projectRoot();
-    consola.log(pc.bold("sdd") + " — local Spec-Driven Development + your AI coding agent");
+    consola.log(pc.bold("sdd") + " — process coach for you + your AI coding agent");
+    consola.log(pc.dim("  Needs: Node 20+ (24 recommended) · ~10 minutes for first loop"));
     consola.log("");
-    consola.log(pc.bold("Idea:"));
-    consola.log(pc.dim("  Process commands update the change pack, then hand work to the agent"));
-    consola.log(pc.dim("  configured at init (grok/claude CLI, or Copilot chat in the IDE)."));
-    consola.log("");
-    consola.log(pc.bold("Setup (once):"));
-    consola.log(`  ${pc.cyan("sdd init --here --ai grok")}     Grok Build only`);
-    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}  GitHub Copilot only`);
-    consola.log(`  ${pc.cyan("sdd init --here --ai claude")}   Claude Code only`);
+    consola.log(pc.bold("First time (in your app repo):"));
+    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude`);
+    consola.log(`  ${pc.cyan('sdd new "Fix empty list crash" -w hotfix -y')}`);
+    consola.log(`  ${pc.cyan("sdd doctor")}                    # check setup`);
+    consola.log(`  # edit the intent/feature file it prints`);
+    consola.log(`  ${pc.cyan("sdd next")}`);
     consola.log("");
     consola.log(pc.bold("Everyday:"));
-    consola.log(`  ${pc.cyan('sdd new "My change"')}   create pack + agent`);
-    consola.log(`  ${pc.cyan("sdd status")}            show active change progress (no agent)`);
+    consola.log(`  ${pc.cyan("sdd status")}            where am I? (no agent)`);
     consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
-    consola.log(`  ${pc.cyan("sdd refine")}            refine current stage (+ prior impact)`);
-    consola.log(`  ${pc.cyan("sdd refine design")}     refine a named stage`);
-    consola.log(`  ${pc.cyan("sdd verify")}            verify + agent`);
-    consola.log(`  ${pc.cyan("sdd complete")}          mark done + agent`);
+    consola.log(`  ${pc.cyan("sdd refine")}            improve current stage docs`);
+    consola.log(`  ${pc.cyan("sdd verify")}            local verify + agent`);
+    consola.log(`  ${pc.cyan("sdd complete")}          mark done`);
     consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
-    consola.log(`  ${pc.cyan("sdd context")}           AST-backed code context for agents`);
+    consola.log(`  ${pc.cyan("sdd context")}           AST code slices for agents`);
     consola.log("");
-    consola.log(pc.bold("Skip agent launch (process commands only):"));
-    consola.log(`  ${pc.cyan("sdd next --no-agent")}   or  ${pc.cyan("SDD_NO_AGENT=1 sdd next")}`);
+    consola.log(pc.bold("Tips:"));
+    consola.log(`  ${pc.cyan("sdd next --no-agent")}   process only (learn the loop first)`);
+    consola.log(pc.dim("  If next fails: open the file named in the error and write real sentences."));
     consola.log("");
-    consola.log(pc.dim("Docs: docs/ide-and-agents.md · sdd <command> --help"));
+    consola.log(pc.dim("Docs: https://harsha09.github.io/spec-driven-development/  ·  sdd <cmd> --help"));
     if (await isInitialized(root)) {
       const config = await loadConfig(root);
       const active = await getActiveChangeId(root, config);
       if (active) consola.log(pc.dim(`Active change: ${active}`));
     } else {
-      consola.log(pc.dim("Not initialized. Run: sdd init --here --ai grok"));
+      consola.log(pc.dim("Not initialized here. Run: sdd init --here --ai copilot"));
     }
   },
 });
@@ -993,6 +1082,7 @@ const main = defineCommand({
     checkout: useChange,
     context: contextCmd,
     refine,
+    doctor,
     help,
   },
 });

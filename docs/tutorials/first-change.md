@@ -1,110 +1,172 @@
 # Tutorial: your first change
 
-> In about ten minutes you’ll init `sdd`, start a hotfix pack, advance stages, and complete — on your laptop.
+> **You need:** Node.js 20+ (24 recommended) and about **10 minutes**.  
+> You’ll install `sdd`, create a small hotfix pack, write a few sentences, advance stages, and complete.
 
 ::: tip One path only
-This page is a single happy path. Variants and escape hatches live in [guides](/guides/everyday-loop).
+This page is a single happy path. Variants live in [everyday loop](/guides/everyday-loop).
 :::
 
-## Why this works
+## What you’ll get
 
-`sdd` owns process; you and your AI agent own content.
+`sdd` is a **process coach** in your terminal. It keeps a folder of markdown for *this* piece of work (a “change pack”). You and your AI write the content; `sdd` moves you through stages.
 
-Without a pack, agents reinvent scope every chat. With a pack, intent → implement → verify stays visible.
-
-We’ll run a **hotfix** for an empty-state crash. Finish this loop before customizing YAML.
+```text
+your-app/
+  .sdd/                 ← process config
+  memory/               ← optional project notes
+  changes/
+    2026-…-fix-…/
+      meta.yaml         ← stage + status
+      intent.md         ← you fill this first
+```
 
 ---
 
-## Prerequisites
+## 1. Install the CLI (pick one)
 
-- Node.js 24+ recommended (or 20+ for local dogfood)
-- An app repo (or empty folder) you can write to
-- Optional: `grok` / `claude` on PATH, or GitHub Copilot in your editor
+### A — Quickest (no global install)
 
-### Install the CLI
+From any folder, once packages are on npm:
 
-**From npm** (when published):
+```bash
+npx @structured-vibe-coding/cli --help
+# later commands: npx @structured-vibe-coding/cli init --here --ai copilot
+```
+
+Or install globally:
 
 ```bash
 npm install -g @structured-vibe-coding/cli
 sdd --help
 ```
 
-**From this monorepo** (maintainers / before publish):
+### B — Build from this monorepo (if npm package isn’t available yet)
 
 ```bash
+git clone https://github.com/harsha09/spec-driven-development.git
+cd spec-driven-development
+corepack enable && corepack prepare pnpm@9.15.0 --activate
 pnpm install && pnpm build
 pnpm --filter @structured-vibe-coding/cli link --global
-# or: node packages/cli/dist/index.js …
+sdd --help
+```
+
+If `sdd` is “not found”, use path B again or call:
+
+```bash
+node /path/to/spec-driven-development/packages/cli/dist/index.js --help
 ```
 
 ---
 
-## Steps
-
-### 1. Open your app
+## 2. Open an app folder
 
 ```bash
-cd ~/projects/my-app
+cd ~/projects/my-app    # any project, or mkdir demo-app && cd demo-app
 ```
 
-`sdd` sits **beside** the app. It does not replace React, Python, or your stack.
+`sdd` lives **next to** your code. It does not replace React, Python, etc.
 
-### 2. Initialize once
+---
+
+## 3. Pick your AI (one is enough)
+
+| You have… | Init command |
+|-----------|----------------|
+| **GitHub Copilot** in VS Code / Cursor | `sdd init --here --ai copilot` |
+| **Grok Build** CLI | `sdd init --here --ai grok` |
+| **Claude Code** CLI | `sdd init --here --ai claude` |
+| No AI yet | `sdd init --here --no-agents` (you can still learn the process) |
 
 ```bash
-sdd init --here --ai grok
-# or: --ai copilot | --ai claude
+sdd init --here --ai copilot
+sdd doctor
 ```
 
-You get `.sdd/`, `memory/`, `changes/`, and agent stubs for **one** host only.
+`sdd doctor` should show green checks for init (and AI host if you picked one).
 
-### 3. Start a change
+**Expected folders** after init:
+
+```text
+.sdd/
+memory/
+changes/
+# plus, depending on --ai:
+# .github/agents/   or  .grok/rules/  or  .claude/agents/
+```
+
+---
+
+## 4. Start a change
 
 ```bash
 sdd new "Fix empty list crash" -w hotfix -y --no-agent
-sdd status
 ```
 
-You should see stages like: `intent` → `implement` → `local_verify`.
+| Flag | Why (for learning) |
+|------|---------------------|
+| `-w hotfix` | Short 3-stage path |
+| `-y` | Skip “use this workflow?” prompt |
+| `--no-agent` | Learn the process first; add AI on the next run |
 
-### 4. Fill the current stage
+The CLI prints **Next steps** and a file path. Copy that path.
 
-Edit `changes/<id>/intent.md` with a real problem and fix. Empty templates block `next`.
+**Example status shape:**
 
-Or launch the agent:
-
-```bash
-sdd agent
-# ask it to fill intent.md only for this change
+```text
+Stage:    intent
+[●] intent — Intent
+[ ] implement — Implement
+[ ] local_verify — Local smoke
 ```
-
-### 5. Advance
-
-```bash
-sdd next --no-agent   # intent → implement
-# code the fix (you or agent)
-sdd next --no-agent   # implement → local_verify
-```
-
-### 6. Verify and complete
-
-```bash
-# optional notes in local-test-results.md
-sdd complete --no-agent
-```
-
-The pack stays under `changes/<id>/` with `status: completed` (archive is opt-in).
 
 ---
 
-## You’re done when
+## 5. Fill the first file (paste this)
 
-- [x] `.sdd/config.yaml` exists  
-- [x] One change pack with a real intent  
-- [x] The change is completed (or on the last stage after `complete`)  
-- [x] You know `status` / `next` / `complete`  
+Open the file under `changes/<id>/` named **`intent.md`** (hotfix) and replace everything with:
+
+```markdown
+# Intent
+
+Empty expenses list crashes the page with a null reference.
+
+Fix: show an empty state when there are zero rows instead of throwing.
+
+Success: open expenses with no data — no error, empty state UI visible.
+```
+
+That is enough “real content” for `sdd next` to accept the stage.
+
+::: tip
+If you prefer AI to draft it: run `sdd agent` (without `--no-agent` on a later `new`) and say: “Fill intent.md only with a short problem, fix, and success.”
+:::
+
+---
+
+## 6. Advance, implement, finish
+
+```bash
+sdd next --no-agent
+# Now stage is implement — fix the bug in your app (or ask your AI to)
+sdd next --no-agent
+# optional: write a line in local-test-results.md
+sdd complete --no-agent
+```
+
+**You’re done when** `sdd status` shows no active change (or the pack’s `meta.yaml` has `status: completed`).
+
+---
+
+## If something fails
+
+| Problem | What to do |
+|---------|------------|
+| `sdd: command not found` | Re-run install, or use `npx` / full path to `packages/cli/dist/index.js` |
+| `next` says artifact incomplete | Open the file in the error; paste the sample intent above |
+| Wrong AI files | `sdd agents install --ai copilot --force` (or grok / claude) |
+| Unsure about setup | `sdd doctor` |
 
 ---
 
@@ -112,11 +174,7 @@ The pack stays under `changes/<id>/` with `status: completed` (archive is opt-in
 
 | Goal | Page |
 |------|------|
-| Wire Grok, Copilot, or Claude | [Agents guide](/guides/agents) |
-| Improve specs without advancing | [Refine](/guides/refine) |
-| Everyday commands | [Everyday loop](/guides/everyday-loop) |
-| Design intent | [Why sdd](/concepts/why-sdd) |
-
-::: warning Stuck on next?
-Empty templates fail content checks. Write real sentences in required `.md` files, or `sdd skip <stage> -r "reason"` when the stage is optional.
-:::
+| Run the loop with the agent every time | [Everyday loop](/guides/everyday-loop) |
+| Wire Copilot / Grok / Claude properly | [Agents](/guides/agents) |
+| Improve specs mid-change | [Refine](/guides/refine) |
+| Why this tool exists | [Why sdd](/concepts/why-sdd) |

@@ -4,18 +4,24 @@
 
 You shouldn’t have to relearn which command comes after implement. Use one fixed loop so handoffs stay consistent for you and the agent.
 
+::: tip First time?
+Use the [first change tutorial](/tutorials/first-change) once (includes a paste-ready intent sample). `--no-agent` means “learn the process first”; drop it when you want AI every step.
+:::
+
 ## The loop
 
 ```bash
+sdd doctor               # optional: check setup
 sdd new "…"              # start pack (+ agent unless --no-agent)
 sdd status               # where am I? (never launches agent)
-# fill stage artifacts (human or agent)
+# fill stage artifacts (human or agent) — use the path printed after new
 sdd next                 # advance when stage is done
 sdd refine               # optional: improve current stage + prior impact
 # … repeat next until implement / verify …
 sdd verify
 sdd complete
 ```
+
 
 ### Multiple PRs
 

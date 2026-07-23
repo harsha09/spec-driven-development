@@ -1,8 +1,8 @@
 # `@structured-vibe-coding/core`
 
-Core engine for **Structured Vibe Coding** — local-first Spec-Driven Development.
+Core engine for **Structured Vibe Coding** — local Spec-Driven Development.
 
-Used by `@structured-vibe-coding/cli` (`sdd` command).
+Used by `@structured-vibe-coding/cli` (`sdd`).
 
 ## Install
 
@@ -10,24 +10,11 @@ Used by `@structured-vibe-coding/cli` (`sdd` command).
 npm install @structured-vibe-coding/core
 ```
 
-## Usage
+## Docs
 
-```ts
-import { initProject, createChange, advanceStage, loadConfig } from "@structured-vibe-coding/core";
-
-const root = process.cwd();
-await initProject({ projectRoot: root });
-const config = await loadConfig(root);
-const change = await createChange({
-  projectRoot: root,
-  config,
-  title: "Add feature X",
-  workflowName: "feature",
-});
-await advanceStage(root, config, change.id);
-```
-
-See the [docs hub](https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md) and [repository README](https://github.com/structured-vibe-coding/spec-driven-development) for workflows, customization, and CLI docs.
+- [First change tutorial](https://github.com/harsha09/spec-driven-development/blob/main/docs/tutorials/first-change.md)
+- [Docs site](https://harsha09.github.io/spec-driven-development/)
+- [Repository](https://github.com/harsha09/spec-driven-development)
 
 ## License
 
