@@ -1,25 +1,16 @@
 # Agents vs IDEs
 
-> **Point:** `sdd init` installs an **AI coding agent** host — not a VS Code / IntelliJ extension.
+> `sdd init` installs an **AI coding agent** host — not a VS Code or IntelliJ extension.
 
-## PREP
+IDEs edit files. Agents generate and reason. Spec Kit–style tools target agent files (`.github/agents`, `.claude/agents`, `.grok/rules`).
 
-**Point:** IDEs edit files; agents generate and reason.
+```bash
+sdd init --here --ai grok
+# writes .grok/rules/sdd.md + AGENTS.md — no marketplace extension
+```
 
-**Reason:** Spec Kit–style tools target agent files (`.github/agents`, `.claude/agents`, `.grok/rules`).
+Use any editor. Process is the CLI. Thin agent stubs plus `.sdd/protocol.md` keep one source of process truth.
 
-**Example:** `--ai grok` writes `.grok/rules/sdd.md` + `AGENTS.md`. No marketplace extension required.
+## Related
 
-**Point:** Use any editor; process is the CLI.
-
-## What / So what / Now what
-
-| | |
-|--|--|
-| **What** | Thin agent stubs + `.sdd/protocol.md` playbook |
-| **So what** | One source of process truth; stubs stay small |
-| **Now what** | [Agents guide](/guides/agents) |
-
-## Related how-to
-
-Full setup tables and roles: [AI agents guide](/guides/agents).
+- [Agents setup guide](/guides/agents)  

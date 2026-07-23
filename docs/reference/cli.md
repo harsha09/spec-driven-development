@@ -1,19 +1,13 @@
 # CLI reference
 
-> **Look up** commands and when to use them. For learning, start with the [tutorial](/tutorials/first-change).
+> Look up commands and when to use them. To learn by doing, start with the [tutorial](/tutorials/first-change).
 
-## What / When / How
-
-| | |
-|--|--|
-| **What** | Binary `sdd` |
-| **When** | Process changes on a laptop |
-| **How** | `sdd <command> --help` for flags |
+Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 
 ## Commands
 
-| Command | What | When |
-|---------|------|------|
+| Command | What it does | When |
+|---------|--------------|------|
 | `sdd init` | Scaffold `.sdd`, memory, workflows; install **one** AI host | Once per app |
 | `sdd init --force` | Re-copy defaults (memory files skip if present) | Upgrades |
 | `sdd new "title"` | Create change pack; optional recommend | Start work |
@@ -23,7 +17,7 @@
 | `sdd status --list` | Open changes | Multi-PR |
 | `sdd next` | Advance stage | Stage done |
 | `sdd next --force` | Bypass checks | Emergency |
-| `sdd skip <stage> -r "…"` | Skip stage this change | Optional/unneeded |
+| `sdd skip <stage> -r "…"` | Skip stage this change | Optional / unneeded |
 | `sdd use <workflow>` | Switch pack mid-flight | Scope change |
 | `sdd gate approve\|waive\|fail` | Gate actions | Hard/soft gates |
 | `sdd verify` | Local verify stage | Before complete |

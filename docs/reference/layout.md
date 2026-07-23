@@ -1,14 +1,6 @@
 # Project layout
 
-> **Reference:** Directories after `sdd init` in an **app** repo.
-
-## What / When / How
-
-| | |
-|--|--|
-| **What** | Scaffold paths |
-| **When** | After init; when debugging “where is X?” |
-| **How** | Paths below |
+> Directories after `sdd init` in an **app** repo.
 
 ```text
 .sdd/

@@ -50,7 +50,6 @@ export default defineConfig({
         text: "Start here",
         items: [
           { text: "Home", link: "/" },
-          { text: "How we write docs", link: "/how-we-write" },
           { text: "Tutorial: first change", link: "/tutorials/first-change" },
         ],
       },
