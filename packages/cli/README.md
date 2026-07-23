@@ -1,40 +1,41 @@
 # `@structured-vibe-coding/cli`
 
-CLI for **Structured Vibe Coding** (`sdd`) — flexible, local-first Spec-Driven Development.
+CLI for **Structured Vibe Coding** (`sdd`) — local Spec-Driven Development.
 
 ## Install
 
 ```bash
 npm install -g @structured-vibe-coding/cli
-# or
-npx @structured-vibe-coding/cli init
+# or without global install:
+npx @structured-vibe-coding/cli --help
 ```
 
-Binary name: **`sdd`**
+Binary: **`sdd`**
 
 ## Quick start
 
 ```bash
 cd my-app
-# ONE command: SDD project + a single AI agent (not all hosts)
-sdd init --here --ai grok       # or: copilot | claude
-sdd new "Add expense CSV export"
-sdd status
-sdd next
-sdd verify
-sdd complete
+sdd init --here --ai copilot    # or grok | claude
+sdd doctor
+sdd new "Fix empty list crash" -w hotfix -y --no-agent
+# edit the intent.md path printed by the CLI
+sdd next --no-agent
+sdd complete --no-agent
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `--here` / `.` | Current directory |
-| `--ai grok\|copilot\|claude` | Install **only** that AI host’s files |
-| `--no-agents` | Skip agent files (shared SDD dirs still created) |
-| `--force` | Re-init / overwrite defaults |
+| `--here` | Current directory |
+| `--ai copilot\|grok\|claude` | Install **only** that AI host |
+| `--no-agents` | Skip agent files |
+| `--force` | Re-init defaults |
 
-`sdd agents install` is optional **later** (switch AI host). First-time setup is just `sdd init`.
+## Docs
 
-Full documentation: [docs hub](https://github.com/structured-vibe-coding/spec-driven-development/blob/main/docs/README.md) · [repository README](https://github.com/structured-vibe-coding/spec-driven-development).
+- Tutorial: [First change](https://github.com/harsha09/spec-driven-development/blob/main/docs/tutorials/first-change.md)
+- Site: https://harsha09.github.io/spec-driven-development/
+- CLI reference: [docs/reference/cli.md](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/cli.md)
 
 ## License
 

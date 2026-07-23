@@ -30,6 +30,7 @@ Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 | `sdd checkout <id>` | Set active change | Switch PR |
 | `sdd workflows` | List packs | Discover |
 | `sdd help` | Overview | First run |
+| `sdd doctor` | Check Node, init, AI host, active change | Setup / stuck |
 
 ## Agent launch
 

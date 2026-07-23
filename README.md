@@ -1,16 +1,14 @@
 # Structured Vibe Coding (`sdd`)
 
-Flexible, **local-first Spec-Driven Development** for software engineers.
+Local-first Spec-Driven Development: a CLI process coach plus your AI coding agent (Copilot, Grok, or Claude). Spec-first change packs without cloud lock-in or a required IDE extension.
 
-A CLI process coach (`sdd`) plus your AI coding agent (Grok, Copilot, or Claude). Spec-first change packs without cloud lock-in or a required IDE extension — Spec Kit–style.
-
-Install once, init with one AI host, and run your first change. The full story lives in the docs site.
+**Needs:** Node.js 20+ (24 recommended) · about **10 minutes** for the first loop.
 
 | | |
 |---|---|
-| **Who** | Solo engineers and small teams (YAML scales policy) |
-| **Where** | Your laptop only |
-| **How** | CLI + one AI agent host |
+| **Who** | Solo engineers and small teams |
+| **Where** | Your laptop, in the app repo |
+| **How** | Terminal + optional AI agent |
 
 ---
 
@@ -18,24 +16,27 @@ Install once, init with one AI host, and run your first change. The full story l
 
 | | |
 |---|---|
-| **Docs site** | After Pages is enabled: `https://harsha09.github.io/spec-driven-development/` |
-| **In repo** | [`docs/`](./docs/) — run `pnpm docs:dev` locally |
-| **Tutorial** | [First change](./docs/tutorials/first-change.md) |
-| **Why** | [Why sdd exists](./docs/concepts/why-sdd.md) |
-| **CLI** | [Command reference](./docs/reference/cli.md) |
+| **Start here** | [Tutorial: first change](./docs/tutorials/first-change.md) |
+| **Docs site** | `https://harsha09.github.io/spec-driven-development/` (enable Pages → Actions) |
+| **Local docs** | `pnpm docs:dev` |
+| **CLI list** | [docs/reference/cli.md](./docs/reference/cli.md) |
 
 ---
 
 ## Install
 
-**Requirements:** Node.js 24+ · [pnpm](https://pnpm.io) for building from source
-
-### npm (when published)
+### Users (preferred)
 
 ```bash
+# One-shot (no global install)
+npx @structured-vibe-coding/cli --help
+
+# Or global
 npm install -g @structured-vibe-coding/cli
 sdd --help
 ```
+
+If the package isn’t on npm yet, build from this repo (below).
 
 ### From this repository
 
@@ -48,44 +49,44 @@ pnpm --filter @structured-vibe-coding/cli link --global
 sdd --help
 ```
 
-Packages: `@structured-vibe-coding/cli` · `@structured-vibe-coding/core`
-
 ---
 
-## 5-minute path
+## 10-minute path
 
 ```bash
 cd your-app
-sdd init --here --ai grok          # or copilot | claude
-sdd new "Fix empty list crash" -w hotfix -y
-# fill changes/<id>/intent.md (real text, not empty template)
-sdd next
-# implement…
-sdd next
-sdd complete
+
+# Pick ONE AI: copilot | grok | claude   (or --no-agents to learn process only)
+sdd init --here --ai copilot
+sdd doctor
+
+sdd new "Fix empty list crash" -w hotfix -y --no-agent
+# Open the file path printed under "Next steps" (intent.md)
+# Paste a short problem + fix + success (see tutorial for a ready sample)
+
+sdd next --no-agent    # after intent is filled
+# implement the fix…
+sdd next --no-agent
+sdd complete --no-agent
 ```
 
-Everyday loop, refine, agents, and AST context → **[docs guides](./docs/guides/everyday-loop.md)**.
+Full walkthrough with sample `intent.md` and troubleshooting: **[docs/tutorials/first-change.md](./docs/tutorials/first-change.md)**.
 
 ---
 
 ## Develop this monorepo
 
 ```text
-packages/
-  core/   engine + workflows + code-context + refine
-  cli/    sdd binary
+packages/core   engine
+packages/cli    sdd binary
 ```
 
 ```bash
-pnpm install    # husky pre-commit → typecheck
-pnpm build
-pnpm test
-pnpm docs:dev   # docs site
-pnpm docs:build
+pnpm install && pnpm build && pnpm test
+pnpm docs:dev
 ```
 
-CI and releases: [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md).
+CI: [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md).
 
 ---
 

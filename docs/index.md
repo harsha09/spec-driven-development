@@ -5,7 +5,7 @@ titleTemplate: sdd docs
 hero:
   name: Structured Vibe Coding
   text: Spec-driven process for humans + AI agents
-  tagline: Local CLI. Your coding agent. Just enough structure for real PRs — Spec Kit–style, no IDE extension required.
+  tagline: Local CLI. Your coding agent. Just enough structure for real PRs. No IDE extension required.
   actions:
     - theme: brand
       text: First change tutorial
@@ -18,46 +18,38 @@ hero:
       link: /reference/cli
 features:
   - title: Process next to the app
-    details: sdd owns stages, artifacts, and gates. Your AI agent owns writing specs and code. No IDE extension required.
+    details: sdd owns stages and markdown packs. Your AI agent owns writing specs and code. Use any editor.
   - title: A trail you can trust
-    details: Change packs capture decisions for this PR. Agents stop free-styling without a record — and you stay laptop-only.
-  - title: Start in minutes
-    details: Install the CLI, init with one AI host, walk the first-change tutorial, and complete a real hotfix loop.
+    details: Each PR gets a change pack so decisions don’t vanish into chat history — fully on your laptop.
+  - title: Start in about 10 minutes
+    details: Needs Node 20+. Init once, paste a short intent, run next until complete. sdd doctor checks your setup.
 ---
 
 ## The idea
 
-Engineers need a **portable process** beside the app — not another IDE, not a SaaS.
+You need a **portable process** beside the app — not another IDE, not a SaaS.
 
-Pure vibe coding loses decisions. Heavy SDD kills speed. `sdd` sits in the middle: YAML workflows, markdown packs, local verify.
+Pure vibe coding loses decisions. Heavy process kills speed. `sdd` sits in the middle: small workflows, markdown packs, local verify.
 
 ```bash
-npm i -g @structured-vibe-coding/cli   # or build from source
-cd my-app
-sdd init --here --ai grok
-sdd new "Fix empty-state crash" -w hotfix -y
-# fill intent → next → implement → verify → complete
+# In your app:
+npx @structured-vibe-coding/cli init --here --ai copilot   # or: npm i -g … then sdd
+sdd new "Fix empty-state crash" -w hotfix -y --no-agent
+# open the path it prints → paste a few sentences → sdd next → … → sdd complete
 ```
 
 Structure when you need it; skip stages when you don’t.
 
 ---
 
-## Who it’s for
+## Before you start
 
-Teams that ship with AI agents and still want a durable “what we decided” trail for each PR — without cloud lock-in or a fixed enterprise pipeline.
-
-`sdd` gives you change packs under `changes/<id>/`, workflows in YAML, one AI host at init (Grok / Copilot / Claude), and local `verify` / `complete`.
-
----
-
-## At a glance
-
-| | |
-|--|--|
-| **Tool** | CLI `sdd` + agent stubs + `.sdd` process files |
-| **Use it** | Any non-trivial change you want remembered (feature, hotfix, spike) |
-| **Flow** | `init` → `new` → fill stage artifacts → `next` / `refine` → `verify` → `complete` |
+| Need | Notes |
+|------|--------|
+| **Node.js** | 20+ (24 recommended) |
+| **Time** | ~10 minutes for the first loop |
+| **AI (optional)** | Copilot, Grok Build, or Claude Code — or `--no-agents` to learn process first |
+| **Check setup** | `sdd doctor` after init |
 
 ---
 
@@ -65,11 +57,12 @@ Teams that ship with AI agents and still want a durable “what we decided” tr
 
 | Goal | Go here |
 |------|---------|
-| Learn by doing (10 min) | [Tutorial: first change](/tutorials/first-change) |
-| Pick / switch AI host | [Guide: agents](/guides/agents) |
-| Improve specs mid-flight | [Guide: refine](/guides/refine) |
-| Feed agents code slices (AST) | [Guide: code context](/guides/code-context) |
+| **Do it now** (tutorial) | [First change](/tutorials/first-change) |
+| Everyday commands | [Everyday loop](/guides/everyday-loop) |
+| Pick / switch AI host | [Agents](/guides/agents) |
+| Improve specs mid-flight | [Refine](/guides/refine) |
+| Code slices for agents | [Code context](/guides/code-context) |
 | Look up a command | [CLI reference](/reference/cli) |
-| Understand the design intent | [Why sdd](/concepts/why-sdd) |
-| See team scenarios | [Scenario evaluation](/scenarios/evaluation) |
+| Understand the design | [Why sdd](/concepts/why-sdd) |
+| Team scenarios | [Scenario evaluation](/scenarios/evaluation) |
 | Ship this monorepo | [CI / CD](/maintainers/ci-cd) |
