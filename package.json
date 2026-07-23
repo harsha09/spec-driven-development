@@ -18,7 +18,7 @@
     "version:major": "node scripts/bump-version.mjs major",
     "prepare": "husky",
     "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:build": "vitepress build docs && node scripts/docs-pages-layout.mjs",
     "docs:preview": "vitepress preview docs"
   },
   "engines": {
