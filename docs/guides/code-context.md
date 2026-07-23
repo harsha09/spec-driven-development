@@ -1,22 +1,14 @@
 # Code context (AST slices)
 
-> **What:** Structure-aware TS/JS slices for agents — symbols and imports, not whole-repo dumps.
+> Structure-aware TypeScript and JavaScript slices for agents — symbols and imports, not whole-repo dumps.
 
-## Problem · Solution · Benefit
+Agents either get huge noisy context or miss the right function. `sdd context` builds ranked slices with a local TypeScript AST so prompts stay small, focus stays clear, and secret paths stay out.
 
-| | |
-|--|--|
-| **Problem** | Agents get huge, noisy context or miss the right function. |
-| **Solution** | `sdd context` builds ranked slices via TypeScript AST (local, on-demand). |
-| **Benefit** | Smaller prompts, clearer focus, secrets denied by path. |
+## When to use it
 
-## What / When / How
+During implement or review of product code — optionally before you hand work to the agent.
 
-| | |
-|--|--|
-| **What** | `sdd context` |
-| **When** | Implement / review product code; optional before agent coding |
-| **How** | |
+## Commands
 
 ```bash
 # Symbol-focused
@@ -30,17 +22,11 @@ sdd context --path src/app.ts --symbol main --out change
 sdd context -p src/foo.ts -s bar --json
 ```
 
-## PREP
+Prefer slices over pasting the monorepo. Caps (files, lines, tokens) keep agent context bounded.
 
-**Point:** Prefer slices over paste-the-monorepo.
+Handoff on implement / local_verify **points** at `sdd context`; it does **not** auto-run the pipeline on every status. Regenerate with `--out change` when code moves.
 
-**Reason:** Caps (files, lines, tokens) keep agent context bounded.
-
-**Example:** Handoff on implement/local_verify **points** at `sdd context`; it does **not** auto-run the pipeline on every status.
-
-**Point:** Regenerate with `--out change` when code moves.
-
-## Now what
+## Related
 
 - [CLI flags](/reference/cli)  
 - [Refine specs first](/guides/refine) if the task list is still fuzzy  

@@ -1,22 +1,10 @@
 # AI agents (init + hosts)
 
-> **How-to:** Install **one** AI coding agent with `sdd init` and run the everyday agent loop.
+> Install **one** AI coding agent with `sdd init` and run the everyday agent loop.
 
-## Problem · Solution · Benefit
+People often confuse IDEs with AI agents, or install every host at once. `sdd` follows a Spec Kit–style single host: `--ai grok | copilot | claude` — clean stubs, one protocol, no extension required.
 
-| | |
-|--|--|
-| **Problem** | People confuse IDEs with AI agents, or install every host at once. |
-| **Solution** | Spec Kit–style single host: `--ai grok \| copilot \| claude`. |
-| **Benefit** | Clean stubs, one protocol, no extension required. |
-
-## What / When / How
-
-| | |
-|--|--|
-| **What** | Agent files + `.sdd/protocol.md` + live `active-context.md` |
-| **When** | Once at init; switch later with `sdd agents install` |
-| **How** | Commands in [Setup](#setup-is-one-command) |
+Agent files, `.sdd/protocol.md`, and live `active-context.md` are set up once at init. Switch later with `sdd agents install`.
 
 **No skills packs.** One playbook, thin role agents, live context.
 

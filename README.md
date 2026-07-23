@@ -2,9 +2,9 @@
 
 Flexible, **local-first Spec-Driven Development** for software engineers.
 
-**What:** A CLI process coach (`sdd`) plus your AI coding agent (Grok, Copilot, or Claude).  
-**So what:** Spec-first change packs without cloud lock-in or a required IDE extension (Spec Kit–style).  
-**Now what:** Install, init once, run your first change — full narrative lives in the docs site.
+A CLI process coach (`sdd`) plus your AI coding agent (Grok, Copilot, or Claude). Spec-first change packs without cloud lock-in or a required IDE extension — Spec Kit–style.
+
+Install once, init with one AI host, and run your first change. The full story lives in the docs site.
 
 | | |
 |---|---|
@@ -14,9 +14,7 @@ Flexible, **local-first Spec-Driven Development** for software engineers.
 
 ---
 
-## Documentation (start here)
-
-**Beautiful, structured docs (Diátaxis + PREP / PSB / What·So what·Now what):**
+## Documentation
 
 | | |
 |---|---|
@@ -25,8 +23,6 @@ Flexible, **local-first Spec-Driven Development** for software engineers.
 | **Tutorial** | [First change](./docs/tutorials/first-change.md) |
 | **Why** | [Why sdd exists](./docs/concepts/why-sdd.md) |
 | **CLI** | [Command reference](./docs/reference/cli.md) |
-
-How we write docs: [`docs/how-we-write.md`](./docs/how-we-write.md).
 
 ---
 
@@ -69,7 +65,7 @@ sdd next
 sdd complete
 ```
 
-Everyday loop, refine, agents, AST context → **[docs guides](./docs/guides/everyday-loop.md)**.
+Everyday loop, refine, agents, and AST context → **[docs guides](./docs/guides/everyday-loop.md)**.
 
 ---
 
@@ -85,11 +81,11 @@ packages/
 pnpm install    # husky pre-commit → typecheck
 pnpm build
 pnpm test
-pnpm docs:dev   # VitePress docs site
+pnpm docs:dev   # docs site
 pnpm docs:build
 ```
 
-CI, releases: [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md).
+CI and releases: [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md).
 
 ---
 

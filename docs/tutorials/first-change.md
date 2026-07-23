@@ -1,30 +1,18 @@
 # Tutorial: your first change
 
-> **Now what:** In ~10 minutes you will init `sdd`, start a hotfix pack, advance stages, and complete — on your laptop.
+> In about ten minutes you’ll init `sdd`, start a hotfix pack, advance stages, and complete — on your laptop.
 
-::: tip Learning path
-This is a **tutorial** (Diátaxis): one happy path only. Variants live in [guides](/guides/everyday-loop).
+::: tip One path only
+This page is a single happy path. Variants and escape hatches live in [guides](/guides/everyday-loop).
 :::
 
-## PREP
+## Why this works
 
-**Point:** `sdd` owns process; you + your AI agent own content.
+`sdd` owns process; you and your AI agent own content.
 
-**Reason:** Without a pack, agents invent scope every chat. With a pack, intent → implement → verify is visible.
+Without a pack, agents reinvent scope every chat. With a pack, intent → implement → verify stays visible.
 
-**Example:** Hotfix empty-state crash through `hotfix` workflow.
-
-**Point:** Finish one loop before customizing YAML.
-
----
-
-## What / When / How
-
-| | |
-|--|--|
-| **What** | `sdd` CLI + one AI host (Grok, Copilot, or Claude) |
-| **When** | Start of a small, real fix |
-| **How** | Commands below, in order |
+We’ll run a **hotfix** for an empty-state crash. Finish this loop before customizing YAML.
 
 ---
 
@@ -34,7 +22,7 @@ This is a **tutorial** (Diátaxis): one happy path only. Variants live in [guide
 - An app repo (or empty folder) you can write to
 - Optional: `grok` / `claude` on PATH, or GitHub Copilot in your editor
 
-### Install CLI
+### Install the CLI
 
 **From npm** (when published):
 
@@ -61,7 +49,7 @@ pnpm --filter @structured-vibe-coding/cli link --global
 cd ~/projects/my-app
 ```
 
-`sdd` sits **beside** the app. It does not replace React/Python/etc.
+`sdd` sits **beside** the app. It does not replace React, Python, or your stack.
 
 ### 2. Initialize once
 
@@ -70,7 +58,7 @@ sdd init --here --ai grok
 # or: --ai copilot | --ai claude
 ```
 
-**What you get:** `.sdd/`, `memory/`, `changes/`, plus agent stubs for **one** host only.
+You get `.sdd/`, `memory/`, `changes/`, and agent stubs for **one** host only.
 
 ### 3. Start a change
 
@@ -81,9 +69,9 @@ sdd status
 
 You should see stages like: `intent` → `implement` → `local_verify`.
 
-### 4. Fill the current stage (substantive text)
+### 4. Fill the current stage
 
-Edit `changes/<id>/intent.md` with real problem + fix (empty templates block `next`).
+Edit `changes/<id>/intent.md` with a real problem and fix. Empty templates block `next`.
 
 Or launch the agent:
 
@@ -107,28 +95,28 @@ sdd next --no-agent   # implement → local_verify
 sdd complete --no-agent
 ```
 
-Pack stays under `changes/<id>/` with `status: completed` (archive is opt-in).
+The pack stays under `changes/<id>/` with `status: completed` (archive is opt-in).
 
 ---
 
-## Expected outcome
+## You’re done when
 
 - [x] `.sdd/config.yaml` exists  
-- [x] One change pack with filled intent  
-- [x] Status shows completed (or last stage done + `complete`)  
+- [x] One change pack with a real intent  
+- [x] The change is completed (or on the last stage after `complete`)  
 - [x] You know `status` / `next` / `complete`  
 
 ---
 
-## Now what
+## Next steps
 
-| Next goal | Page |
-|-----------|------|
-| Wire Grok/Copilot/Claude properly | [Agents guide](/guides/agents) |
+| Goal | Page |
+|------|------|
+| Wire Grok, Copilot, or Claude | [Agents guide](/guides/agents) |
 | Improve specs without advancing | [Refine](/guides/refine) |
 | Everyday commands | [Everyday loop](/guides/everyday-loop) |
-| Why this design | [Why sdd](/concepts/why-sdd) |
+| Design intent | [Why sdd](/concepts/why-sdd) |
 
 ::: warning Stuck on next?
-Empty templates fail substantive checks. Write real sentences in required `.md` files, or `sdd skip <stage> -r "reason"` when optional.
+Empty templates fail content checks. Write real sentences in required `.md` files, or `sdd skip <stage> -r "reason"` when the stage is optional.
 :::

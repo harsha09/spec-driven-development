@@ -22,24 +22,6 @@
   --vp-c-brand-3: #0ea5e9;
 }
 
-/* Callout blocks used in PREP / PSB / What-SoWhat-NowWhat */
-.vp-doc .frame {
-  border-left: 3px solid var(--vp-c-brand-1);
-  padding: 0.75rem 1rem;
-  margin: 1.25rem 0;
-  background: var(--vp-c-bg-soft);
-  border-radius: 0 8px 8px 0;
-}
-
-.vp-doc .frame strong.label {
-  display: block;
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--vp-c-brand-1);
-  margin-bottom: 0.35rem;
-}
-
 .vp-doc table {
   display: table;
   width: 100%;

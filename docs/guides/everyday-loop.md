@@ -1,24 +1,10 @@
 # Everyday loop
 
-> **How-to:** Run the normal change lifecycle without rereading the whole README.
+> Run the normal change lifecycle without rereading the whole site.
 
-## Problem · Solution · Benefit
+You shouldn’t have to relearn which command comes after implement. Use one fixed loop so handoffs stay consistent for you and the agent.
 
-| | |
-|--|--|
-| **Problem** | You forget which command comes after implement. |
-| **Solution** | A fixed loop: `new` → work → `next` → `verify` → `complete`. |
-| **Benefit** | Muscle memory; agents get consistent handoffs. |
-
-## What / When / How
-
-| | |
-|--|--|
-| **What** | Process commands (`status` is inspect-only) |
-| **When** | Every change pack |
-| **How** | Shell commands below |
-
-## Loop
+## The loop
 
 ```bash
 sdd new "…"              # start pack (+ agent unless --no-agent)
@@ -46,7 +32,7 @@ sdd use feature -r "scope grew"
 sdd next --force   # sparingly
 ```
 
-## Now what
+## Related
 
 - [Refine mid-stage](/guides/refine)  
 - [CLI reference](/reference/cli)  
