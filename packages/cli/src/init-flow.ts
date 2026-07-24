@@ -26,7 +26,6 @@ export interface InitCliArgs {
   /** Speckit-style: --ai / --integration */
   ai?: string;
   integration?: string;
-  noAgents?: boolean;
   ignoreAgentTools?: boolean;
 }
 
@@ -48,38 +47,58 @@ async function resolveProjectPath(args: InitCliArgs): Promise<{
   const hereFlag = Boolean(args.here);
   const name = args.path?.trim();
 
-  if (name === ".") {
-    return { projectRoot: process.cwd(), here: true };
-  }
-  if (hereFlag) {
-    if (name) {
-      throw new Error("Cannot specify both a project name and --here");
-    }
-    return { projectRoot: process.cwd(), here: true };
-  }
-  if (!name) {
-    // Bare `sdd init` → current directory
+  if (hereFlag || name === "." || name === "./") {
     return { projectRoot: process.cwd(), here: true };
   }
 
-  const projectRoot = isAbsolute(name) ? name : resolve(process.cwd(), name);
+  if (name) {
+    const projectRoot = isAbsolute(name) ? name : resolve(process.cwd(), name);
+    await mkdir(projectRoot, { recursive: true });
+    return { projectRoot, here: false };
+  }
+
+  if (!isInteractive()) {
+    throw new Error(
+      "Provide a project path, use --here for the current directory, or run interactively.",
+    );
+  }
+
+  const mode = await p.select({
+    message: "Where should SDD be initialized?",
+    options: [
+      { value: "here", label: "Current directory", hint: process.cwd() },
+      { value: "new", label: "New subdirectory", hint: "create a folder" },
+    ],
+  });
+  if (p.isCancel(mode)) {
+    p.cancel("Operation cancelled");
+    process.exit(0);
+  }
+  if (mode === "here") {
+    return { projectRoot: process.cwd(), here: true };
+  }
+  const folder = await p.text({
+    message: "Project directory name:",
+    placeholder: "my-app",
+    validate: (v) => (!v?.trim() ? "Name is required" : undefined),
+  });
+  if (p.isCancel(folder) || !folder?.trim()) {
+    p.cancel("Operation cancelled");
+    process.exit(0);
+  }
+  const projectRoot = resolve(process.cwd(), folder.trim());
   await mkdir(projectRoot, { recursive: true });
   return { projectRoot, here: false };
 }
 
 /**
  * Speckit-style single AI integration pick.
- * Used by `sdd init` and `sdd agents install`.
+ * Always returns an agent target (required for init and agents install).
  */
 export async function selectIntegration(opts: {
   ai?: string;
   integration?: string;
-  noAgents?: boolean;
-  /** When true (agents install), omit "None" and always pick an agent. */
-  requireAgent?: boolean;
-}): Promise<AgentTarget | false> {
-  if (opts.noAgents) return false;
-
+}): Promise<AgentTarget> {
   const raw = opts.ai ?? opts.integration;
   if (raw?.trim()) {
     return parseIntegration(raw);
@@ -95,20 +114,11 @@ export async function selectIntegration(opts: {
     return DEFAULT_INIT_INTEGRATION;
   }
 
-  const options = [
-    ...AGENT_TARGET_OPTIONS.map((o) => ({
-      value: o.id as AgentTarget | "none",
-      label: o.label,
-      hint: o.hint,
-    })),
-  ];
-  if (!opts.requireAgent) {
-    options.push({
-      value: "none",
-      label: "None",
-      hint: "Skip agent files — sdd agents install later",
-    });
-  }
+  const options = AGENT_TARGET_OPTIONS.map((o) => ({
+    value: o.id as AgentTarget,
+    label: o.label,
+    hint: o.hint,
+  }));
 
   const choice = await p.select({
     message: "Choose your AI coding agent integration:",
@@ -120,7 +130,6 @@ export async function selectIntegration(opts: {
     p.cancel("Operation cancelled");
     process.exit(0);
   }
-  if (choice === "none") return false;
   return choice as AgentTarget;
 }
 
@@ -214,13 +223,9 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   const selected = await selectIntegration({
     ai: args.ai,
     integration: args.integration,
-    noAgents: args.noAgents,
   });
 
-  const agentLabel =
-    selected === false
-      ? pc.dim("none")
-      : `${optionForTarget(selected)?.label ?? selected} ${pc.dim(`(${optionForTarget(selected)?.key ?? selected})`)}`;
+  const agentLabel = `${optionForTarget(selected)?.label ?? selected} ${pc.dim(`(${optionForTarget(selected)?.key ?? selected})`)}`;
 
   p.note(
     [
@@ -232,9 +237,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
     "SDD project setup",
   );
 
-  if (selected !== false) {
-    await checkAgentTool(selected, Boolean(args.ignoreAgentTools));
-  }
+  await checkAgentTool(selected, Boolean(args.ignoreAgentTools));
 
   const s = p.spinner();
 
@@ -247,22 +250,17 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   });
   s.stop("Shared infrastructure ready");
 
-  let agentDetail = "skipped";
-  if (selected !== false) {
-    s.start(`Install ${optionForTarget(selected)?.label ?? selected} integration`);
-    const ag = await installAgentIntegration({
-      projectRoot,
-      target: selected,
-      force: true,
-    });
-    s.stop(
-      `AI integration: ${optionForTarget(selected)?.key ?? selected} (+${ag.created.length} files)`,
-    );
-    agentDetail = optionForTarget(selected)?.key ?? selected;
-    result.agents = { created: ag.created, skipped: ag.skipped };
-  } else {
-    p.log.step("AI integration skipped");
-  }
+  s.start(`Install ${optionForTarget(selected)?.label ?? selected} integration`);
+  const ag = await installAgentIntegration({
+    projectRoot,
+    target: selected,
+    force: true,
+  });
+  s.stop(
+    `AI integration: ${optionForTarget(selected)?.key ?? selected} (+${ag.created.length} files)`,
+  );
+  const agentDetail = optionForTarget(selected)?.key ?? selected;
+  result.agents = { created: ag.created, skipped: ag.skipped };
 
   const workflows = await listWorkflowNames(projectRoot);
   p.log.step(`Workflows: ${workflows.join(", ")}`);
@@ -273,22 +271,19 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
     );
   }
 
-  // Clear separation: SDD project dirs vs AI host files
   p.note(
     [
-      pc.bold("Always created (not AI agents):"),
+      pc.bold("Always created (shared SDD):"),
       `  .sdd/   memory/   changes/   domains/`,
       "",
-      pc.bold("AI agent only (selected host):"),
-      selected === false
-        ? `  (none — use sdd agents install --ai grok|copilot|claude later)`
-        : selected === "grok"
-          ? `  .grok/rules/sdd.md  +  AGENTS.md  +  .sdd/protocol.md`
-          : selected === "claude-code"
-            ? `  .claude/agents/*.md  +  AGENTS.md  +  .sdd/protocol.md`
-            : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
+      pc.bold("AI agent (selected host):"),
+      selected === "grok"
+        ? `  .grok/rules/sdd.md  +  AGENTS.md  +  .sdd/protocol.md`
+        : selected === "claude-code"
+          ? `  .claude/agents/*.md  +  AGENTS.md  +  .sdd/protocol.md`
+          : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
       "",
-      pc.dim("Other hosts (.github/agents, .claude/agents, .idea notes) are removed when you pick one AI."),
+      pc.dim("Other hosts are removed when you pick one AI."),
     ].join("\n"),
     "What was installed",
   );
@@ -297,21 +292,13 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
     here ? `# already in project` : `cd ${projectRoot}`,
     `sdd new "Your first change"`,
     `sdd status`,
+    `# agent: ${agentDetail} · read .sdd/active-context.md then .sdd/protocol.md`,
   ];
-  if (selected !== false) {
-    next.push(
-      `# agent: ${agentDetail} · read .sdd/active-context.md then .sdd/protocol.md`,
-    );
-  }
 
   p.outro(
     pc.green("Initialized") +
-      (selected !== false
-        ? pc.dim(` · AI agent: ${agentDetail} only`)
-        : pc.dim(" · no AI agent files")) +
-      "\n\n" +
-      pc.dim("Next:") +
-      "\n" +
+      ` · AI agent: ${pc.cyan(agentDetail)} only\n\n` +
+      pc.dim("Next:\n") +
       next.map((l) => `  ${l}`).join("\n"),
   );
 }

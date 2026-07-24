@@ -75,11 +75,6 @@ const init = defineCommand({
       type: "string",
       description: "Alias for --ai (Speckit-style)",
     },
-    "no-agents": {
-      type: "boolean",
-      description: "Skip AI agent files (shared .sdd/memory/changes still created)",
-      default: false,
-    },
     "ignore-agent-tools": {
       type: "boolean",
       description: "Do not require agent CLI on PATH (e.g. claude)",
@@ -94,7 +89,6 @@ const init = defineCommand({
         force: args.force,
         ai: args.ai,
         integration: args.integration,
-        noAgents: args["no-agents"],
         ignoreAgentTools: args["ignore-agent-tools"],
       });
     } catch (err) {
@@ -617,12 +611,7 @@ const agentsInstall = defineCommand({
       const selected = await selectIntegration({
         ai: args.ai ?? args.target,
         integration: args.integration,
-        requireAgent: true,
       });
-      if (selected === false) {
-        consola.info("No AI coding agent selected — nothing installed.");
-        return;
-      }
       const result = await installAgentIntegration({
         projectRoot: root,
         target: selected,

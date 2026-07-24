@@ -184,12 +184,12 @@ describe("CLI integration", () => {
     expect(out).toMatch(/does not launch|active change status/i);
   });
 
-  it("sdd init --no-agents then sdd agents install --ai claude", async () => {
+  it("sdd init --ai copilot then sdd agents install --ai claude switches host", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-late-"));
     temps.push(root);
 
-    expect(runSdd(root, ["init", "--here", "--no-agents"]).status).toBe(0);
-    expect(await exists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+    expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
 
     const install = runSdd(root, ["agents", "install", "--ai", "claude", "--force"]);
     expect(install.status, install.stderr + install.stdout).toBe(0);

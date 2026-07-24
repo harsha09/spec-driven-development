@@ -4,65 +4,55 @@ title: Structured Vibe Coding
 titleTemplate: sdd docs
 hero:
   name: Structured Vibe Coding
-  text: Spec-driven process for humans + AI agents
-  tagline: Local CLI. Your coding agent. Just enough structure for real PRs. No IDE extension required.
+  text: Local Spec-Driven Development for every team size
+  tagline: A CLI process coach plus your AI coding agent — from a one-line hotfix to enterprise ARB. No IDE extension required.
   actions:
     - theme: brand
-      text: First change tutorial
-      link: /tutorials/first-change
+      text: What is sdd?
+      link: /concepts/what-is-sdd
     - theme: alt
-      text: Why sdd exists
-      link: /concepts/why-sdd
+      text: Simple feature
+      link: /guides/simple-feature
     - theme: alt
-      text: CLI reference
-      link: /reference/cli
+      text: Enterprise path
+      link: /guides/enterprise
 features:
-  - title: Process next to the app
-    details: sdd owns stages and markdown packs. Your AI agent owns writing specs and code. Use any editor.
-  - title: A trail you can trust
-    details: Each PR gets a change pack so decisions don’t vanish into chat history — fully on your laptop.
-  - title: Start in about 10 minutes
-    details: Needs Node 20+. Init once, paste a short intent, run next until complete. sdd doctor checks your setup.
+  - title: What it is
+    details: sdd is a local Spec-Driven Development tool. It owns stages, markdown change packs, and gates. Your AI agent writes the specs and code.
+  - title: What you achieve
+    details: Clear change history per PR, optional governance, agent handoffs that stay in the repo — without a cloud SDD product.
+  - title: Who it is for
+    details: Solo engineers, product teams, and enterprises. Light workflows for small work; full packs and hard gates when you need them.
 ---
 
-## The idea
+## Start here
 
-You need a **portable process** beside the app — not another IDE, not a SaaS.
+| Question | Page |
+|----------|------|
+| **What is this tool?** | [What is sdd](/concepts/what-is-sdd) |
+| **What can I achieve?** | [What you can achieve](/concepts/what-you-can-achieve) |
+| **Which AI agents?** | [Available agents](/reference/agents) |
+| **Which workflows ship by default?** | [Built-in workflows](/reference/workflows) |
+| **How do I build a simple feature?** | [Simple feature guide](/guides/simple-feature) |
+| **What do I use for enterprise work?** | [Enterprise guide](/guides/enterprise) |
+| **Full first-run walkthrough** | [First change tutorial](/tutorials/first-change) |
+| **Command list** | [CLI reference](/reference/cli) |
 
-Pure vibe coding loses decisions. Heavy process kills speed. `sdd` sits in the middle: small workflows, markdown packs, local verify.
+## Quick start
 
 ```bash
-# In your app:
-npx @structured-vibe-coding/cli init --here --ai copilot   # or: npm i -g … then sdd
-sdd new "Fix empty-state crash" -w hotfix -y --no-agent
-# open the path it prints → paste a few sentences → sdd next → … → sdd complete
+# In your app (Node 20+; 24 recommended)
+npm install -g @structured-vibe-coding/cli   # or npx @structured-vibe-coding/cli …
+sdd init --here --ai copilot                 # or: grok | claude
+sdd doctor
+sdd new "Add CSV export" -w feature -y
+# fill feature.md → sdd next … → implement → sdd verify → sdd complete
 ```
 
-Structure when you need it; skip stages when you don’t.
+## Needs
 
----
-
-## Before you start
-
-| Need | Notes |
-|------|--------|
+| | |
+|--|--|
 | **Node.js** | 20+ (24 recommended) |
-| **Time** | ~10 minutes for the first loop |
-| **AI (optional)** | Copilot, Grok Build, or Claude Code — or `--no-agents` to learn process first |
-| **Check setup** | `sdd doctor` after init |
-
----
-
-## I want to…
-
-| Goal | Go here |
-|------|---------|
-| **Do it now** (tutorial) | [First change](/tutorials/first-change) |
-| Everyday commands | [Everyday loop](/guides/everyday-loop) |
-| Pick / switch AI host | [Agents](/guides/agents) |
-| Improve specs mid-flight | [Refine](/guides/refine) |
-| Code slices for agents | [Code context](/guides/code-context) |
-| Look up a command | [CLI reference](/reference/cli) |
-| Understand the design | [Why sdd](/concepts/why-sdd) |
-| Team scenarios | [Scenario evaluation](/scenarios/evaluation) |
-| Ship this monorepo | [CI / CD](/maintainers/ci-cd) |
+| **AI host** | GitHub Copilot, Grok Build, or Claude Code (**required** at `sdd init`) |
+| **Time** | ~10 minutes for a first hotfix or small feature |
