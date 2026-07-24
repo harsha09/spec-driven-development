@@ -10,7 +10,7 @@ Spec Kit–style init (`--ai grok|copilot|claude`), YAML stages, and markdown ar
 
 ## The pain it addresses
 
-Vibe coding ships fast and forgets *why*. Heavy SDD ships slowly and frustrates. `sdd` keeps change packs, local verify, and complete — same tool from a weekend project to a team PR, with agents reading one protocol and live context.
+Vibe coding ships fast and forgets *why*. Heavy SDD ships slowly and frustrates. `sdd` keeps change packs, local verify, and complete — same tool from a weekend project to a multi-team enterprise change with ARB gates, with agents reading one protocol and live context.
 
 ## What we are not
 
@@ -19,7 +19,7 @@ Vibe coding ships fast and forgets *why*. Heavy SDD ships slowly and frustrates.
 - Not “skills packs” replacing a single playbook  
 - Not mandatory archive or evidence folders (opt-in only)  
 
-Try the [first-change tutorial](/tutorials/first-change) once, then customize only if you need to.
+Try the [first-change tutorial](/tutorials/first-change), [simple feature](/guides/simple-feature), or [enterprise path](/guides/enterprise).
 
 ## Related
 

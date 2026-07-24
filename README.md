@@ -1,92 +1,73 @@
 # Structured Vibe Coding (`sdd`)
 
-Local-first Spec-Driven Development: a CLI process coach plus your AI coding agent (Copilot, Grok, or Claude). Spec-first change packs without cloud lock-in or a required IDE extension.
+**Local Spec-Driven Development** for solo engineers, product teams, and enterprises.
 
-**Needs:** Node.js 20+ (24 recommended) · about **10 minutes** for the first loop.
+A CLI process coach plus your AI coding agent (GitHub Copilot, Grok Build, or Claude Code). Spec-first change packs in git — no cloud SDD product and no required IDE extension.
 
 | | |
 |---|---|
-| **Who** | Solo engineers and small teams |
-| **Where** | Your laptop, in the app repo |
-| **How** | Terminal + optional AI agent |
+| **What** | Stages, workflows, change packs, agent handoff |
+| **Who** | Hotfix on a laptop → multi-team ARB |
+| **Needs** | Node 20+ (24 recommended) · one AI host at init |
 
 ---
 
 ## Documentation
 
-| | |
-|---|---|
-| **Start here** | [Tutorial: first change](./docs/tutorials/first-change.md) |
-| **Docs site** | `https://harsha09.github.io/spec-driven-development/` (enable Pages → Actions) |
-| **Local docs** | `pnpm docs:dev` |
-| **CLI list** | [docs/reference/cli.md](./docs/reference/cli.md) |
+| Question | Page |
+|----------|------|
+| What is sdd? | [docs/concepts/what-is-sdd.md](./docs/concepts/what-is-sdd.md) |
+| What can I achieve? | [docs/concepts/what-you-can-achieve.md](./docs/concepts/what-you-can-achieve.md) |
+| Which agents? | [docs/reference/agents.md](./docs/reference/agents.md) |
+| Which workflows? | [docs/reference/workflows.md](./docs/reference/workflows.md) |
+| Simple feature | [docs/guides/simple-feature.md](./docs/guides/simple-feature.md) |
+| Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
+| First-run tutorial | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
+| **Docs site** | https://harsha09.github.io/spec-driven-development/ |
+
+Local: `pnpm docs:dev`
 
 ---
 
 ## Install
 
-### Users (preferred)
-
 ```bash
-# One-shot (no global install)
-npx @structured-vibe-coding/cli --help
-
-# Or global
 npm install -g @structured-vibe-coding/cli
-sdd --help
+# or: npx @structured-vibe-coding/cli --help
 ```
 
-If the package isn’t on npm yet, build from this repo (below).
-
-### From this repository
+From this monorepo (if needed):
 
 ```bash
-git clone https://github.com/harsha09/spec-driven-development.git
-cd spec-driven-development
-corepack enable && corepack prepare pnpm@9.15.0 --activate
 pnpm install && pnpm build
 pnpm --filter @structured-vibe-coding/cli link --global
-sdd --help
 ```
 
 ---
 
-## 10-minute path
+## Quick start
 
 ```bash
 cd your-app
-
-# Pick ONE AI: copilot | grok | claude   (or --no-agents to learn process only)
-sdd init --here --ai copilot
+sdd init --here --ai copilot     # or grok | claude (required)
 sdd doctor
-
-sdd new "Fix empty list crash" -w hotfix -y --no-agent
-# Open the file path printed under "Next steps" (intent.md)
-# Paste a short problem + fix + success (see tutorial for a ready sample)
-
-sdd next --no-agent    # after intent is filled
-# implement the fix…
-sdd next --no-agent
-sdd complete --no-agent
+sdd new "Add CSV export" -w feature -y
+# fill feature.md (real scope), then:
+sdd next
+# … design → tasks → implement → verify …
+sdd complete
 ```
 
-Full walkthrough with sample `intent.md` and troubleshooting: **[docs/tutorials/first-change.md](./docs/tutorials/first-change.md)**.
+Hotfix: `-w hotfix`. Enterprise ARB path: `-w enterprise-feature` — see [enterprise guide](./docs/guides/enterprise.md).
 
 ---
 
 ## Develop this monorepo
 
-```text
-packages/core   engine
-packages/cli    sdd binary
-```
-
 ```bash
 pnpm install && pnpm build && pnpm test
 pnpm docs:dev
 ```
-
-CI: [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md).
 
 ---
 

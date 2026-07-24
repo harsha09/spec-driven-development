@@ -70,14 +70,13 @@ cd ~/projects/my-app    # any project, or mkdir demo-app && cd demo-app
 
 ---
 
-## 3. Pick your AI (one is enough)
+## 3. Pick your AI (required — one host)
 
 | You have… | Init command |
 |-----------|----------------|
 | **GitHub Copilot** in VS Code / Cursor | `sdd init --here --ai copilot` |
 | **Grok Build** CLI | `sdd init --here --ai grok` |
 | **Claude Code** CLI | `sdd init --here --ai claude` |
-| No AI yet | `sdd init --here --no-agents` (you can still learn the process) |
 
 ```bash
 sdd init --here --ai copilot
@@ -101,16 +100,15 @@ changes/
 ## 4. Start a change
 
 ```bash
-sdd new "Fix empty list crash" -w hotfix -y --no-agent
+sdd new "Fix empty list crash" -w hotfix -y
 ```
 
-| Flag | Why (for learning) |
-|------|---------------------|
-| `-w hotfix` | Short 3-stage path |
-| `-y` | Skip “use this workflow?” prompt |
-| `--no-agent` | Learn the process first; add AI on the next run |
+| Flag | Meaning |
+|------|---------|
+| `-w hotfix` | Short 3-stage path (good first loop) |
+| `-y` | Accept workflow without an extra confirm prompt |
 
-The CLI prints **Next steps** and a file path. Copy that path.
+The CLI prints **Next steps** and a file path. Copy that path. (It may also launch your AI agent — you can still edit `intent.md` yourself.)
 
 **Example status shape:**
 
@@ -148,11 +146,11 @@ If you prefer AI to draft it: run `sdd agent` (without `--no-agent` on a later `
 ## 6. Advance, implement, finish
 
 ```bash
-sdd next --no-agent
+sdd next
 # Now stage is implement — fix the bug in your app (or ask your AI to)
-sdd next --no-agent
+sdd next
 # optional: write a line in local-test-results.md
-sdd complete --no-agent
+sdd complete
 ```
 
 **You’re done when** `sdd status` shows no active change (or the pack’s `meta.yaml` has `status: completed`).

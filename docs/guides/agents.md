@@ -69,8 +69,6 @@ sdd init --here --ai claude    # only .claude/agents + shared SDD dirs
 # Interactive pick (still one agent)
 sdd init --here
 
-# Skip agent files
-sdd init --here --no-agents
 ```
 
 ### What gets created

@@ -1,12 +1,12 @@
 # `@structured-vibe-coding/cli`
 
-CLI for **Structured Vibe Coding** (`sdd`) — local Spec-Driven Development.
+CLI for **Structured Vibe Coding** (`sdd`) — local Spec-Driven Development for solo through enterprise teams.
 
 ## Install
 
 ```bash
 npm install -g @structured-vibe-coding/cli
-# or without global install:
+# or
 npx @structured-vibe-coding/cli --help
 ```
 
@@ -16,26 +16,26 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude
+sdd init --here --ai copilot    # or grok | claude (required)
 sdd doctor
-sdd new "Fix empty list crash" -w hotfix -y --no-agent
-# edit the intent.md path printed by the CLI
-sdd next --no-agent
-sdd complete --no-agent
+sdd new "Add expense CSV export" -w feature -y
+# edit feature.md, then sdd next … sdd complete
 ```
 
 | Flag | Meaning |
 |------|---------|
 | `--here` | Current directory |
-| `--ai copilot\|grok\|claude` | Install **only** that AI host |
-| `--no-agents` | Skip agent files |
+| `--ai copilot\|grok\|claude` | Install **only** that AI host (required choice) |
 | `--force` | Re-init defaults |
 
 ## Docs
 
-- Tutorial: [First change](https://github.com/harsha09/spec-driven-development/blob/main/docs/tutorials/first-change.md)
+- [What is sdd](https://github.com/harsha09/spec-driven-development/blob/main/docs/concepts/what-is-sdd.md)
+- [Simple feature](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/simple-feature.md)
+- [Enterprise](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/enterprise.md)
+- [Workflows](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/workflows.md)
+- [Agents](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/agents.md)
 - Site: https://harsha09.github.io/spec-driven-development/
-- CLI reference: [docs/reference/cli.md](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/cli.md)
 
 ## License
 

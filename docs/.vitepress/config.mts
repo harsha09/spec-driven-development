@@ -3,16 +3,14 @@ import { defineConfig } from "vitepress";
 /**
  * Project site on GitHub Pages:
  *   https://<user>.github.io/spec-driven-development/
- * Set base to '/' only for a custom domain or user/org site.
  */
 const base = process.env.DOCS_BASE || "/spec-driven-development/";
 
 export default defineConfig({
   title: "Structured Vibe Coding",
   description:
-    "Local-first Spec-Driven Development (sdd) — process CLI + your AI coding agent. Spec Kit–style, no IDE extension required.",
+    "Local Spec-Driven Development (sdd) — CLI process + AI agents for solo teams through enterprise.",
   base,
-  // Clean URLs in the browser; scripts/docs-pages-layout.mjs rewrites dist to */index.html for GitHub Pages
   cleanUrls: true,
   lastUpdated: true,
   ignoreDeadLinks: "localhostLinks",
@@ -26,20 +24,20 @@ export default defineConfig({
       {
         property: "og:description",
         content:
-          "Flexible, local-first Spec-Driven Development for engineers and AI agents.",
+          "Local Spec-Driven Development for engineers and AI agents — hotfix to enterprise ARB.",
       },
     ],
   ],
 
   themeConfig: {
-    logo: undefined,
     siteTitle: "sdd",
     nav: [
-      { text: "Home", link: "/" },
-      { text: "Tutorial", link: "/tutorials/first-change" },
-      { text: "Guides", link: "/guides/agents" },
-      { text: "Reference", link: "/reference/cli" },
-      { text: "Concepts", link: "/concepts/why-sdd" },
+      { text: "What is sdd", link: "/concepts/what-is-sdd" },
+      { text: "Simple feature", link: "/guides/simple-feature" },
+      { text: "Enterprise", link: "/guides/enterprise" },
+      { text: "Workflows", link: "/reference/workflows" },
+      { text: "Agents", link: "/reference/agents" },
+      { text: "CLI", link: "/reference/cli" },
       {
         text: "GitHub",
         link: "https://github.com/harsha09/spec-driven-development",
@@ -48,44 +46,44 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: "Start here",
+        text: "Overview",
         items: [
           { text: "Home", link: "/" },
-          { text: "Tutorial: first change", link: "/tutorials/first-change" },
-        ],
-      },
-      {
-        text: "Guides (how-to)",
-        items: [
-          { text: "AI agents (init + hosts)", link: "/guides/agents" },
-          { text: "Refine a stage", link: "/guides/refine" },
-          { text: "Code context (AST)", link: "/guides/code-context" },
-          { text: "Everyday loop", link: "/guides/everyday-loop" },
-          { text: "Customize workflows", link: "/guides/customize" },
-        ],
-      },
-      {
-        text: "Reference",
-        items: [
-          { text: "CLI commands", link: "/reference/cli" },
-          { text: "Project layout", link: "/reference/layout" },
-        ],
-      },
-      {
-        text: "Concepts (why)",
-        items: [
+          { text: "What is sdd?", link: "/concepts/what-is-sdd" },
+          { text: "What you can achieve", link: "/concepts/what-you-can-achieve" },
           { text: "Why sdd exists", link: "/concepts/why-sdd" },
           { text: "Change packs & memory", link: "/concepts/change-packs" },
           { text: "Agents vs IDEs", link: "/concepts/agents-vs-ides" },
         ],
       },
       {
-        text: "Scenarios",
-        items: [{ text: "Scenario evaluation", link: "/scenarios/evaluation" }],
+        text: "How to",
+        items: [
+          { text: "First change (tutorial)", link: "/tutorials/first-change" },
+          { text: "Simple feature", link: "/guides/simple-feature" },
+          { text: "Enterprise path", link: "/guides/enterprise" },
+          { text: "Everyday loop", link: "/guides/everyday-loop" },
+          { text: "AI agents setup", link: "/guides/agents" },
+          { text: "Refine a stage", link: "/guides/refine" },
+          { text: "Code context (AST)", link: "/guides/code-context" },
+          { text: "Customize workflows", link: "/guides/customize" },
+        ],
       },
       {
-        text: "Maintainers",
-        items: [{ text: "CI / CD", link: "/maintainers/ci-cd" }],
+        text: "Reference",
+        items: [
+          { text: "Built-in workflows", link: "/reference/workflows" },
+          { text: "Available agents", link: "/reference/agents" },
+          { text: "CLI commands", link: "/reference/cli" },
+          { text: "Project layout", link: "/reference/layout" },
+        ],
+      },
+      {
+        text: "More",
+        items: [
+          { text: "Scenario evaluation", link: "/scenarios/evaluation" },
+          { text: "CI / CD (maintainers)", link: "/maintainers/ci-cd" },
+        ],
       },
     ],
 
@@ -96,9 +94,7 @@ export default defineConfig({
       },
     ],
 
-    search: {
-      provider: "local",
-    },
+    search: { provider: "local" },
 
     editLink: {
       pattern:
@@ -107,12 +103,10 @@ export default defineConfig({
     },
 
     footer: {
-      message: "MIT Licensed · Local-first Spec-Driven Development",
+      message: "MIT Licensed · Local Spec-Driven Development",
       copyright: "Structured Vibe Coding (sdd)",
     },
 
-    outline: {
-      level: [2, 3],
-    },
+    outline: { level: [2, 3] },
   },
 });
