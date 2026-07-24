@@ -588,12 +588,12 @@ const agentsInstall = defineCommand({
   args: {
     target: {
       type: "string",
-      description: "Alias of --ai: grok | copilot | claude",
+      description: "Alias of --ai: grok | copilot | claude | ollama",
       alias: "t",
     },
     ai: {
       type: "string",
-      description: "AI agent to install: grok | copilot | claude (only this host)",
+      description: "AI agent to install: grok | copilot | claude | ollama (only this host)",
       alias: "a",
     },
     integration: {
@@ -650,7 +650,7 @@ const agentsRefresh = defineCommand({
 const agents = defineCommand({
   meta: {
     name: "agents",
-    description: "Manage AI coding-agent integrations (copilot | claude | grok)",
+    description: "Manage AI coding-agent integrations (copilot | claude | grok | ollama)",
   },
   subCommands: {
     install: agentsInstall,

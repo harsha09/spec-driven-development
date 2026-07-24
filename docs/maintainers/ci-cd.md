@@ -134,21 +134,10 @@ node scripts/bump-version.mjs --set 1.0.0
 
 Public site: `https://harsha09.github.io/spec-driven-development/`
 
-**Do not** set Pages to “Deploy from a branch → `/docs`”. That serves raw Markdown through **Jekyll**, so links like `/concepts/…` 404 (missing the `/spec-driven-development/` prefix and no VitePress HTML).
+**Pages setting:** Deploy from branch **`gh-pages`** / **`/` (root)**.  
+Do **not** use `main` + `/docs` (raw Markdown via Jekyll — broken nav and theme).
 
-### Required Pages setting (pick one)
-
-| Option | Settings → Pages |
-|--------|------------------|
-| **A (recommended)** | **Source: Deploy from a branch** → branch **`gh-pages`** → folder **`/` (root)** |
-| **B** | **Source: GitHub Actions** (uses `actions/deploy-pages`) |
-
-Workflow [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml):
-
-1. Builds VitePress (`base: /spec-driven-development/`)  
-2. Rewrites pages to `path/index.html` (clean URLs on Pages)  
-3. Publishes to the **`gh-pages`** branch (no Jekyll)  
-4. Also attempts Actions deploy (ok if that environment isn’t enabled)
+Workflow `.github/workflows/docs.yml` builds VitePress and publishes to **`gh-pages`**.
 
 Local: `pnpm docs:dev` · `pnpm docs:build`
 
