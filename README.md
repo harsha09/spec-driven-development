@@ -23,7 +23,7 @@ A CLI process coach plus your AI coding agent (GitHub Copilot, Grok Build, or Cl
 | Simple feature | [docs/guides/simple-feature.md](./docs/guides/simple-feature.md) |
 | Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
 | First-run tutorial | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
-| **Docs site** | https://harsha09.github.io/spec-driven-development/ |
+| **Docs site** | https://harsha09.github.io/spec-driven-development/ · **Pages must use branch `gh-pages` (root) or GitHub Actions** — not “branch main /docs” (that serves Jekyll and breaks links) |
 
 Local: `pnpm docs:dev`
 
