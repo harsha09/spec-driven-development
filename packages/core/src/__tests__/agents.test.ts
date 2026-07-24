@@ -58,6 +58,7 @@ describe("agent integrations (registry)", () => {
     // Single-agent: no other hosts
     expect(await pathExists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
     expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, ".ollama/sdd.md"))).toBe(false);
     expect(await pathExists(join(root, ".claude/skills/sdd/SKILL.md"))).toBe(false);
 
     const impl = await readFile(join(root, ".claude/agents/sdd-implementer.md"), "utf8");
@@ -135,13 +136,31 @@ describe("agent integrations (registry)", () => {
     expect(() => parseIntegration("cursor")).toThrow(/IDE/i);
   });
 
-  it("accepts Speckit-style keys (claude → claude-code, grok, default copilot)", () => {
+  it("accepts Speckit-style keys (claude → claude-code, grok, ollama, default copilot)", () => {
     expect(parseIntegration("claude")).toBe("claude-code");
     expect(parseIntegration("copilot")).toBe("copilot");
     expect(parseIntegration("grok")).toBe("grok");
     expect(parseIntegration("grok-build")).toBe("grok");
+    expect(parseIntegration("ollama")).toBe("ollama");
+    expect(parseIntegration("llama")).toBe("ollama");
     expect(DEFAULT_INIT_INTEGRATION).toBe("copilot");
     expect(parseAgentTargets("claude")).toEqual(["claude-code"]);
+  });
+
+  it("installs ollama host with single router brief", async () => {
+    const root = await tempProject();
+    await installAgentIntegration({
+      projectRoot: root,
+      target: "ollama",
+      force: true,
+    });
+    expect(await pathExists(join(root, ".ollama/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
+    const brief = await readFile(join(root, ".ollama/sdd.md"), "utf8");
+    expect(brief).toMatch(/protocol\.md/);
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.ai).toBe("ollama");
   });
 
   it("init does not install agents unless AI agent is specified", async () => {

@@ -3,6 +3,7 @@
  *
  * Purpose: every SDD process step should hand work to the coding agent.
  * - grok / claude: spawn CLI explicitly
+ * - ollama: `ollama run <model> <kickoff>` (model from SDD_OLLAMA_MODEL, default llama3.2)
  * - copilot: host UI handles agents — we refresh handoff + instruct the human
  */
 import { spawnSync } from "node:child_process";
@@ -194,6 +195,16 @@ export async function launchConfiguredAgent(
     });
   }
 
+  if (target === "ollama") {
+    return spawnOllamaAgent({
+      label: installed.integration.label,
+      kickoff,
+      cwd,
+      handoffPath,
+      target,
+    });
+  }
+
   // GitHub Copilot: IDE/chat owns the agent window
   return {
     handoffPath,
@@ -201,6 +212,76 @@ export async function launchConfiguredAgent(
     launched: false,
     reason:
       "GitHub Copilot: open VS Code/Cursor → Copilot Chat → agent `sdd` (handoff refreshed at .sdd/handoff.md)",
+  };
+}
+
+/** Default model when SDD_OLLAMA_MODEL is unset. */
+export const DEFAULT_OLLAMA_MODEL = "llama3.2";
+
+async function spawnOllamaAgent(opts: {
+  label: string;
+  kickoff: string;
+  cwd: string;
+  handoffPath: string;
+  target: AgentTarget;
+}): Promise<LaunchAgentResult> {
+  const bin = "ollama";
+  if (!toolOnPath(bin)) {
+    return {
+      handoffPath: opts.handoffPath,
+      target: opts.target,
+      launched: false,
+      reason: `${bin} not on PATH. Install Ollama from https://ollama.com (handoff: ${opts.handoffPath})`,
+    };
+  }
+
+  const model =
+    process.env.SDD_OLLAMA_MODEL?.trim() ||
+    process.env.OLLAMA_MODEL?.trim() ||
+    DEFAULT_OLLAMA_MODEL;
+
+  consola.info(pc.cyan(`Starting ${opts.label} (${model})…`));
+  consola.info(
+    pc.dim(
+      `Model: ${model} · override with SDD_OLLAMA_MODEL=… · pull first: ollama pull ${model}`,
+    ),
+  );
+
+  // One-shot: ollama run <model> "<prompt>"
+  const args = ["run", model, opts.kickoff];
+  const r = spawnSync(bin, args, {
+    cwd: opts.cwd,
+    stdio: "inherit",
+    encoding: "utf8",
+  });
+  if (!r.error && (r.status === 0 || r.status === null)) {
+    return {
+      handoffPath: opts.handoffPath,
+      target: opts.target,
+      launched: true,
+      command: [bin, ...args],
+    };
+  }
+
+  // Interactive session fallback
+  consola.info(pc.dim(`Opening interactive ollama run ${model}…`));
+  consola.info(
+    pc.dim(`Read .sdd/handoff.md and .ollama/sdd.md in this project first.`),
+  );
+  const r2 = spawnSync(bin, ["run", model], {
+    cwd: opts.cwd,
+    stdio: "inherit",
+  });
+  return {
+    handoffPath: opts.handoffPath,
+    target: opts.target,
+    launched: !r2.error,
+    command: [bin, "run", model],
+    reason: r2.error
+      ? String(r2.error.message)
+      : r.status !== 0 && r.status !== null
+        ? `ollama run exited ${r.status}`
+        : undefined,
   };
 }
 
@@ -269,6 +350,13 @@ export async function reportAgentLaunch(result: LaunchAgentResult): Promise<void
   if (result.target === "grok" && !result.launched) {
     consola.log(
       pc.dim("  Tip: open Grok Build in this folder — AGENTS.md + .grok/rules/sdd.md load automatically"),
+    );
+  }
+  if (result.target === "ollama" && !result.launched) {
+    consola.log(
+      pc.dim(
+        "  Tip: install Ollama, run `ollama pull llama3.2` (or set SDD_OLLAMA_MODEL), then re-run",
+      ),
     );
   }
 }

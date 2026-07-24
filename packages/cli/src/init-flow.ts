@@ -281,7 +281,9 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
         ? `  .grok/rules/sdd.md  +  AGENTS.md  +  .sdd/protocol.md`
         : selected === "claude-code"
           ? `  .claude/agents/*.md  +  AGENTS.md  +  .sdd/protocol.md`
-          : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
+          : selected === "ollama"
+            ? `  .ollama/sdd.md  +  AGENTS.md  +  .sdd/protocol.md  (SDD_OLLAMA_MODEL for launch)`
+            : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
       "",
       pc.dim("Other hosts are removed when you pick one AI."),
     ].join("\n"),

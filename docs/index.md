@@ -54,5 +54,5 @@ sdd new "Add CSV export" -w feature -y
 | | |
 |--|--|
 | **Node.js** | 20+ (24 recommended) |
-| **AI host** | GitHub Copilot, Grok Build, or Claude Code (**required** at `sdd init`) |
+| **AI host** | Copilot, Grok, Claude Code, or **Ollama** (**required** at `sdd init`) |
 | **Time** | ~10 minutes for a first hotfix or small feature |

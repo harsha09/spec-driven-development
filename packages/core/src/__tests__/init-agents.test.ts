@@ -79,8 +79,8 @@ describe("init installs agents without separate agents install", () => {
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(true);
   });
 
-  it("registry covers all three public keys", () => {
+  it("registry covers public keys including ollama", () => {
     const keys = AGENT_INTEGRATIONS.map((i) => i.key).sort();
-    expect(keys).toEqual(["claude", "copilot", "grok"]);
+    expect(keys).toEqual(["claude", "copilot", "grok", "ollama"]);
   });
 });

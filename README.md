@@ -2,7 +2,7 @@
 
 **Local Spec-Driven Development** for solo engineers, product teams, and enterprises.
 
-A CLI process coach plus your AI coding agent (GitHub Copilot, Grok Build, or Claude Code). Spec-first change packs in git — no cloud SDD product and no required IDE extension.
+A CLI process coach plus your AI coding agent (GitHub Copilot, Grok Build, Claude Code, or **Ollama** for local models). Spec-first change packs in git — no cloud SDD product and no required IDE extension.
 
 | | |
 |---|---|
@@ -49,7 +49,7 @@ pnpm --filter @structured-vibe-coding/cli link --global
 
 ```bash
 cd your-app
-sdd init --here --ai copilot     # or grok | claude (required)
+sdd init --here --ai copilot     # or grok | claude | ollama (required)
 sdd doctor
 sdd new "Add CSV export" -w feature -y
 # fill feature.md (real scope), then:

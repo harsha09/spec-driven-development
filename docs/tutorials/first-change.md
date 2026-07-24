@@ -77,6 +77,7 @@ cd ~/projects/my-app    # any project, or mkdir demo-app && cd demo-app
 | **GitHub Copilot** in VS Code / Cursor | `sdd init --here --ai copilot` |
 | **Grok Build** CLI | `sdd init --here --ai grok` |
 | **Claude Code** CLI | `sdd init --here --ai claude` |
+| **Ollama** (local models) | `sdd init --here --ai ollama` then `ollama pull llama3.2` |
 
 ```bash
 sdd init --here --ai copilot
