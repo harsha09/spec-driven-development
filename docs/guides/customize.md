@@ -19,5 +19,5 @@ Ship your own pack by copying a default workflow and editing stages and artifact
 
 ## Related
 
-- [Layout reference](/reference/layout)  
-- [First change tutorial](/tutorials/first-change)  
+- [Layout reference](../reference/layout)  
+- [First change tutorial](../tutorials/first-change)  

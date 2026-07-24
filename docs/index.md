@@ -29,14 +29,14 @@ features:
 
 | Question | Page |
 |----------|------|
-| **What is this tool?** | [What is sdd](/concepts/what-is-sdd) |
-| **What can I achieve?** | [What you can achieve](/concepts/what-you-can-achieve) |
-| **Which AI agents?** | [Available agents](/reference/agents) |
-| **Which workflows ship by default?** | [Built-in workflows](/reference/workflows) |
-| **How do I build a simple feature?** | [Simple feature guide](/guides/simple-feature) |
-| **What do I use for enterprise work?** | [Enterprise guide](/guides/enterprise) |
-| **Full first-run walkthrough** | [First change tutorial](/tutorials/first-change) |
-| **Command list** | [CLI reference](/reference/cli) |
+| **What is this tool?** | [What is sdd](./concepts/what-is-sdd) |
+| **What can I achieve?** | [What you can achieve](./concepts/what-you-can-achieve) |
+| **Which AI agents?** | [Available agents](./reference/agents) |
+| **Which workflows ship by default?** | [Built-in workflows](./reference/workflows) |
+| **How do I build a simple feature?** | [Simple feature guide](./guides/simple-feature) |
+| **What do I use for enterprise work?** | [Enterprise guide](./guides/enterprise) |
+| **Full first-run walkthrough** | [First change tutorial](./tutorials/first-change) |
+| **Command list** | [CLI reference](./reference/cli) |
 
 ## Quick start
 

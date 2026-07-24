@@ -66,5 +66,5 @@ sdd agents refresh
 
 ## Related
 
-- [Simple feature](/guides/simple-feature)  
-- [CLI reference](/reference/cli)  
+- [Simple feature](../guides/simple-feature)  
+- [CLI reference](./cli)  

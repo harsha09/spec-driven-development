@@ -4,7 +4,7 @@
 > You’ll install `sdd`, create a small hotfix pack, write a few sentences, advance stages, and complete.
 
 ::: tip One path only
-This page is a single happy path. Variants live in [everyday loop](/guides/everyday-loop).
+This page is a single happy path. Variants live in [everyday loop](../guides/everyday-loop).
 :::
 
 ## What you’ll get
@@ -173,7 +173,7 @@ sdd complete
 
 | Goal | Page |
 |------|------|
-| Run the loop with the agent every time | [Everyday loop](/guides/everyday-loop) |
-| Wire Copilot / Grok / Claude properly | [Agents](/guides/agents) |
-| Improve specs mid-change | [Refine](/guides/refine) |
-| Why this tool exists | [Why sdd](/concepts/why-sdd) |
+| Run the loop with the agent every time | [Everyday loop](../guides/everyday-loop) |
+| Wire Copilot / Grok / Claude properly | [Agents](../guides/agents) |
+| Improve specs mid-change | [Refine](../guides/refine) |
+| Why this tool exists | [Why sdd](../concepts/why-sdd) |

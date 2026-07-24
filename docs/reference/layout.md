@@ -27,5 +27,5 @@ AGENTS.md                # if an agent was installed
 
 ## Related
 
-- [Change packs concept](/concepts/change-packs)  
-- [Agents guide](/guides/agents)  
+- [Change packs concept](../concepts/change-packs)  
+- [Agents guide](../guides/agents)  

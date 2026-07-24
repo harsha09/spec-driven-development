@@ -27,6 +27,6 @@ It is a **CLI process coach** that lives in your application repository. It does
 
 ## Related
 
-- [What you can achieve](/concepts/what-you-can-achieve)  
-- [Built-in workflows](/reference/workflows)  
-- [Available agents](/reference/agents)  
+- [What you can achieve](./what-you-can-achieve)  
+- [Built-in workflows](../reference/workflows)  
+- [Available agents](../reference/agents)  

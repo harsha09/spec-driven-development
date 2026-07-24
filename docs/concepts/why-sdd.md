@@ -19,9 +19,9 @@ Vibe coding ships fast and forgets *why*. Heavy SDD ships slowly and frustrates.
 - Not “skills packs” replacing a single playbook  
 - Not mandatory archive or evidence folders (opt-in only)  
 
-Try the [first-change tutorial](/tutorials/first-change), [simple feature](/guides/simple-feature), or [enterprise path](/guides/enterprise).
+Try the [first-change tutorial](../tutorials/first-change), [simple feature](../guides/simple-feature), or [enterprise path](../guides/enterprise).
 
 ## Related
 
-- [Change packs & memory](/concepts/change-packs)  
-- [Agents vs IDEs](/concepts/agents-vs-ides)  
+- [Change packs & memory](./change-packs)  
+- [Agents vs IDEs](./agents-vs-ides)  

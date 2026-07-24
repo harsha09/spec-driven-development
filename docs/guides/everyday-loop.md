@@ -5,7 +5,7 @@
 You shouldn’t have to relearn which command comes after implement. Use one fixed loop so handoffs stay consistent for you and the agent.
 
 ::: tip First time?
-Use the [first change tutorial](/tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](/guides/simple-feature) / [enterprise](/guides/enterprise) guides for larger work.
+Use the [first change tutorial](../tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](./simple-feature) / [enterprise](./enterprise) guides for larger work.
 :::
 
 ## The loop
@@ -40,5 +40,5 @@ sdd next --force   # sparingly
 
 ## Related
 
-- [Refine mid-stage](/guides/refine)  
-- [CLI reference](/reference/cli)  
+- [Refine mid-stage](./refine)  
+- [CLI reference](../reference/cli)  

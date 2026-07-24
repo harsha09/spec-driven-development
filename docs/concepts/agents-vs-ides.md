@@ -13,4 +13,4 @@ Use any editor. Process is the CLI. Thin agent stubs plus `.sdd/protocol.md` kee
 
 ## Related
 
-- [Agents setup guide](/guides/agents)  
+- [Agents setup guide](../guides/agents)  

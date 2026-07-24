@@ -38,6 +38,6 @@ sdd gate approve -n "ARB approved with condition …"
 
 ## Related
 
-- [Simple feature](/guides/simple-feature)  
-- [Enterprise guide](/guides/enterprise)  
-- [Customize workflows](/guides/customize)  
+- [Simple feature](../guides/simple-feature)  
+- [Enterprise guide](../guides/enterprise)  
+- [Customize workflows](../guides/customize)  

@@ -26,5 +26,5 @@ changes/<id>/         ← this PR’s specs + meta.yaml
 
 ## Related
 
-- [First change tutorial](/tutorials/first-change)  
-- [Refine](/guides/refine)  
+- [First change tutorial](../tutorials/first-change)  
+- [Refine](../guides/refine)  
