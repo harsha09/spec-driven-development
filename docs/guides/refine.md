@@ -30,5 +30,5 @@ You can iterate specs without inventing a second process tool. Run `sdd refine` 
 
 ## Related
 
-- [Code context for implement](/guides/code-context)  
-- [Agents](/guides/agents)  
+- [Code context for implement](./code-context)  
+- [Agents](./agents)  

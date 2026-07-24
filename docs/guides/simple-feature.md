@@ -73,10 +73,10 @@ Download completes for 10k rows without timeout; file opens in Excel.
 - Empty templates block `sdd next` — write real sentences  
 - Mid-flight polish: `sdd refine` or `sdd refine design`  
 - Code focus for agents: `sdd context --path … --symbol …`  
-- See stage map: [Built-in workflows](/reference/workflows)  
+- See stage map: [Built-in workflows](../reference/workflows)  
 
 ## Related
 
-- [First change tutorial](/tutorials/first-change) (hotfix-oriented)  
-- [Everyday loop](/guides/everyday-loop)  
-- [Enterprise path](/guides/enterprise)  
+- [First change tutorial](../tutorials/first-change) (hotfix-oriented)  
+- [Everyday loop](./everyday-loop)  
+- [Enterprise path](./enterprise)  

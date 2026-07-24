@@ -1,6 +1,6 @@
 # CLI reference
 
-> Look up commands and when to use them. To learn by doing, start with the [tutorial](/tutorials/first-change).
+> Look up commands and when to use them. To learn by doing, start with the [tutorial](../tutorials/first-change).
 
 Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 
@@ -41,6 +41,6 @@ Skip launch: `--no-agent` or `SDD_NO_AGENT=1`.
 
 ## Related
 
-- [Everyday loop](/guides/everyday-loop)  
-- [Refine](/guides/refine)  
-- [Code context](/guides/code-context)  
+- [Everyday loop](../guides/everyday-loop)  
+- [Refine](../guides/refine)  
+- [Code context](../guides/code-context)  

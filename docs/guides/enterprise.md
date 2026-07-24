@@ -70,7 +70,7 @@ Not a multi-tenant cloud control plane — suitable for regulated *engineering p
 
 ## Related
 
-- [Built-in workflows](/reference/workflows)  
-- [What you can achieve](/concepts/what-you-can-achieve)  
-- [Simple feature](/guides/simple-feature)  
-- [CI/CD for this monorepo](/maintainers/ci-cd)  
+- [Built-in workflows](../reference/workflows)  
+- [What you can achieve](../concepts/what-you-can-achieve)  
+- [Simple feature](./simple-feature)  
+- [CI/CD for this monorepo](../maintainers/ci-cd)  

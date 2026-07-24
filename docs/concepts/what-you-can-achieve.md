@@ -33,6 +33,6 @@ Same CLI — different **workflow packs** and policy in YAML.
 
 ## Related
 
-- [Simple feature](/guides/simple-feature)  
-- [Enterprise path](/guides/enterprise)  
-- [Built-in workflows](/reference/workflows)  
+- [Simple feature](../guides/simple-feature)  
+- [Enterprise path](../guides/enterprise)  
+- [Built-in workflows](../reference/workflows)  

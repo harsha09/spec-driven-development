@@ -28,5 +28,5 @@ Handoff on implement / local_verify **points** at `sdd context`; it does **not**
 
 ## Related
 
-- [CLI flags](/reference/cli)  
-- [Refine specs first](/guides/refine) if the task list is still fuzzy  
+- [CLI flags](../reference/cli)  
+- [Refine specs first](./refine) if the task list is still fuzzy  
