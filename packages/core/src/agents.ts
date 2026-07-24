@@ -8,9 +8,9 @@ import { sddRoot } from "./paths.js";
 
 /**
  * AI coding agents (not IDEs).
- * Speckit-style: one integration at a time; public keys: `copilot` | `claude` | `grok`.
+ * Speckit-style: one integration at a time; public keys: `copilot` | `claude` | `grok` | `ollama`.
  */
-export type AgentTarget = "copilot" | "claude-code" | "grok";
+export type AgentTarget = "copilot" | "claude-code" | "grok" | "ollama";
 
 /** Registry entry — add a new AI agent by appending here only. */
 export interface AgentIntegration {
@@ -77,6 +77,21 @@ export const AGENT_INTEGRATIONS: AgentIntegration[] = [
     agentsMdRow:
       "| Grok Build | `.grok/rules/sdd.md` + `AGENTS.md` (reads protocol + active-context; run `sdd` in shell) |",
   },
+  {
+    id: "ollama",
+    key: "ollama",
+    aliases: ["local", "llama", "ollama-local"],
+    label: "Ollama (local)",
+    hint: "Local models via `ollama` CLI + AGENTS.md / .ollama/sdd.md (set SDD_OLLAMA_MODEL)",
+    requiresCli: true,
+    cliBinary: "ollama",
+    installUrl: "https://ollama.com",
+    // Single project brief — Ollama does not auto-load multi-role agent trees
+    rolePath: () => `.ollama/sdd.md`,
+    rolesToInstall: ["sdd"],
+    agentsMdRow:
+      "| Ollama (local) | `.ollama/sdd.md` + `AGENTS.md` + handoff; launch: `ollama run $SDD_OLLAMA_MODEL` |",
+  },
 ];
 
 export const ALL_AGENT_TARGETS: AgentTarget[] = AGENT_INTEGRATIONS.map((i) => i.id);
@@ -136,6 +151,8 @@ export function agentHostPaths(target: AgentTarget): string[] {
       return [".claude/agents"];
     case "grok":
       return [".grok/rules"];
+    case "ollama":
+      return [".ollama"];
     default:
       return [];
   }
@@ -170,9 +187,10 @@ export async function removeOtherAgentHosts(
       removed.push(rel);
     }
   }
-  // Prune empty .claude / .idea parents if we emptied them
-  for (const parent of [".claude", ".idea", ".grok"]) {
+  // Prune empty host parents if we emptied them
+  for (const parent of [".claude", ".idea", ".grok", ".ollama"]) {
     if (keep === "grok" && parent === ".grok") continue;
+    if (keep === "ollama" && parent === ".ollama") continue;
     const full = join(projectRoot, parent);
     if (!(await pathExists(full))) continue;
     try {
@@ -438,7 +456,7 @@ Do not claim the change is complete without local verification when the workflow
 }
 
 export interface InstalledAgentSnapshot {
-  /** Public key: copilot | claude | grok */
+  /** Public key: copilot | claude | grok | ollama */
   ai: string;
   target: AgentTarget;
   integration: AgentIntegration;

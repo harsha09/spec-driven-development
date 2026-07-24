@@ -68,7 +68,7 @@ const init = defineCommand({
     ai: {
       type: "string",
       description:
-        "Install only this AI agent: grok | copilot | claude. Does NOT create other hosts' folders.",
+        "Install only this AI agent: grok | copilot | claude | ollama. Does NOT create other hosts' folders.",
       alias: "a",
     },
     integration: {
@@ -1018,7 +1018,7 @@ const help = defineCommand({
     consola.log(pc.dim("  Needs: Node 20+ (24 recommended) · ~10 minutes for first loop"));
     consola.log("");
     consola.log(pc.bold("First time (in your app repo):"));
-    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude`);
+    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama`);
     consola.log(`  ${pc.cyan('sdd new "Fix empty list crash" -w hotfix -y')}`);
     consola.log(`  ${pc.cyan("sdd doctor")}                    # check setup`);
     consola.log(`  # edit the intent/feature file it prints`);

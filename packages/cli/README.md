@@ -16,7 +16,7 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude (required)
+sdd init --here --ai copilot    # or grok | claude | ollama (required)
 sdd doctor
 sdd new "Add expense CSV export" -w feature -y
 # edit feature.md, then sdd next … sdd complete
@@ -25,7 +25,7 @@ sdd new "Add expense CSV export" -w feature -y
 | Flag | Meaning |
 |------|---------|
 | `--here` | Current directory |
-| `--ai copilot\|grok\|claude` | Install **only** that AI host (required choice) |
+| `--ai copilot\|grok\|claude\|ollama` | Install **only** that AI host (required choice) |
 | `--force` | Re-init defaults |
 
 ## Docs
