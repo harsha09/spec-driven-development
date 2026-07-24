@@ -55,8 +55,6 @@ All real rules live in **`.sdd/protocol.md` once**.
 
 ---
 
-## Commands
-
 ## Setup is one command
 
 **You only need `sdd init`.** It installs SDD **and** the chosen AI agent.  
@@ -71,17 +69,16 @@ sdd init --here --ai ollama    # only .ollama/sdd.md + shared SDD dirs (local mo
 
 # Interactive pick (still one agent)
 sdd init --here
-
 ```
 
 ### What gets created
 
-| Always (shared SDD — not “AI platforms”) | Only for selected `--ai` |
-|------------------------------------------|---------------------------|
-| `.sdd/` (config, workflows, templates, protocol) | **grok** → `.grok/rules/sdd.md` |
-| `memory/` (incl. `index.md`) | **copilot** → `.github/agents/*.agent.md` |
-| `changes/`, `domains/` | **claude** → `.claude/agents/*.md` |
-| `AGENTS.md` when an agent is installed | **ollama** → `.ollama/sdd.md` |
+| Always (shared SDD) | Only for selected `--ai` |
+|---------------------|---------------------------|
+| `.sdd/`, `memory/`, `changes/`, `domains/` | **grok** → `.grok/rules/sdd.md` |
+| `AGENTS.md` when an agent is installed | **copilot** → `.github/agents/*.agent.md` |
+| | **claude** → `.claude/agents/*.md` |
+| | **ollama** → `.ollama/sdd.md` |
 
 Installing one host **removes** other hosts’ agent directories.
 
@@ -99,61 +96,23 @@ sdd agents refresh                        # update active-context.md after stage
 
 | After this command… | Agent behavior |
 |---------------------|----------------|
-| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `checkout` / `agent` / `agents refresh` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
-| `sdd status` | Shows active-change progress only (**no** agent launch) |
-| `sdd init` | Installs agent files only (no launch) |
-| `sdd workflows` | List only (no launch) |
+| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `checkout` / `agent` / `agents refresh` / `refine` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
+| `sdd status` / `doctor` / `context` / `workflows` / `init` | **No** agent launch |
 
 | Configured agent | How it runs |
 |------------------|-------------|
 | **grok** | CLI spawns `grok -p "…"` (or interactive `grok`) |
 | **claude** | CLI spawns `claude -p "…"` |
 | **ollama** | CLI spawns `ollama run $SDD_OLLAMA_MODEL "…"` (default model `llama3.2`) |
-| **copilot** | Host UI: open Copilot Chat → agent `sdd` (handoff file refreshed for you) |
+| **copilot** | Host UI: open Copilot Chat → agent `sdd` (handoff refreshed at `.sdd/handoff.md`) |
 
-Skip launch anytime: `--no-agent` or `SDD_NO_AGENT=1`.
+Skip launch for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 
 ```bash
 sdd init --here --ai grok
-sdd new "Add feature"          # launches Grok
-sdd next                       # launches Grok again for new stage
-sdd refine                     # refine current stage (+ prior pack impact)
-sdd refine design              # refine a named stage
-sdd refine --analyze           # report only → quality-report.md
-sdd verify                     # launches Grok with verify context
-sdd next --no-agent            # process only
+sdd new "Add feature"
+sdd next
+sdd verify
 ```
 
-### Refine (stage-scoped, anytime)
-
-`sdd refine [stage]` writes `changes/<id>/refine-brief.md` and launches the agent in **refine** mode:
-
-| Rule | Behavior |
-|------|----------|
-| Address by **stage** | Resolves files from the workflow (not hard-coded paths) |
-| Constitution | **Read-only** — never edit |
-| Focus stage | Primary edit target |
-| Prior artifacts | Auto impact-scan (`rg`/grep); fix mechanical inconsistencies; **highlight** scope/judgment calls |
-| Open items | Only when human **explicitly accepts** + notes (else “proposed” in report) |
-| Process | Never blocks `next` / `complete`; agent must not run `sdd next` |
-
-```bash
-sdd refine                 # current stage
-sdd refine design          # named stage
-sdd refine --focus-only    # edit focus files only (still read prior)
-sdd refine --analyze       # quality-report.md only
-sdd refine --no-agent      # brief only
-```
-
----
-
-## Tests
-
-| Package | Coverage |
-|---------|----------|
-| `core` | protocol + agents-only; registry (copilot, claude, grok) |
-| `cli` | init / new / status / next integration |
-
-```bash
-pnpm test
-```
+Stage polish: [Refine a stage](./refine). Full host list: [Available agents](../reference/agents).

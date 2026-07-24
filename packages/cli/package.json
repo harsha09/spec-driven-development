@@ -41,12 +41,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/structured-vibe-coding/spec-driven-development.git",
+    "url": "git+https://github.com/harsha09/spec-driven-development.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/structured-vibe-coding/spec-driven-development#readme",
+  "homepage": "https://harsha09.github.io/spec-driven-development/",
   "bugs": {
-    "url": "https://github.com/structured-vibe-coding/spec-driven-development/issues"
+    "url": "https://github.com/harsha09/spec-driven-development/issues"
   },
   "keywords": [
     "sdd",

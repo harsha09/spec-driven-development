@@ -21,16 +21,14 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build VitePress
+  build-and-publish:
+    name: Build VitePress → gh-pages
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -55,34 +53,11 @@ jobs:
           DOCS_BASE: /spec-driven-development/
         run: pnpm docs:build
 
-      - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
-
-      - name: Publish to gh-pages branch
+      - name: Publish to gh-pages
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/.vitepress/dist
           force_orphan: true
-          # Ensures GitHub does not run Jekyll on the published site
           enable_jekyll: false
-
-  deploy:
-    name: Deploy via GitHub Pages (Actions)
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    # Continues even if repo still uses branch deploy — gh-pages publish above is enough
-    continue-on-error: true
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
