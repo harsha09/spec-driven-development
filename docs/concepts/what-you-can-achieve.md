@@ -5,6 +5,7 @@
 | Goal | How sdd helps |
 |------|----------------|
 | **Ship with a paper trail** | Each PR/task gets a change pack: intent, design, tasks, verify notes |
+| **Bootstrap a new product** | `sdd greenfield` → vision/requirements/features/architecture, then promote into `memory/` |
 | **Use AI without losing decisions** | Agents read live context + protocol; specs stay in git |
 | **Match ceremony to risk** | Hotfix in 3 stages; full feature or enterprise ARB when needed |
 | **Stay local** | No cloud account for the process tool itself |
@@ -12,6 +13,7 @@
 
 ## Concrete outcomes
 
+- **New product:** `sdd greenfield "…"` → stages → `sdd complete` (promotes into `memory/`) → `sdd feature start F-001`  
 - Start a change: `sdd new "…"` → recommended or chosen workflow  
 - Move through stages: fill markdown → `sdd next`  
 - Improve specs anytime: `sdd refine` (stage-scoped; constitution read-only)  
@@ -25,14 +27,15 @@
 
 | Context | Typical use |
 |---------|-------------|
-| **Solo / small team** | `hotfix` or `feature`, optional agent launch, light memory |
-| **Product team** | Shared `feature` / `patch` packs, constitution in `memory/`, PR review of packs |
+| **Solo / small team** | `hotfix` or `feature`; optional `greenfield` for a personal MVP |
+| **Product team** | Greenfield once for the product spine; then shared `feature` / `patch` packs + `memory/` |
 | **Enterprise** | `enterprise-feature` (ARB, LLD, DB, research, stories), hard gates, skip flags for N/A stages |
 
 Same CLI — different **workflow packs** and policy in YAML.
 
 ## Related
 
+- [Greenfield (new product)](../guides/greenfield)  
 - [Simple feature](../guides/simple-feature)  
 - [Enterprise path](../guides/enterprise)  
 - [Built-in workflows](../reference/workflows)  

@@ -5,14 +5,15 @@
 You shouldn’t have to relearn which command comes after implement. Use one fixed loop so handoffs stay consistent for you and the agent.
 
 ::: tip First time?
-Use the [first change tutorial](../tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](./simple-feature) / [enterprise](./enterprise) guides for larger work.
+Use the [first change tutorial](../tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](./simple-feature) / [enterprise](./enterprise) guides for larger work. **New product?** → [Greenfield](./greenfield).
 :::
 
-## The loop
+## The loop (delivery change)
 
 ```bash
 sdd doctor               # optional: check setup
 sdd new "…"              # start pack + handoff to agent
+# or: sdd feature start F-001   # from greenfield backlog
 sdd status               # where am I? (never launches agent)
 # fill stage artifacts (human or agent) — use the path printed after new
 sdd next                 # advance when stage is done
@@ -22,6 +23,15 @@ sdd verify
 sdd complete
 ```
 
+## New product (discovery once)
+
+```bash
+sdd greenfield "one-line idea"
+# fill vision → sdd next → requirements → features → architecture
+sdd complete             # promotes into memory/
+sdd feature list
+sdd feature start F-001  # then use the delivery loop above
+```
 
 ### Multiple PRs
 
@@ -40,5 +50,6 @@ sdd next --force   # sparingly
 
 ## Related
 
+- [Greenfield](./greenfield)  
 - [Refine mid-stage](./refine)  
 - [CLI reference](../reference/cli)  

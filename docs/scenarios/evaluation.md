@@ -10,6 +10,13 @@ workflow: hotfix
 ```
 **PASS** — hotfix path, completed pack trail. Ceremony appropriate.
 
+## S1b — Greenfield product bootstrap
+```
+sdd greenfield "…" → vision/requirements/features/architecture → complete → memory/*
+sdd feature list / sdd feature start F-001
+```
+**PASS** (engine + CLI tests) — discovery pack promotes product spine; delivery packs start from backlog.
+
 ## S2 — Small feature recommend
 ```
 ```

@@ -204,4 +204,59 @@ describe("CLI integration", () => {
     expect(r.status).not.toBe(0);
     expect(r.stderr + r.stdout).toMatch(/IDE/i);
   });
+
+  it("sdd greenfield seeds vision and feature list/start from backlog", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-gf-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+
+    const gf = runSdd(root, [
+      "greenfield",
+      "Shared shopping list for roommates",
+      "--no-agent",
+    ]);
+    expect(gf.status, gf.stderr + gf.stdout).toBe(0);
+    expect(gf.stdout + gf.stderr).toMatch(/greenfield|vision/i);
+    expect(await exists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(true);
+
+    const { readdir, writeFile } = await import("node:fs/promises");
+    const kids = (await readdir(join(root, "changes"))).filter(
+      (n) => n !== ".gitkeep" && n !== ".active",
+    );
+    expect(kids.length).toBe(1);
+    const changePath = join(root, "changes", kids[0]!);
+    const vision = await readFile(join(changePath, "vision.md"), "utf8");
+    expect(vision).toContain("Shared shopping list for roommates");
+    expect(vision).not.toContain("{{idea}}");
+
+    // Promote a backlog into memory and start F-001
+    await writeFile(
+      join(root, "memory/features.md"),
+      [
+        "# Feature backlog",
+        "",
+        "## F-001: Add item",
+        "",
+        "- **Status:** planned",
+        "- **Priority:** must",
+        "- **Workflow:** hotfix",
+        "- **Summary:** User adds a grocery item to the shared list with a name.",
+        "- **Requirements:** R-001",
+        "- **Notes:**",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const list = runSdd(root, ["feature", "list"]);
+    expect(list.status, list.stderr + list.stdout).toBe(0);
+    expect(list.stdout + list.stderr).toMatch(/F-001/);
+
+    const start = runSdd(root, ["feature", "start", "F-001", "--no-agent"]);
+    expect(start.status, start.stderr + start.stdout).toBe(0);
+    expect(start.stdout + start.stderr).toMatch(/F-001|Started/i);
+
+    const backlog = await readFile(join(root, "memory/features.md"), "utf8");
+    expect(backlog).toMatch(/\*\*Status:\*\*\s*in_progress/i);
+  });
 });
