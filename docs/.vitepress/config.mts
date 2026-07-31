@@ -33,6 +33,7 @@ export default defineConfig({
     siteTitle: "sdd",
     nav: [
       { text: "What is sdd", link: "/concepts/what-is-sdd" },
+      { text: "Greenfield", link: "/guides/greenfield" },
       { text: "Simple feature", link: "/guides/simple-feature" },
       { text: "Enterprise", link: "/guides/enterprise" },
       { text: "Workflows", link: "/reference/workflows" },
@@ -60,6 +61,7 @@ export default defineConfig({
         text: "How to",
         items: [
           { text: "First change (tutorial)", link: "/tutorials/first-change" },
+          { text: "Greenfield (new product)", link: "/guides/greenfield" },
           { text: "Simple feature", link: "/guides/simple-feature" },
           { text: "Enterprise path", link: "/guides/enterprise" },
           { text: "Everyday loop", link: "/guides/everyday-loop" },

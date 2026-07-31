@@ -48,4 +48,19 @@ export type {
   RefineArtifactRef,
   BuildRefinePlanOptions,
 } from "./refine.js";
+export {
+  startGreenfield,
+  parseFeaturesBacklog,
+  findFeaturesBacklogPath,
+  listBacklogFeatures,
+  startFeatureFromBacklog,
+  updateFeatureStatus,
+  promoteGreenfieldToMemory,
+} from "./greenfield.js";
+export type {
+  GreenfieldFeature,
+  StartGreenfieldInput,
+  StartGreenfieldResult,
+  StartFeatureInput,
+} from "./greenfield.js";
 

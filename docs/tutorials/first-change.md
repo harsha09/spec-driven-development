@@ -4,7 +4,10 @@
 > You’ll install `sdd`, create a small hotfix pack, write a few sentences, advance stages, and complete.
 
 ::: tip One path only
-This page is a single happy path. Variants live in [everyday loop](../guides/everyday-loop).
+This page is a single **hotfix** happy path so you learn the loop fast.  
+New product? → [Greenfield](../guides/greenfield).  
+Larger existing-app feature? → [Simple feature](../guides/simple-feature).  
+Everyday loop after this: [everyday loop](../guides/everyday-loop).
 :::
 
 ## What you’ll get

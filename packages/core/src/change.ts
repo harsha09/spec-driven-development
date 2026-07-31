@@ -175,14 +175,18 @@ async function materializeStageArtifacts(
       ];
       for (const c of candidates) {
         if (await pathExists(c)) {
-          content = interpolate(await readText(c), meta, stage, workflow);
+          content = interpolate(await readText(c), meta, stage, workflow, {
+            idea: String(meta.flags?.idea ?? meta.title ?? ""),
+          });
           break;
         }
       }
     } else {
       const fallback = join(tdir, `${artifact.id}.md`);
       if (await pathExists(fallback)) {
-        content = interpolate(await readText(fallback), meta, stage, workflow);
+        content = interpolate(await readText(fallback), meta, stage, workflow, {
+          idea: String(meta.flags?.idea ?? meta.title ?? ""),
+        });
       }
     }
 
@@ -193,14 +197,25 @@ async function materializeStageArtifacts(
   return created;
 }
 
-function interpolate(template: string, meta: ChangeMeta, stage: Stage, workflow: Workflow): string {
+function interpolate(
+  template: string,
+  meta: ChangeMeta,
+  stage: Stage,
+  workflow: Workflow,
+  extra?: { idea?: string },
+): string {
+  const idea =
+    extra?.idea ||
+    String(meta.flags?.idea ?? "") ||
+    meta.title.replace(/^Greenfield:\s*/i, "");
   return template
     .replaceAll("{{title}}", meta.title)
     .replaceAll("{{id}}", meta.id)
     .replaceAll("{{workflow}}", workflow.name)
     .replaceAll("{{stage}}", stage.id)
     .replaceAll("{{stage_title}}", stage.title ?? stage.id)
-    .replaceAll("{{date}}", meta.created.slice(0, 10));
+    .replaceAll("{{date}}", meta.created.slice(0, 10))
+    .replaceAll("{{idea}}", idea);
 }
 
 function defaultArtifactContent(
@@ -418,7 +433,7 @@ export async function completeChange(
   projectRoot: string,
   config: Config,
   changeId: string,
-): Promise<{ archivedTo: string | null; ctx: ChangeContext }> {
+): Promise<{ archivedTo: string | null; ctx: ChangeContext; promoted?: string[] }> {
   const ctx = await buildContext(projectRoot, config, changeId);
   const next = nextStageId(ctx.workflow, ctx.meta);
   if (next) {
@@ -439,6 +454,16 @@ export async function completeChange(
   ctx.meta.status = "completed";
   ctx.meta.completed_at = nowIso();
   await saveChangeMeta(projectRoot, config, ctx.meta);
+
+  let promoted: string[] | undefined;
+  if (ctx.meta.workflow === "greenfield" || ctx.meta.flags?.greenfield === true) {
+    try {
+      const { promoteGreenfieldToMemory } = await import("./greenfield.js");
+      promoted = await promoteGreenfieldToMemory(projectRoot, config, changeId);
+    } catch {
+      // non-fatal
+    }
+  }
 
   await clearActiveIf(projectRoot, config, changeId);
 
@@ -462,6 +487,7 @@ export async function completeChange(
     const meta = ChangeMetaSchema.parse(await readYaml(join(archivedTo, "meta.yaml")));
     return {
       archivedTo,
+      promoted,
       ctx: {
         id: changeId,
         path: archivedTo,
@@ -473,5 +499,9 @@ export async function completeChange(
     };
   }
 
-  return { archivedTo, ctx: await buildContext(projectRoot, config, changeId) };
+  return {
+    archivedTo,
+    promoted,
+    ctx: await buildContext(projectRoot, config, changeId),
+  };
 }

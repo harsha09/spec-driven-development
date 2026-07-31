@@ -21,8 +21,21 @@ sdd new "Fix null pointer on empty list" -y
 | **`hotfix`** | Typos, tiny fixes, renames | intent → implement → local_verify |
 | **`patch`** | Small bugs / scoped fixes | intent → acceptance → implement → local_verify |
 | **`feature`** | Normal product features | intent → optional clarify/brainstorm → design → optional clarify → tasks → optional clarify → implement → local_verify |
+| **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd feature start F-001`) |
 | **`spike`** | Time-boxed research / PoC | intent → research → (notes) |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
+
+Prefer the CLI entrypoint for product bootstrap:
+
+```bash
+sdd greenfield "Team expense tracker for remote startups"
+# … fill stages …
+sdd complete          # promotes vision/requirements/features/architecture → memory/
+sdd feature list
+sdd feature start F-001
+```
+
+See [Greenfield guide](../guides/greenfield).
 
 ## How recommendation works
 
@@ -38,6 +51,7 @@ sdd gate approve -n "ARB approved with condition …"
 
 ## Related
 
+- [Greenfield (new product)](../guides/greenfield)  
 - [Simple feature](../guides/simple-feature)  
 - [Enterprise guide](../guides/enterprise)  
 - [Customize workflows](../guides/customize)  

@@ -9,6 +9,10 @@ Use the same `sdd` CLI with a **heavier workflow**, **hard gates**, and **projec
 - Explicit design / DB / research before code  
 - You need a reviewable pack for auditors or architects  
 
+::: tip New product first?
+If the **product does not exist yet**, start with [Greenfield](./greenfield) for vision + backlog, then use `enterprise-feature` (or set `Workflow: enterprise-feature` on a backlog row) for high-risk delivery packs.
+:::
+
 ## 1. Init with org defaults
 
 ```bash

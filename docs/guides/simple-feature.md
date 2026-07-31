@@ -2,6 +2,8 @@
 
 Step-by-step path for a normal product feature (not a one-line hotfix, not full enterprise ARB).
 
+Starting a **new product** from a one-liner? Use [Greenfield](./greenfield) first, then `sdd feature start F-001` (that path seeds the first stage from the backlog).
+
 ## 1. Init (once per app)
 
 ```bash

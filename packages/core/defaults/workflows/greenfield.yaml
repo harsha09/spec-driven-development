@@ -1,0 +1,92 @@
+name: greenfield
+description: >
+  New product from a one-line idea — vision, requirements, feature backlog,
+  high-level architecture (then implement features as separate changes)
+version: 1
+recommendation:
+  priority: 40
+  when:
+    keywords: [greenfield, product, mvp, startup, new app, from scratch, build an app]
+    min_complexity: medium
+stages:
+  - id: vision
+    title: Product vision
+    summary: Who, problem, MVP success, non-goals — keep the smallest useful product
+    skippable: false
+    artifacts:
+      - id: vision
+        path: vision.md
+        template: vision.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Users and problem are explicit"
+        - "MVP success is testable"
+        - "Non-goals limit scope"
+    agent_context:
+      instructions: |
+        GREENFIELD vision stage. Expand the one-line idea into a concrete MVP vision.
+        Prefer the smallest useful product. Do not invent enterprise scope.
+        Write only vision.md. Do not implement code yet.
+
+  - id: requirements
+    title: Requirements
+    summary: Testable product requirements derived from vision
+    skippable: false
+    artifacts:
+      - id: requirements
+        path: requirements.md
+        template: requirements.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Requirements are testable (not vague wishes)"
+    agent_context:
+      instructions: |
+        Write testable requirements (shall/should). Link each to user value.
+        Avoid solution detail that belongs in architecture. Update requirements.md only.
+
+  - id: features
+    title: Feature backlog
+    summary: PR-sized features with ids F-001… for later sdd feature start
+    skippable: false
+    artifacts:
+      - id: features
+        path: features.md
+        template: features.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Features are small enough for one PR each"
+        - "Each feature has id F-NNN and status planned"
+    agent_context:
+      instructions: |
+        Slice the MVP into PR-sized features. Use ids F-001, F-002, … exactly as in the template.
+        Status must be `planned` until implemented. Prefer must-have first. No code yet.
+
+  - id: architecture
+    title: High-level architecture
+    summary: System shape, major components, data, risks for the MVP
+    skippable: false
+    artifacts:
+      - id: architecture
+        path: architecture.md
+        template: greenfield-architecture.md
+        required: true
+    gate:
+      type: soft
+      checklist:
+        - "Major components and boundaries are clear"
+        - "Risks and open questions listed"
+    agent_context:
+      instructions: |
+        Propose a simple MVP architecture. Avoid over-engineering.
+        Align with requirements and features. Write architecture.md only.
+        When the human runs sdd complete, files promote into memory/ for the product.
+
+on_complete:
+  archive: false
+  domain_sync: never

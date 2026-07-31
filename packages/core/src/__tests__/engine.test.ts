@@ -218,7 +218,14 @@ on_complete:
 
   it("all shipped workflows have no evidence paths and do not archive by default", async () => {
     const root = await tempProject();
-    for (const name of ["feature", "patch", "hotfix", "enterprise-feature", "spike"] as const) {
+    for (const name of [
+      "feature",
+      "patch",
+      "hotfix",
+      "enterprise-feature",
+      "spike",
+      "greenfield",
+    ] as const) {
       const wf = await loadWorkflow(root, name);
       expect(wf.on_complete?.archive).toBe(false);
       for (const stage of wf.stages) {

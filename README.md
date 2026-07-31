@@ -20,6 +20,7 @@ A CLI process coach plus your AI coding agent (GitHub Copilot, Grok Build, Claud
 | What can I achieve? | [docs/concepts/what-you-can-achieve.md](./docs/concepts/what-you-can-achieve.md) |
 | Which agents? | [docs/reference/agents.md](./docs/reference/agents.md) |
 | Which workflows? | [docs/reference/workflows.md](./docs/reference/workflows.md) |
+| New product (greenfield) | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
 | Simple feature | [docs/guides/simple-feature.md](./docs/guides/simple-feature.md) |
 | Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
 | First-run tutorial | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
@@ -58,7 +59,16 @@ sdd next
 sdd complete
 ```
 
-Hotfix: `-w hotfix`. Enterprise ARB path: `-w enterprise-feature` — see [enterprise guide](./docs/guides/enterprise.md).
+**New product from a one-liner:**
+
+```bash
+sdd greenfield "Team expense tracker for remote startups"
+# vision → requirements → features → architecture → sdd complete
+sdd feature list
+sdd feature start F-001
+```
+
+Hotfix: `-w hotfix`. Enterprise ARB path: `-w enterprise-feature` — see [enterprise guide](./docs/guides/enterprise.md). Full greenfield path: [greenfield guide](./docs/guides/greenfield.md).
 
 ---
 

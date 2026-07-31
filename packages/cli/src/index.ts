@@ -17,6 +17,7 @@ import {
   getStage,
   installAgentIntegration,
   isInitialized,
+  listBacklogFeatures,
   listChanges,
   listWorkflowNames,
   loadConfig,
@@ -28,6 +29,8 @@ import {
   runLocalVerify,
   setActiveChange,
   skipStage,
+  startFeatureFromBacklog,
+  startGreenfield,
   switchWorkflow,
   writeAgentHandoff,
   writeRefineBrief,
@@ -501,9 +504,17 @@ const complete = defineCommand({
       // Handoff while change still under changes/
       const before = await buildContext(root, config, id);
       await writeAgentHandoff(root, config, id);
-      const { archivedTo, ctx } = await completeChange(root, config, id);
+      const { archivedTo, ctx, promoted } = await completeChange(root, config, id);
       consola.success(`Completed ${ctx.id}`);
       if (archivedTo) consola.info(`Archived to ${archivedTo}`);
+      if (promoted?.length) {
+        consola.success(`Promoted greenfield → memory: ${promoted.join(", ")}`);
+        consola.log(
+          pc.dim(
+            'Next: sdd feature list · sdd feature start F-001  (implement backlog items)',
+          ),
+        );
+      }
       if (ctx.workflow.on_complete?.domain_sync === "recommend") {
         consola.log(
           pc.dim(
@@ -518,11 +529,163 @@ const complete = defineCommand({
         ctx: before,
         changeId: before.id,
         noAgent: args["no-agent"],
-        event: `change completed${archivedTo ? " and archived" : ""}`,
+        event: `change completed${archivedTo ? " and archived" : ""}${promoted?.length ? " · greenfield promoted" : ""}`,
         reuseHandoff: true,
       });
       await reportAgentLaunch(launch);
     });
+  },
+});
+
+const greenfield = defineCommand({
+  meta: {
+    name: "greenfield",
+    description:
+      'Bootstrap a new product from a one-line idea (vision → requirements → features → architecture)',
+  },
+  args: {
+    idea: {
+      type: "positional",
+      description: 'One-line product idea, e.g. "Team expense tracker for remote startups"',
+      required: false,
+    },
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      let idea = args.idea?.trim();
+      if (!idea) {
+        idea = await consola.prompt("One-line product idea:", { type: "text" });
+        if (!idea || typeof idea !== "string") {
+          consola.error("Idea is required");
+          process.exit(1);
+        }
+      }
+
+      const { ctx, visionPath } = await startGreenfield({
+        projectRoot: root,
+        config,
+        idea,
+      });
+
+      consola.success(`Started greenfield ${pc.cyan(ctx.id)}`);
+      consola.log(`Workflow: ${ctx.meta.workflow}`);
+      consola.log(`Stage:    ${ctx.meta.stage}`);
+      consola.log(`Path:     ${ctx.path}`);
+      consola.log("");
+      consola.log(formatStatus(ctx));
+      consola.log("");
+      consola.log(pc.bold("Next steps:"));
+      consola.log(`  1. Expand ${pc.cyan(visionPath)} (who, problem, MVP success)`);
+      consola.log(`  2. ${pc.cyan("sdd next")} through requirements → features → architecture`);
+      consola.log(`  3. ${pc.cyan("sdd complete")} promotes vision/requirements/features/architecture → memory/`);
+      consola.log(`  4. ${pc.cyan("sdd feature start F-001")} implements each backlog item`);
+      consola.log("");
+
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `greenfield start · stage ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
+    });
+  },
+});
+
+const featureList = defineCommand({
+  meta: {
+    name: "list",
+    description: "List product feature backlog (memory/features.md or greenfield pack)",
+  },
+  async run() {
+    await withProject(async ({ root, config }) => {
+      const { path, features } = await listBacklogFeatures(root, config);
+      consola.log(pc.bold("Feature backlog") + pc.dim(`  ${path}`));
+      consola.log("");
+      for (const f of features) {
+        const st =
+          f.status === "done" || f.status === "completed"
+            ? pc.green(f.status)
+            : f.status === "in_progress"
+              ? pc.yellow(f.status)
+              : pc.dim(f.status);
+        consola.log(
+          `${pc.cyan(f.id)}  ${f.name}  ${st}  ${pc.dim(f.priority)}  ${pc.dim(f.workflow)}`,
+        );
+        if (f.summary) consola.log(pc.dim(`       ${f.summary}`));
+      }
+      consola.log("");
+      consola.log(pc.dim('Start one: sdd feature start F-001'));
+    });
+  },
+});
+
+const featureStart = defineCommand({
+  meta: {
+    name: "start",
+    description: "Start a change pack from backlog id (e.g. F-001)",
+  },
+  args: {
+    id: {
+      type: "positional",
+      description: "Feature id, e.g. F-001",
+      required: true,
+    },
+    workflow: {
+      type: "string",
+      description: "Override workflow (default: from backlog or feature)",
+      alias: "w",
+    },
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      const { ctx, feature } = await startFeatureFromBacklog({
+        projectRoot: root,
+        config,
+        featureId: args.id,
+        workflowName: args.workflow,
+      });
+
+      consola.success(
+        `Started ${pc.cyan(feature.id)} → change ${pc.cyan(ctx.id)}`,
+      );
+      consola.log(`Title:    ${ctx.meta.title}`);
+      consola.log(`Workflow: ${ctx.meta.workflow}`);
+      consola.log(`Stage:    ${ctx.meta.stage}`);
+      consola.log(`Path:     ${ctx.path}`);
+      consola.log("");
+      consola.log(formatStatus(ctx));
+      consola.log("");
+      consola.log(
+        pc.dim(
+          "Backlog status set to in_progress. When done: sdd verify → sdd complete",
+        ),
+      );
+      consola.log("");
+
+      const launch = await launchConfiguredAgent({
+        projectRoot: root,
+        config,
+        ctx,
+        noAgent: args["no-agent"],
+        event: `feature ${feature.id} start · stage ${ctx.meta.stage}`,
+      });
+      await reportAgentLaunch(launch);
+    });
+  },
+});
+
+const feature = defineCommand({
+  meta: {
+    name: "feature",
+    description: "Product backlog helpers (list / start from greenfield features.md)",
+  },
+  subCommands: {
+    list: featureList,
+    start: featureStart,
   },
 });
 
@@ -1024,6 +1187,11 @@ const help = defineCommand({
     consola.log(`  # edit the intent/feature file it prints`);
     consola.log(`  ${pc.cyan("sdd next")}`);
     consola.log("");
+    consola.log(pc.bold("New product (greenfield):"));
+    consola.log(`  ${pc.cyan('sdd greenfield "Team expense tracker for remote startups"')}`);
+    consola.log(`  ${pc.cyan("sdd next")} … ${pc.cyan("sdd complete")}   # promotes to memory/`);
+    consola.log(`  ${pc.cyan("sdd feature list")} · ${pc.cyan("sdd feature start F-001")}`);
+    consola.log("");
     consola.log(pc.bold("Everyday:"));
     consola.log(`  ${pc.cyan("sdd status")}            where am I? (no agent)`);
     consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
@@ -1058,6 +1226,8 @@ const main = defineCommand({
   subCommands: {
     init,
     new: newCmd,
+    greenfield,
+    feature,
     status,
     next,
     skip,

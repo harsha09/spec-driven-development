@@ -22,6 +22,14 @@ sdd new "Add expense CSV export" -w feature -y
 # edit feature.md, then sdd next … sdd complete
 ```
 
+**New product:**
+
+```bash
+sdd greenfield "Team expense tracker for remote startups"
+# … stages … sdd complete
+sdd feature list && sdd feature start F-001
+```
+
 | Flag | Meaning |
 |------|---------|
 | `--here` | Current directory |
@@ -31,6 +39,7 @@ sdd new "Add expense CSV export" -w feature -y
 ## Docs
 
 - [What is sdd](https://github.com/harsha09/spec-driven-development/blob/main/docs/concepts/what-is-sdd.md)
+- [Greenfield](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/greenfield.md)
 - [Simple feature](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/simple-feature.md)
 - [Enterprise](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/enterprise.md)
 - [Workflows](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/workflows.md)

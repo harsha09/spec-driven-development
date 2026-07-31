@@ -13,6 +13,9 @@ Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 | `sdd new "title"` | Create change pack; optional recommend | Start work |
 | `sdd new … -w <pack>` | Force workflow | You know the pack |
 | `sdd new … -y` | Non-interactive accept | Scripts / CI smoke |
+| `sdd greenfield "idea"` | New product pack (vision → … → architecture) | Empty / MVP product |
+| `sdd feature list` | Show F-NNN backlog | After greenfield / memory |
+| `sdd feature start F-001` | Start change from backlog row | Implement product features |
 | `sdd status` | Stage progress | Anytime (**no** agent) |
 | `sdd status --list` | Open changes | Multi-PR |
 | `sdd next` | Advance stage | Stage done |
@@ -22,7 +25,7 @@ Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 | `sdd gate approve\|waive\|fail` | Gate actions | Hard/soft gates |
 | `sdd verify` | Local verify stage | Before complete |
 | `sdd verify --no-run` | Checklist only | Manual verify |
-| `sdd complete` | Mark completed in place | Done |
+| `sdd complete` | Mark completed in place; greenfield also promotes → `memory/` | Done |
 | `sdd refine [stage]` | Stage refine + prior impact | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | AST code slices | Implement focus |
@@ -32,15 +35,24 @@ Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
 | `sdd help` | Overview | First run |
 | `sdd doctor` | Check Node, init, AI host, active change | Setup / stuck |
 
+### Greenfield / backlog flags
+
+| Command | Flags |
+|---------|--------|
+| `sdd greenfield ["idea"]` | `--no-agent` — prompts for idea if omitted |
+| `sdd feature start <F-NNN>` | `-w <workflow>` override backlog workflow; `--no-agent` |
+| `sdd feature list` | (none) — **does not** launch the agent |
+
 ## Agent launch
 
 Most process commands refresh handoff and launch the init-configured agent.  
-**Exceptions:** `status`, `init`, `workflows`, `context` (no agent).
+**No agent:** `status`, `init`, `workflows`, `context`, `feature list`, `help`, `doctor`.
 
-Skip launch: `--no-agent` or `SDD_NO_AGENT=1`.
+Skip launch elsewhere: `--no-agent` or `SDD_NO_AGENT=1`.
 
 ## Related
 
+- [Greenfield guide](../guides/greenfield)  
 - [Everyday loop](../guides/everyday-loop)  
 - [Refine](../guides/refine)  
 - [Code context](../guides/code-context)  
