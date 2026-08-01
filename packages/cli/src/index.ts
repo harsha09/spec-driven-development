@@ -1173,6 +1173,89 @@ const doctor = defineCommand({
   },
 });
 
+const mcpCmd = defineCommand({
+  meta: {
+    name: "mcp",
+    description:
+      "Start MCP server (stdio) for AST code context — agents pull slices instead of whole files",
+  },
+  async run() {
+    // Prefer published package binary; fall back to monorepo path
+    const { spawnSync, spawn } = await import("node:child_process");
+    const { createRequire } = await import("node:module");
+    const { fileURLToPath } = await import("node:url");
+    const { dirname, join } = await import("node:path");
+
+    const tryBins: string[] = [];
+    try {
+      const req = createRequire(import.meta.url);
+      tryBins.push(req.resolve("@structured-vibe-coding/mcp/dist/index.js"));
+    } catch {
+      // not linked
+    }
+    // monorepo: packages/cli/dist → ../../mcp/dist
+    try {
+      const here = dirname(fileURLToPath(import.meta.url));
+      tryBins.push(join(here, "../../mcp/dist/index.js"));
+    } catch {
+      // ignore
+    }
+
+    let entry: string | null = null;
+    for (const candidate of tryBins) {
+      try {
+        const { accessSync, constants } = await import("node:fs");
+        accessSync(candidate, constants.F_OK);
+        entry = candidate;
+        break;
+      } catch {
+        // next
+      }
+    }
+
+    if (!entry) {
+      // last resort: PATH
+      const which = spawnSync(
+        process.platform === "win32" ? "where" : "which",
+        ["sdd-mcp"],
+        { encoding: "utf8" },
+      );
+      if (which.status === 0 && which.stdout?.trim()) {
+        const bin = which.stdout.trim().split("\n")[0]!.trim();
+        const child = spawn(bin, [], {
+          stdio: "inherit",
+          env: process.env,
+        });
+        await new Promise<void>((resolve, reject) => {
+          child.on("exit", (code) => {
+            if (code === 0 || code === null) resolve();
+            else reject(new Error(`sdd-mcp exited ${code}`));
+          });
+          child.on("error", reject);
+        });
+        return;
+      }
+      consola.error(
+        "MCP package not found. Install: npm install -g @structured-vibe-coding/mcp\n" +
+          "Or from monorepo: pnpm --filter @structured-vibe-coding/mcp build",
+      );
+      process.exit(1);
+    }
+
+    const child = spawn(process.execPath, [entry], {
+      stdio: "inherit",
+      env: process.env,
+    });
+    await new Promise<void>((resolve, reject) => {
+      child.on("exit", (code) => {
+        process.exitCode = code ?? 0;
+        resolve();
+      });
+      child.on("error", reject);
+    });
+  },
+});
+
 const help = defineCommand({
   meta: { name: "help", description: "Show a friendly overview of common commands" },
   async run() {
@@ -1200,6 +1283,7 @@ const help = defineCommand({
     consola.log("");
     consola.log(pc.bold("Tips:"));
     consola.log(`  ${pc.cyan("--no-agent")}            learn the process first, AI later`);
+    consola.log(`  ${pc.cyan("sdd mcp")}               MCP server for AST code slices (save tokens)`);
     consola.log(pc.dim("  If next fails: open the file in the error and write real sentences (not empty template)."));
     consola.log("");
     consola.log(
@@ -1246,6 +1330,7 @@ const main = defineCommand({
     agents,
     checkout: useChange,
     context: contextCmd,
+    mcp: mcpCmd,
     refine,
     doctor,
     help,

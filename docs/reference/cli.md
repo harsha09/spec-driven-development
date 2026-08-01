@@ -57,7 +57,8 @@ One command’s flags: `sdd <command> --help`.
 | `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
-| `sdd context` | Focused code slices | Implement |
+| `sdd context` | Focused AST code slices | Implement |
+| `sdd mcp` | MCP server (stdio) for AST tools | Claude/Cursor agents |
 | `sdd agent` | Refresh brief + open AI | Anytime |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List paths | Discover |
