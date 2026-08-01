@@ -1,47 +1,41 @@
 ---
 title: Code context (AST) and MCP
-description: Use sdd context or the sdd MCP server for AST code slices — pull only ranked TypeScript/JavaScript symbols into the agent prompt to save tokens.
+description: Use sdd context or built-in sdd mcp for AST slices and full process tools — integrate Claude Code, Cursor, and other MCP clients with one CLI.
 ---
 
-# Code context (AST slices) + MCP
+# Code context + MCP (built into the CLI)
 
-Agents either get **huge noisy context** or miss the right function.  
-sdd can build **ranked TypeScript/JavaScript slices** with a local AST so prompts stay small.
+Agents often burn tokens on whole-repo dumps.  
+**sdd** can give them:
 
-You can use that engine in two ways:
+1. **Process tools** — same engine as the terminal (`new`, `next`, `complete`, …)  
+2. **AST code slices** — ranked TypeScript/JavaScript symbols under a token budget  
 
-| How | When |
-|-----|------|
-| **CLI** `sdd context` | You want a file in the change pack, or a one-off in the terminal |
-| **MCP** `sdd mcp` / `sdd-mcp` | Claude Code, Cursor, VS Code, etc. call tools **on demand** (best for token savings) |
-
-> Specs stay markdown under `changes/` (process trail).  
-> **Code** should come in as **slices**, not the whole monorepo.
-
-## When to use it
-
-During **implement** or **review** of product code — not for pure vision/intent stages.
-
----
-
-## MCP (recommended for agents)
-
-Start the server (stdio):
+Both ship **inside `@structured-vibe-coding/cli`**. No second package.
 
 ```bash
-sdd mcp
-# or: npx @structured-vibe-coding/mcp
-# or: sdd-mcp
+sdd mcp          # start MCP server (stdio)
+sdd context …    # same AST engine from the terminal
 ```
 
-### Example client config (Claude Code / Cursor)
+---
+
+## Integrate MCP (one install)
+
+You only need the **sdd CLI**:
+
+```bash
+npm install -g @structured-vibe-coding/cli
+```
+
+### Claude Code / Cursor / VS Code MCP config
 
 ```json
 {
   "mcpServers": {
-    "sdd-code-context": {
-      "command": "npx",
-      "args": ["-y", "@structured-vibe-coding/mcp"],
+    "sdd": {
+      "command": "sdd",
+      "args": ["mcp"],
       "env": {
         "SDD_PROJECT_ROOT": "/absolute/path/to/your-app"
       }
@@ -50,60 +44,86 @@ sdd mcp
 }
 ```
 
-### Tools the agent can call
+Or with npx (no global install):
 
-| Tool | What it does |
-|------|----------------|
-| `code_context` | Ranked AST slices (`markdown`) or compact `summary` JSON |
-| `code_context_help` | Short “how to save tokens” blurb |
+```json
+{
+  "mcpServers": {
+    "sdd": {
+      "command": "npx",
+      "args": ["-y", "@structured-vibe-coding/cli", "mcp"],
+      "env": {
+        "SDD_PROJECT_ROOT": "/absolute/path/to/your-app"
+      }
+    }
+  }
+}
+```
 
-**Token tips for agents:**
+Set **`SDD_PROJECT_ROOT`** to your app so tools hit the right repo when the host starts the server from another directory.
 
-1. Prefer `format: "summary"` first, then a focused markdown call.  
-2. Pass `symbols` and/or `paths` — avoid empty “whole repo” calls.  
-3. Default MCP budget is **~4000 tokens** (tighter than the CLI default).  
-4. Raise `maxTokens` only when the task is wide.
+Init the app once:
 
-Install package: [@structured-vibe-coding/mcp](https://www.npmjs.com/package/@structured-vibe-coding/mcp) (after publish) or build from this monorepo.
+```bash
+cd /absolute/path/to/your-app
+sdd init --here --ai copilot   # or claude | grok | ollama
+```
 
 ---
 
-## CLI commands
+## MCP tools (same as CLI)
+
+| Tool | CLI equivalent |
+|------|----------------|
+| `sdd_help` | overview |
+| `sdd_doctor` | `sdd doctor` |
+| `sdd_status` | `sdd status` / `--list` |
+| `sdd_workflows` | `sdd workflows` |
+| `sdd_new` | `sdd new` |
+| `sdd_greenfield` | `sdd greenfield` |
+| `sdd_feature_list` | `sdd feature list` |
+| `sdd_feature_start` | `sdd feature start` |
+| `sdd_next` | `sdd next` |
+| `sdd_skip` | `sdd skip` |
+| `sdd_use` | `sdd use` |
+| `sdd_gate` | `sdd gate` |
+| `sdd_verify` | `sdd verify` |
+| `sdd_complete` | `sdd complete` |
+| `sdd_handoff` | `sdd agent --print` |
+| `sdd_code_context` | `sdd context` (AST slices) |
+
+**Note:** Process tools **do not spawn** your AI host (no recursive agent launch). The MCP client *is* the agent.
+
+### AST tool tips (`sdd_code_context`)
+
+1. Pass `symbols` and/or `paths` — don’t call with no focus on a huge monorepo.  
+2. Prefer `format: "summary"` first, then a focused markdown call.  
+3. Default **maxTokens ≈ 4000**.  
+4. Optional `writeToChange: true` writes `changes/<id>/code-context.md`.
+
+---
+
+## Terminal CLI (same engine)
 
 ```bash
-# Symbol-focused
-sdd context --path packages/core/src/agent-handoff.ts --symbol buildAgentPrompt --stdout
-
-# Write into active change pack
+sdd context --path src/app.ts --symbol main --stdout
 sdd context --path src/app.ts --symbol main --out change
-# → changes/<id>/code-context.md
-
-# JSON summary
 sdd context -p src/foo.ts -s bar --json
 ```
 
-Prefer slices over pasting the monorepo. Caps (files, lines, tokens) keep agent context bounded.
-
-Handoff on implement / local_verify **points** at `sdd context`; it does **not** auto-run on every status. Regenerate with `--out change` when code moves.
-
 ---
 
-## Specs vs code: what should stay bulky?
+## Specs vs code
 
-| Content | Keep as | Why |
-|---------|---------|-----|
-| Intent, design, tasks, vision | **Markdown in git** | Humans review in PRs; agents and people share one trail |
-| Product memory | Short **markdown** under `memory/` | Durable, linkable, no special DB |
-| Product **source** for implement | **AST slices / MCP** (or agent tools) | Code is huge; never dump the monorepo into chat |
+| Content | Store | Why |
+|---------|--------|-----|
+| Intent, design, vision, tasks | **Markdown** under `changes/` / `memory/` | PR-reviewable process trail |
+| Product source for implement | **`sdd_code_context` / `sdd context`** | Token-safe slices on demand |
 
-Markdown specs can feel “bulky,” but they are the **right** store for process: readable, diffable, offline, no second system of record.  
-The token problem is almost always **code dumps**, not a 1–2 page `feature.md`.
-
-If a stage template feels long: write fewer real sentences, skip optional stages, or `sdd refine` — don’t replace git markdown with a private binary format.
+Markdown specs are the right structure for process. Save tokens on **code**, not by inventing a private spec database.
 
 ## Related
 
 - [CLI reference](../reference/cli)  
-- [Refine specs first](./refine) if the task list is still fuzzy  
 - [Everyday loop](./everyday-loop)  
-
+- [Start in 10 minutes](../tutorials/first-change)  

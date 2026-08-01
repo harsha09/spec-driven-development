@@ -8,6 +8,30 @@ Keep intent, design, and verify notes next to the code. Hotfix, greenfield produ
 **Docs (GitHub Pages):** https://harsha09.github.io/spec-driven-development/  
 **Start here:** https://harsha09.github.io/spec-driven-development/tutorials/first-change/
 
+## MCP (built into this CLI)
+
+Agents can drive **all major sdd commands** plus AST code context over MCP:
+
+```bash
+sdd mcp
+```
+
+Example client config:
+
+```json
+{
+  "mcpServers": {
+    "sdd": {
+      "command": "sdd",
+      "args": ["mcp"],
+      "env": { "SDD_PROJECT_ROOT": "/absolute/path/to/your-app" }
+    }
+  }
+}
+```
+
+Tools include `sdd_new`, `sdd_next`, `sdd_complete`, `sdd_code_context`, and more (same engine as the terminal).
+
 ## Install
 
 ```bash
