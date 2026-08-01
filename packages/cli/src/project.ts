@@ -5,7 +5,13 @@ import {
   type Config,
 } from "@structured-vibe-coding/core";
 
+/**
+ * Project root for CLI + MCP consistency.
+ * Prefer SDD_PROJECT_ROOT when set (MCP hosts often start the process outside the app).
+ */
 export function projectRoot(): string {
+  const fromEnv = process.env.SDD_PROJECT_ROOT?.trim();
+  if (fromEnv) return fromEnv;
   return process.cwd();
 }
 
