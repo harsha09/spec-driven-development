@@ -61,6 +61,8 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | **Add a feature to my app** | [Simple feature](./guides/simple-feature) |
 | **Do serious / multi-team work** | [Enterprise path](./guides/enterprise) |
 | **See the daily commands** | [Everyday loop](./guides/everyday-loop) |
+| **Attach org design system / AST MCP** | [MCP sources](./guides/mcp) |
+| **Slice this repo’s TypeScript with AST** | [Code context](./guides/code-context) |
 | **Look up a command** | [CLI reference](./reference/cli) |
 
 ---
