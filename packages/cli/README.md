@@ -10,24 +10,22 @@ Keep intent, design, and verify notes next to the code. Hotfix, greenfield produ
 
 ## MCP (built into this CLI)
 
-Agents can drive **all major sdd commands** plus AST code context over MCP:
+Agents can drive **all major sdd commands** plus AST code context over MCP.
+
+**Configure by use case** (writes the right file for each host):
 
 ```bash
-sdd mcp
+sdd mcp clients
+sdd mcp setup --client cursor --write       # → .cursor/mcp.json
+sdd mcp setup --client claude-code --write  # → .mcp.json
+sdd mcp setup --client vscode --write       # → .vscode/mcp.json
+sdd mcp setup --client print                # print snippet only
 ```
 
-Example client config:
+**Server** (what the host launches; also `sdd mcp`):
 
-```json
-{
-  "mcpServers": {
-    "sdd": {
-      "command": "sdd",
-      "args": ["mcp"],
-      "env": { "SDD_PROJECT_ROOT": "/absolute/path/to/your-app" }
-    }
-  }
-}
+```bash
+sdd mcp serve
 ```
 
 Tools include `sdd_new`, `sdd_next`, `sdd_complete`, `sdd_code_context`, and more (same engine as the terminal).

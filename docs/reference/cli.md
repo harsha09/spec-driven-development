@@ -58,7 +58,9 @@ One command’s flags: `sdd <command> --help`.
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | Focused AST code slices | Implement |
-| `sdd mcp` | MCP server in this CLI (process + AST tools) | Claude/Cursor/VS Code agents |
+| `sdd mcp clients` | List MCP hosts + use cases | Before wiring an agent |
+| `sdd mcp setup -c cursor --write` | Write host MCP config | Cursor / Claude Code / VS Code |
+| `sdd mcp serve` / `sdd mcp` | Start MCP server (stdio) | What hosts launch |
 | `sdd agent` | Refresh brief + open AI | Anytime |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List paths | Discover |
