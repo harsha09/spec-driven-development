@@ -25,7 +25,7 @@ const change = z
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "sdd",
-    version: "0.14.1",
+    version: "0.14.2",
   });
 
   server.registerTool(

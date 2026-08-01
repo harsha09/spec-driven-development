@@ -1173,21 +1173,268 @@ const doctor = defineCommand({
   },
 });
 
+async function runMcpServe() {
+  // MCP protocol uses stdin/stdout — never log chatter to stdout
+  try {
+    const { startMcpServer } = await import("./mcp/server.js");
+    await startMcpServer();
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
+}
+
+const mcpServe = defineCommand({
+  meta: {
+    name: "serve",
+    description:
+      "Start MCP server (stdio) — use this in client config args: [\"mcp\", \"serve\"]",
+  },
+  async run() {
+    await runMcpServe();
+  },
+});
+
+const mcpClients = defineCommand({
+  meta: {
+    name: "clients",
+    description: "List MCP hosts sdd can configure (and what each is for)",
+  },
+  async run() {
+    const { MCP_CLIENTS } = await import("./mcp/setup.js");
+    consola.log(pc.bold("MCP clients sdd can set up"));
+    consola.log("");
+    for (const c of MCP_CLIENTS) {
+      consola.log(`${pc.cyan(c.id.padEnd(16))} ${pc.bold(c.label)}`);
+      consola.log(`  ${c.useCase}`);
+      if (c.projectConfigRel) {
+        consola.log(pc.dim(`  project file: ${c.projectConfigRel}`));
+      }
+      if (c.globalConfigHint) {
+        consola.log(pc.dim(`  global file:  ${c.globalConfigHint}`));
+      }
+      consola.log("");
+    }
+    consola.log(pc.dim("Configure one:"));
+    consola.log(
+      pc.dim('  sdd mcp setup --client cursor --write'),
+    );
+    consola.log(
+      pc.dim('  sdd mcp setup --client claude-code --write'),
+    );
+  },
+});
+
+const mcpSetup = defineCommand({
+  meta: {
+    name: "setup",
+    description:
+      "Generate MCP config for Cursor / Claude Code / VS Code / Claude Desktop (use cases)",
+  },
+  args: {
+    client: {
+      type: "string",
+      description:
+        "cursor | claude-code | vscode | claude-desktop | print  (or omit to pick)",
+      alias: "c",
+    },
+    write: {
+      type: "boolean",
+      description: "Write config file into the project (or global for claude-desktop)",
+      default: false,
+    },
+    global: {
+      type: "boolean",
+      description: "Write user-global config when supported (claude-desktop)",
+      default: false,
+    },
+    path: {
+      type: "string",
+      description: "Explicit config file path (optional)",
+    },
+    project: {
+      type: "string",
+      description: "Project root for SDD_PROJECT_ROOT (default: cwd / SDD_PROJECT_ROOT)",
+      alias: "p",
+    },
+    npx: {
+      type: "boolean",
+      description: "Use npx @structured-vibe-coding/cli instead of global sdd",
+      default: false,
+    },
+    command: {
+      type: "string",
+      description: "Override MCP command binary (default: sdd)",
+    },
+  },
+  async run({ args }) {
+    const {
+      MCP_CLIENTS,
+      buildConfigDocument,
+      mergeAndWriteConfig,
+      prettyJson,
+      resolveClient,
+      resolveWritePath,
+    } = await import("./mcp/setup.js");
+
+    const root = args.project?.trim() || projectRoot();
+    let clientId = args.client?.trim();
+    if (!clientId) {
+      const picked = await consola.prompt("Which MCP host are you setting up?", {
+        type: "select",
+        options: MCP_CLIENTS.map((c) => ({
+          label: `${c.label} (${c.id})`,
+          value: c.id,
+          hint: c.useCase,
+        })),
+      });
+      if (typeof picked !== "string") {
+        consola.error("Cancelled");
+        process.exit(1);
+      }
+      clientId = picked;
+    }
+
+    let client;
+    try {
+      client = resolveClient(clientId);
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+
+    const command =
+      args.command?.trim() || (args.npx ? "npx" : "sdd");
+    const opts = {
+      projectRoot: root,
+      command,
+    };
+    const { json } = buildConfigDocument(client, opts);
+    const snippet = prettyJson(json);
+
+    consola.log("");
+    consola.log(pc.bold(`Use case: ${client.label}`));
+    consola.log(pc.dim(client.useCase));
+    consola.log(pc.dim(`SDD_PROJECT_ROOT → ${root}`));
+    consola.log("");
+
+    if (!args.write && !args.path && !args.global) {
+      consola.log(pc.bold("Config snippet (paste into your MCP host):"));
+      consola.log("");
+      process.stdout.write(snippet);
+      consola.log("");
+      consola.log(pc.bold("Next:"));
+      if (client.projectConfigRel) {
+        consola.log(
+          `  Write project file: ${pc.cyan(`sdd mcp setup --client ${client.id} --write`)}`,
+        );
+        consola.log(pc.dim(`  → creates ${client.projectConfigRel}`));
+      }
+      if (client.id === "claude-desktop") {
+        consola.log(
+          `  Write global file:  ${pc.cyan("sdd mcp setup --client claude-desktop --write --global")}`,
+        );
+      }
+      consola.log(`  Then restart the host and open this project.`);
+      consola.log(
+        pc.dim("  Server command in config: sdd mcp serve  (stdio process + AST tools)"),
+      );
+      return;
+    }
+
+    const writePath = resolveWritePath(
+      client,
+      root,
+      args.path,
+      args.global || client.id === "claude-desktop",
+    );
+    if (!writePath) {
+      consola.error(
+        "No write path for this client. Use --path or --write with cursor|claude-code|vscode.",
+      );
+      process.stdout.write(snippet);
+      process.exit(1);
+    }
+
+    try {
+      const result = await mergeAndWriteConfig(writePath, client, opts);
+      consola.success(
+        result.created
+          ? `Created ${pc.cyan(result.path)}`
+          : result.merged
+            ? `Merged sdd into ${pc.cyan(result.path)}`
+            : `Wrote ${pc.cyan(result.path)}`,
+      );
+      consola.log("");
+      consola.log(pc.bold("What to do next"));
+      consola.log("  1. Restart Cursor / Claude Code / VS Code / Claude Desktop");
+      consola.log("  2. Open this project folder");
+      consola.log("  3. Confirm tools like sdd_status / sdd_next appear for the agent");
+      consola.log(
+        pc.dim(
+          "  Tip: project must be initialized — sdd init --here --ai copilot|claude|grok|ollama",
+        ),
+      );
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  },
+});
+
+const mcpConfig = defineCommand({
+  meta: {
+    name: "config",
+    description: "Print MCP JSON for a client (same as setup without --write)",
+  },
+  args: {
+    client: {
+      type: "string",
+      description: "cursor | claude-code | vscode | claude-desktop | print",
+      alias: "c",
+      default: "print",
+    },
+    project: {
+      type: "string",
+      description: "Project root for SDD_PROJECT_ROOT",
+      alias: "p",
+    },
+    npx: {
+      type: "boolean",
+      description: "Use npx invocation",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const { buildConfigDocument, prettyJson, resolveClient } = await import(
+      "./mcp/setup.js"
+    );
+    const root = args.project?.trim() || projectRoot();
+    const client = resolveClient(args.client || "print");
+    const command = args.npx ? "npx" : "sdd";
+    const { json } = buildConfigDocument(client, {
+      projectRoot: root,
+      command,
+    });
+    process.stdout.write(prettyJson(json));
+  },
+});
+
 const mcpCmd = defineCommand({
   meta: {
     name: "mcp",
     description:
-      "Start MCP server (stdio): full sdd process tools + AST code context for agents",
+      "MCP: serve tools to agents, or setup client config (cursor/claude/vscode)",
+  },
+  subCommands: {
+    serve: mcpServe,
+    setup: mcpSetup,
+    config: mcpConfig,
+    clients: mcpClients,
   },
   async run() {
-    // MCP protocol uses stdin/stdout — never log chatter to stdout
-    try {
-      const { startMcpServer } = await import("./mcp/server.js");
-      await startMcpServer();
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
+    // Bare `sdd mcp` → serve (hosts may use args: ["mcp"] without "serve")
+    await runMcpServe();
   },
 });
 
@@ -1218,7 +1465,8 @@ const help = defineCommand({
     consola.log("");
     consola.log(pc.bold("Tips:"));
     consola.log(`  ${pc.cyan("--no-agent")}            learn the process first, AI later`);
-    consola.log(`  ${pc.cyan("sdd mcp")}               MCP server (process + AST tools for agents)`);
+    consola.log(`  ${pc.cyan("sdd mcp setup --client cursor --write")}  wire MCP for your host`);
+    consola.log(`  ${pc.cyan("sdd mcp serve")}         MCP server (used by agent hosts)`);
     consola.log(pc.dim("  If next fails: open the file in the error and write real sentences (not empty template)."));
     consola.log("");
     consola.log(
@@ -1246,7 +1494,7 @@ const main = defineCommand({
     name: "sdd",
     description:
       "Keep short plans next to your code. Process coach for you + your AI coding agent.",
-    version: "0.14.1",
+    version: "0.14.2",
   },
   subCommands: {
     init,

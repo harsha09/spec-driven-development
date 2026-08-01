@@ -41,7 +41,7 @@ describe("MCP stdio protocol dogfood", () => {
 
     const transport = new StdioClientTransport({
       command: process.execPath,
-      args: [sddBin, "mcp"],
+      args: [sddBin, "mcp", "serve"],
       env: {
         ...process.env,
         SDD_PROJECT_ROOT: root,

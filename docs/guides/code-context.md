@@ -20,54 +20,23 @@ sdd context …    # same AST engine from the terminal
 
 ---
 
-## Integrate MCP (one install)
+## Integrate MCP (use-case setup — recommended)
 
-You only need the **sdd CLI**:
+You only need the **sdd CLI**. Prefer **generated config**, not hand-written JSON:
 
 ```bash
 npm install -g @structured-vibe-coding/cli
+cd your-app
+sdd init --here --ai copilot
+
+sdd mcp clients                          # see hosts + use cases
+sdd mcp setup --client cursor --write    # or: claude-code | vscode
+# restart the host, open this project
 ```
 
-### Claude Code / Cursor / VS Code MCP config
+Full guide: **[Configure MCP](./mcp)**.
 
-```json
-{
-  "mcpServers": {
-    "sdd": {
-      "command": "sdd",
-      "args": ["mcp"],
-      "env": {
-        "SDD_PROJECT_ROOT": "/absolute/path/to/your-app"
-      }
-    }
-  }
-}
-```
-
-Or with npx (no global install):
-
-```json
-{
-  "mcpServers": {
-    "sdd": {
-      "command": "npx",
-      "args": ["-y", "@structured-vibe-coding/cli", "mcp"],
-      "env": {
-        "SDD_PROJECT_ROOT": "/absolute/path/to/your-app"
-      }
-    }
-  }
-}
-```
-
-Set **`SDD_PROJECT_ROOT`** to your app so tools hit the right repo when the host starts the server from another directory.
-
-Init the app once:
-
-```bash
-cd /absolute/path/to/your-app
-sdd init --here --ai copilot   # or claude | grok | ollama
-```
+`SDD_PROJECT_ROOT` is written for you to this project’s absolute path.
 
 ---
 
