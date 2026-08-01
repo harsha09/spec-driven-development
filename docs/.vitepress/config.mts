@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitepress";
 
 /**
@@ -10,6 +13,13 @@ const siteUrl = `${siteOrigin}/spec-driven-development`;
 const siteName = "sdd — Structured Vibe Coding";
 const defaultDescription =
   "Local Spec-Driven Development CLI for AI coding agents. Keep decisions in git — from a one-line hotfix to a new product or enterprise ARB. No IDE extension required.";
+
+/** Keep JSON-LD softwareVersion aligned with the published CLI package. */
+const docsDir = dirname(fileURLToPath(import.meta.url));
+const cliPkg = JSON.parse(
+  readFileSync(join(docsDir, "../../packages/cli/package.json"), "utf8"),
+) as { version: string };
+const softwareVersion = cliPkg.version;
 
 /** Ensure sitemap locs include the GitHub Pages project base path. */
 function withProjectBase(url: string): string {
@@ -61,7 +71,7 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "sdd, spec-driven development, structured vibe coding, AI coding agent, local SDD, CLI, greenfield, Copilot, Claude Code, Grok, Ollama",
+          "sdd, spec-driven development, structured vibe coding, AI coding agent, local SDD, CLI, greenfield, MCP sources, code context, Copilot, Claude Code, Grok, Ollama",
       },
     ],
     ["meta", { name: "robots", content: "index, follow" }],
@@ -103,7 +113,7 @@ export default defineConfig({
             description: defaultDescription,
             url: siteUrl,
             downloadUrl: "https://www.npmjs.com/package/@structured-vibe-coding/cli",
-            softwareVersion: "0.13",
+            softwareVersion,
             license: "https://opensource.org/licenses/MIT",
             offers: {
               "@type": "Offer",
@@ -155,6 +165,8 @@ export default defineConfig({
           { text: "New product", link: "/guides/greenfield" },
           { text: "Enterprise", link: "/guides/enterprise" },
           { text: "Set up AI", link: "/guides/agents" },
+          { text: "MCP sources", link: "/guides/mcp" },
+          { text: "Code context (AST)", link: "/guides/code-context" },
         ],
       },
       {

@@ -90,3 +90,6 @@ Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 - [Everyday loop](../guides/everyday-loop)  
 - [Greenfield](../guides/greenfield)  
 - [AI setup](../guides/agents)  
+- [MCP sources](../guides/mcp)  
+- [Code context](../guides/code-context)  
+
