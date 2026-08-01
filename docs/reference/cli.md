@@ -6,6 +6,7 @@ description: Friendly sdd command list — what each command does and when to us
 # CLI reference
 
 Binary name: **`sdd`**.  
+Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@structured-vibe-coding/cli)**  
 Learn by doing: [Start in 10 minutes](../tutorials/first-change).  
 One command’s flags: `sdd <command> --help`.
 

@@ -167,6 +167,10 @@ export default defineConfig({
         ],
       },
       {
+        text: "npm",
+        link: "https://www.npmjs.com/package/@structured-vibe-coding/cli",
+      },
+      {
         text: "GitHub",
         link: "https://github.com/harsha09/spec-driven-development",
       },
@@ -242,7 +246,8 @@ export default defineConfig({
     },
 
     footer: {
-      message: "MIT Licensed · Local Spec-Driven Development",
+      message:
+        'MIT Licensed · <a href="https://www.npmjs.com/package/@structured-vibe-coding/cli">npm: @structured-vibe-coding/cli</a> · <a href="https://github.com/harsha09/spec-driven-development">GitHub</a>',
       copyright: "sdd — Structured Vibe Coding",
     },
 

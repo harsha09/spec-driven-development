@@ -1204,7 +1204,12 @@ const help = defineCommand({
     consola.log("");
     consola.log(
       pc.dim(
-        "Docs: https://harsha09.github.io/spec-driven-development/tutorials/first-change/  ·  sdd <cmd> --help",
+        "Docs: https://harsha09.github.io/spec-driven-development/tutorials/first-change/",
+      ),
+    );
+    consola.log(
+      pc.dim(
+        "npm:  https://www.npmjs.com/package/@structured-vibe-coding/cli  ·  sdd <cmd> --help",
       ),
     );
     if (await isInitialized(root)) {
