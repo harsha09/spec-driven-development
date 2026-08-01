@@ -13,7 +13,7 @@ Your AI writes fast. The reasons disappear into chat.
 | **Docs (start here)** | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
 | **Site** | https://harsha09.github.io/spec-driven-development/ |
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
-| **MCP** | Built into the CLI: `sdd mcp` (process + AST tools for agents) |
+| **MCP sources** | sdd *calls* org design-system / AST / API MCPs (`.sdd/mcp.yaml`) |
 | **Needs** | Node 20+ · about 10 minutes for the first loop |
 
 ---

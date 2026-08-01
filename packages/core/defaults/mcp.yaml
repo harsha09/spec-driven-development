@@ -1,15 +1,13 @@
-# External MCP *sources* that sdd will *call* (sdd = client).
-# Not the same as `sdd mcp serve` (that exposes sdd tools *to* agents).
+# External MCP *sources* that sdd will *call* (sdd = MCP client).
 #
 # Use cases:
 #   - Org UI/UX / design-system MCP
 #   - Internal API catalog MCP
-#   - Third-party or custom AST / code-search MCP
+#   - Custom AST / code-search MCP
 #
-# sdd matches sources by stage / workflow / keywords / intents, then invokes
-# the configured tool and can embed results in agent handoff.
+# sdd matches sources by stage / workflow / keywords / intents, invokes
+# the configured tool, and can embed results in agent handoff.
 #
-# Add via CLI:
 #   sdd mcp sources add --id design-system --command npx --arg -y --arg @acme/ds-mcp \
 #     --stages design,implement --intents ui,design --tool search_components \
 #     --tool-arg query={{query}}

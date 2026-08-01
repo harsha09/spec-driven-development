@@ -5,30 +5,8 @@
 Keep intent, design, and verify notes next to the code. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
 **npm:** https://www.npmjs.com/package/@structured-vibe-coding/cli  
-**Docs (GitHub Pages):** https://harsha09.github.io/spec-driven-development/  
-**Start here:** https://harsha09.github.io/spec-driven-development/tutorials/first-change/
-
-## MCP (built into this CLI)
-
-Agents can drive **all major sdd commands** plus AST code context over MCP.
-
-**Configure by use case** (writes the right file for each host):
-
-```bash
-sdd mcp clients
-sdd mcp setup --client cursor --write       # → .cursor/mcp.json
-sdd mcp setup --client claude-code --write  # → .mcp.json
-sdd mcp setup --client vscode --write       # → .vscode/mcp.json
-sdd mcp setup --client print                # print snippet only
-```
-
-**Server** (what the host launches; also `sdd mcp`):
-
-```bash
-sdd mcp serve
-```
-
-Tools include `sdd_new`, `sdd_next`, `sdd_complete`, `sdd_code_context`, and more (same engine as the terminal).
+**Docs:** https://harsha09.github.io/spec-driven-development/  
+**Start:** https://harsha09.github.io/spec-driven-development/tutorials/first-change/
 
 ## Install
 
@@ -44,7 +22,7 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude | ollama (required)
+sdd init --here --ai copilot    # or grok | claude | ollama
 sdd doctor
 sdd new "Add expense CSV export" -w feature -y
 # edit feature.md, then sdd next … sdd complete
@@ -54,29 +32,34 @@ sdd new "Add expense CSV export" -w feature -y
 
 ```bash
 sdd greenfield "Team expense tracker for remote startups"
-# … stages … sdd complete
 sdd feature list && sdd feature start F-001
 ```
 
-| Flag | Meaning |
-|------|---------|
-| `--here` | Current directory |
-| `--ai copilot\|grok\|claude\|ollama` | Install **only** that AI host (required choice) |
-| `--force` | Re-init defaults |
+## External MCP sources (sdd as client)
+
+Attach org design systems, libraries, or AST engines so **sdd pulls context** at the right stage:
+
+```bash
+sdd mcp sources add \
+  --id design-system \
+  --command npx --arg -y --arg @acme/design-system-mcp \
+  --stages design,implement \
+  --tool search_components \
+  --tool-arg query={{query}}
+
+sdd mcp sources list
+sdd mcp fetch --query "primary button"
+```
+
+See: https://harsha09.github.io/spec-driven-development/guides/mcp/
 
 ## Docs
-
-Full site: **https://harsha09.github.io/spec-driven-development/**
 
 | Topic | Link |
 |-------|------|
 | Start in 10 minutes | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
-| What is sdd? | https://harsha09.github.io/spec-driven-development/concepts/what-is-sdd/ |
-| New product | https://harsha09.github.io/spec-driven-development/guides/greenfield/ |
+| MCP sources | https://harsha09.github.io/spec-driven-development/guides/mcp/ |
 | Simple feature | https://harsha09.github.io/spec-driven-development/guides/simple-feature/ |
-| Enterprise | https://harsha09.github.io/spec-driven-development/guides/enterprise/ |
-| Workflows | https://harsha09.github.io/spec-driven-development/reference/workflows/ |
-| Agents | https://harsha09.github.io/spec-driven-development/reference/agents/ |
 | CLI | https://harsha09.github.io/spec-driven-development/reference/cli/ |
 
 ## License
