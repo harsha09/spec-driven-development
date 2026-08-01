@@ -8,8 +8,8 @@ import { pathExists, readText, writeText } from "../fs.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import type { LanguageAdapter } from "./adapters/types.js";
 import { isTypescriptAdapterAvailable } from "./adapters/typescript.js";
-import { formatMarkdown } from "./formatter.js";
 import { resolveFocus } from "./focus.js";
+import { formatMarkdown } from "./formatter.js";
 import { GraphLite } from "./graph.js";
 import { classifyPath } from "./ignore.js";
 import { rankSymbols } from "./ranker.js";
@@ -71,10 +71,7 @@ function hardFailure(
     `- Error: ${message}`,
     "",
     "## Gaps",
-    ...gaps.map(
-      (g) =>
-        `- (\`${g.code}\`) ${g.message}${g.path ? ` — \`${g.path}\`` : ""}`,
-    ),
+    ...gaps.map((g) => `- (\`${g.code}\`) ${g.message}${g.path ? ` — \`${g.path}\`` : ""}`),
     "",
     "## Slices",
     "",
@@ -254,7 +251,7 @@ export async function generateCodeContext(
       continue;
     }
 
-    let extract;
+    let extract: Awaited<ReturnType<LanguageAdapter["extract"]>>;
     try {
       extract = await adapter.extract({
         filePath: normalize(rel).replace(/\\/g, "/"),
@@ -362,8 +359,7 @@ export async function generateCodeContext(
     if (!gaps.some((g) => g.code === "cap_truncated")) {
       gaps.push({
         code: "cap_truncated",
-        message:
-          "Output truncated at configured caps (maxOutputLines/maxTokensApprox).",
+        message: "Output truncated at configured caps (maxOutputLines/maxTokensApprox).",
       });
     }
   }

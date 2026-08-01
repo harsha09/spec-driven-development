@@ -1,25 +1,25 @@
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  AGENT_INTEGRATIONS,
+  DEFAULT_INIT_INTEGRATION,
+  PROTOCOL_MD,
+  SDD_AGENT_ROLES,
+  agentKickoffMessage,
+  createChange,
+  getIntegration,
   initProject,
   installAgentIntegration,
-  createChange,
   loadConfig,
   loadInstalledAgent,
   parseAgentTargets,
   parseIntegration,
-  DEFAULT_INIT_INTEGRATION,
-  AGENT_INTEGRATIONS,
-  getIntegration,
-  refreshActiveAgentContext,
-  writeAgentHandoff,
-  agentKickoffMessage,
   pathExists,
+  refreshActiveAgentContext,
   renderThinAgent,
-  SDD_AGENT_ROLES,
-  PROTOCOL_MD,
+  writeAgentHandoff,
 } from "../index.js";
 
 const temps: string[] = [];
@@ -178,11 +178,13 @@ describe("agent integrations (registry)", () => {
 
   it("agent surfaces mention constitution", () => {
     expect(PROTOCOL_MD).toMatch(/constitution/i);
-    expect(agentKickoffMessage({
-      title: "T",
-      stage: "implement",
-      changeId: "2026-01-01-x",
-    })).toMatch(/constitution/i);
+    expect(
+      agentKickoffMessage({
+        title: "T",
+        stage: "implement",
+        changeId: "2026-01-01-x",
+      }),
+    ).toMatch(/constitution/i);
     for (const role of SDD_AGENT_ROLES) {
       expect(renderThinAgent(role)).toMatch(/constitution/i);
     }

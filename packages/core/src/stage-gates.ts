@@ -1,19 +1,10 @@
 import { join } from "pathe";
-import type { Config } from "./schemas.js";
-import { pathExists, readText } from "./fs.js";
-import {
-  activeStages,
-  getStage,
-  isStageSkipped,
-  shouldAutoSkip,
-} from "./workflow.js";
-import { nowIso } from "./slug.js";
 import { incompleteArtifactReason } from "./artifacts.js";
-import {
-  buildContext,
-  saveChangeMeta,
-  type ChangeContext,
-} from "./change-context.js";
+import { type ChangeContext, buildContext, saveChangeMeta } from "./change-context.js";
+import { pathExists, readText } from "./fs.js";
+import type { Config } from "./schemas.js";
+import { nowIso } from "./slug.js";
+import { activeStages, getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
 async function checkRequiredArtifacts(
   changePath: string,
@@ -48,9 +39,7 @@ async function checkRequiredArtifacts(
  * Prior non-skipped stages with required work must be complete before leaving
  * the current stage (prevents jumping intent → tasks with empty design).
  */
-export async function incompletePriorStageErrors(
-  ctx: ChangeContext,
-): Promise<string[]> {
+export async function incompletePriorStageErrors(ctx: ChangeContext): Promise<string[]> {
   const errors: string[] = [];
   const stages = activeStages(ctx.workflow, ctx.meta);
   const currentIdx = stages.findIndex((s) => s.id === ctx.meta.stage);
@@ -65,11 +54,7 @@ export async function incompletePriorStageErrors(
     const required = stage.artifacts.filter((a) => a.required);
     if (!required.length && stage.optional) continue;
 
-    const stageErrors = await checkRequiredArtifacts(
-      ctx.path,
-      stage.id,
-      stage.artifacts,
-    );
+    const stageErrors = await checkRequiredArtifacts(ctx.path, stage.id, stage.artifacts);
     if (stageErrors.length) {
       errors.push(
         `Prior stage "${stage.id}" is not complete — finish it or \`sdd skip ${stage.id} -r "…"\` if optional.`,
@@ -95,9 +80,7 @@ export async function canLeaveStage(
   // Never leave an incomplete prior stage (e.g. landed on tasks with empty design)
   errors.push(...(await incompletePriorStageErrors(ctx)));
 
-  errors.push(
-    ...(await checkRequiredArtifacts(ctx.path, stage.id, stage.artifacts)),
-  );
+  errors.push(...(await checkRequiredArtifacts(ctx.path, stage.id, stage.artifacts)));
 
   const declared = stage.gate?.type ?? "soft";
   let effectiveGate = declared;
@@ -114,17 +97,14 @@ export async function canLeaveStage(
     }
   } else if (effectiveGate === "soft" && stage.gate?.checklist?.length) {
     if (!gateState || gateState.status === "pending") {
-      warnings.push(
-        `Soft gate checklist not signed off on "${stage.id}" (proceeding allowed).`,
-      );
+      warnings.push(`Soft gate checklist not signed off on "${stage.id}" (proceeding allowed).`);
     }
   }
 
   const requiredCmds = stage.verify?.commands?.filter((c) => c.required) ?? [];
   if (requiredCmds.length) {
     const verifyOk = ctx.meta.verify_results?.[stage.id]?.ok === true;
-    const humanOverride =
-      gateState?.status === "waived" || gateState?.status === "approved";
+    const humanOverride = gateState?.status === "waived" || gateState?.status === "approved";
     if (!verifyOk && !humanOverride) {
       errors.push(
         `Required local verify commands have not passed for "${stage.id}". Run \`sdd verify\` (or \`sdd gate approve/waive\` with a note).`,
@@ -150,9 +130,7 @@ export async function canLeaveStage(
  * If meta.stage points past incomplete required work, return the earliest
  * incomplete stage id to fall back to (e.g. design).
  */
-export async function fallbackIncompleteStageId(
-  ctx: ChangeContext,
-): Promise<string | null> {
+export async function fallbackIncompleteStageId(ctx: ChangeContext): Promise<string | null> {
   const stages = activeStages(ctx.workflow, ctx.meta);
   for (const stage of stages) {
     if (stage.id === ctx.meta.stage) break;

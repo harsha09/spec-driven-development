@@ -1,30 +1,32 @@
 import { join } from "pathe";
 import {
-  ChangeMetaSchema,
-  type ChangeMeta,
-  type Config,
-  type Workflow,
-  type Stage,
-} from "./schemas.js";
+  type ChangeContext,
+  buildContext,
+  clearActiveIf,
+  saveChangeMeta,
+  setActiveChange,
+} from "./change-context.js";
 import {
+  copyDir,
   ensureDir,
   listDirs,
   pathExists,
   readText,
   readYaml,
+  removePath,
   writeText,
   writeYaml,
-  copyDir,
-  removePath,
 } from "./fs.js";
+import { archiveDir, changeMetaPath, changePath, changesDir, templatesDir } from "./paths.js";
 import {
-  archiveDir,
-  changeMetaPath,
-  changePath,
-  changesDir,
-  templatesDir,
-} from "./paths.js";
+  type ChangeMeta,
+  ChangeMetaSchema,
+  type Config,
+  type Stage,
+  type Workflow,
+} from "./schemas.js";
 import { changeDirName, nowIso, uniqueChangeDirName } from "./slug.js";
+import { canLeaveStage, fallbackIncompleteStageId } from "./stage-gates.js";
 import {
   activeStages,
   firstActiveStageId,
@@ -32,17 +34,6 @@ import {
   loadWorkflow,
   nextStageId,
 } from "./workflow.js";
-import {
-  buildContext,
-  clearActiveIf,
-  saveChangeMeta,
-  setActiveChange,
-  type ChangeContext,
-} from "./change-context.js";
-import {
-  canLeaveStage,
-  fallbackIncompleteStageId,
-} from "./stage-gates.js";
 
 // Re-export split modules so public API stays `from "./change.js"` / core index
 export type { ChangeContext } from "./change-context.js";
@@ -205,9 +196,7 @@ function interpolate(
   extra?: { idea?: string },
 ): string {
   const idea =
-    extra?.idea ||
-    String(meta.flags?.idea ?? "") ||
-    meta.title.replace(/^Greenfield:\s*/i, "");
+    extra?.idea || String(meta.flags?.idea ?? "") || meta.title.replace(/^Greenfield:\s*/i, "");
   return template
     .replaceAll("{{title}}", meta.title)
     .replaceAll("{{id}}", meta.id)
@@ -245,7 +234,7 @@ export async function advanceStage(
   changeId: string,
   opts?: { force?: boolean },
 ): Promise<AdvanceResult> {
-  let ctx = await buildContext(projectRoot, config, changeId);
+  const ctx = await buildContext(projectRoot, config, changeId);
   const warnings: string[] = [];
 
   if (ctx.meta.status === "completed") {
@@ -366,10 +355,7 @@ export async function skipStage(
   const skip_stages = new Set(ctx.meta.overrides.skip_stages ?? []);
   skip_stages.add(stageId);
   ctx.meta.overrides.skip_stages = [...skip_stages];
-  ctx.meta.skipped = [
-    ...(ctx.meta.skipped ?? []),
-    { stage: stageId, reason, at: nowIso() },
-  ];
+  ctx.meta.skipped = [...(ctx.meta.skipped ?? []), { stage: stageId, reason, at: nowIso() }];
 
   if (ctx.meta.stage === stageId) {
     const next = nextStageId(ctx.workflow, ctx.meta);
@@ -469,8 +455,7 @@ export async function completeChange(
 
   let archivedTo: string | null = null;
   const shouldArchive =
-    config.persistence.archive_on_complete &&
-    (ctx.workflow.on_complete?.archive !== false);
+    config.persistence.archive_on_complete && ctx.workflow.on_complete?.archive !== false;
 
   if (shouldArchive) {
     const dest = join(archiveDir(projectRoot, config), changeId);

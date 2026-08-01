@@ -1,31 +1,14 @@
+import { ensureDir, listDirs, pathExists, readText, readYaml, writeText, writeYaml } from "./fs.js";
+import { activePointerPath, changeMetaPath, changePath, changesDir } from "./paths.js";
 import {
-  ChangeMetaSchema,
   type ChangeMeta,
+  ChangeMetaSchema,
   type Config,
-  type Workflow,
   type Stage,
+  type Workflow,
 } from "./schemas.js";
-import {
-  ensureDir,
-  listDirs,
-  pathExists,
-  readText,
-  readYaml,
-  writeText,
-  writeYaml,
-} from "./fs.js";
-import {
-  activePointerPath,
-  changeMetaPath,
-  changePath,
-  changesDir,
-} from "./paths.js";
 import { nowIso } from "./slug.js";
-import {
-  activeStages,
-  loadWorkflow,
-  resolveStages,
-} from "./workflow.js";
+import { activeStages, loadWorkflow, resolveStages } from "./workflow.js";
 
 export interface ChangeContext {
   id: string;

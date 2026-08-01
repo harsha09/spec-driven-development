@@ -1,7 +1,7 @@
 /**
  * Stage-scoped refine plan: focus/prior resolution, constitution RO, brief write.
  */
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -48,9 +48,7 @@ describe("refine plan", () => {
       changeId: ctx.id,
     });
     expect(planIntent.focusStageId).toBe("intent");
-    expect(planIntent.focusArtifacts.some((a) => a.path === "feature.md")).toBe(
-      true,
-    );
+    expect(planIntent.focusArtifacts.some((a) => a.path === "feature.md")).toBe(true);
     expect(planIntent.priorArtifacts.length).toBe(0);
     expect(planIntent.briefMarkdown).toMatch(/Never edit/i);
     expect(planIntent.briefMarkdown).toMatch(/constitution/i);
@@ -64,12 +62,8 @@ describe("refine plan", () => {
       stageId: "design",
     });
     expect(planDesign.focusStageId).toBe("design");
-    expect(planDesign.focusArtifacts.some((a) => a.path === "design.md")).toBe(
-      true,
-    );
-    expect(planDesign.priorArtifacts.some((a) => a.path === "feature.md")).toBe(
-      true,
-    );
+    expect(planDesign.focusArtifacts.some((a) => a.path === "design.md")).toBe(true);
+    expect(planDesign.priorArtifacts.some((a) => a.path === "feature.md")).toBe(true);
     expect(planDesign.briefMarkdown).toMatch(/Prior stage artifacts/i);
     expect(planDesign.briefMarkdown).toMatch(/rg|grep|search/i);
 

@@ -2,14 +2,9 @@
  * Slicer: definition-ish spans under hard caps.
  */
 
-import { isSecretPath } from "./secrets.js";
 import type { GraphLite } from "./graph.js";
-import type {
-  CodeContextCaps,
-  CodeContextGap,
-  CodeSlice,
-  RankedItem,
-} from "./types.js";
+import { isSecretPath } from "./secrets.js";
+import type { CodeContextCaps, CodeContextGap, CodeSlice, RankedItem } from "./types.js";
 
 function sliceBody(
   source: string,
@@ -56,21 +51,18 @@ export function emitSlices(
     const source = graph.getSource(sym.filePath);
     if (!source) continue;
 
-    const { body, end, truncated: lineTrunc } = sliceBody(
-      source,
-      sym.startLine,
-      sym.endLine,
-      caps.maxLinesPerSlice,
-    );
+    const {
+      body,
+      end,
+      truncated: lineTrunc,
+    } = sliceBody(source, sym.startLine, sym.endLine, caps.maxLinesPerSlice);
     if (lineTrunc) truncated = true;
 
     const id = `${sym.filePath}:${sym.startLine}-${end}:${sym.name}`;
     if (seen.has(id)) continue;
     seen.add(id);
 
-    const reasonParts = item.reasons.length
-      ? item.reasons.slice(0, 4).join(", ")
-      : "ranked";
+    const reasonParts = item.reasons.length ? item.reasons.slice(0, 4).join(", ") : "ranked";
     slices.push({
       id,
       filePath: sym.filePath,
@@ -89,16 +81,9 @@ export function emitSlices(
         const nSource = graph.getSource(n);
         const nNode = graph.files.get(n);
         if (!nSource || !nNode) continue;
-        const nSym =
-          nNode.extract.symbols.find((s) => s.exported) ??
-          nNode.extract.symbols[0];
+        const nSym = nNode.extract.symbols.find((s) => s.exported) ?? nNode.extract.symbols[0];
         if (!nSym) continue;
-        const nb = sliceBody(
-          nSource,
-          nSym.startLine,
-          nSym.endLine,
-          caps.maxLinesPerSlice,
-        );
+        const nb = sliceBody(nSource, nSym.startLine, nSym.endLine, caps.maxLinesPerSlice);
         const nid = `${nSym.filePath}:${nSym.startLine}-${nb.end}:${nSym.name}:neighbor`;
         if (seen.has(nid)) continue;
         seen.add(nid);
@@ -120,8 +105,7 @@ export function emitSlices(
   if (truncated) {
     gaps.push({
       code: "cap_truncated",
-      message:
-        "Output truncated at configured caps (maxSlices/maxLinesPerSlice).",
+      message: "Output truncated at configured caps (maxSlices/maxLinesPerSlice).",
     });
   }
 

@@ -1,9 +1,11 @@
-import { mkdtemp, rm, writeFile, mkdir, cp } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "pathe";
 import { fileURLToPath } from "node:url";
+import { dirname, join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  type AdapterExtractResult,
+  type LanguageAdapter,
   buildAgentPrompt,
   createChange,
   generateCodeContext,
@@ -13,15 +15,10 @@ import {
   resolveFocus,
   tokenizeKeywords,
   typescriptAdapter,
-  type LanguageAdapter,
-  type AdapterExtractResult,
 } from "../index.js";
 
 const temps: string[] = [];
-const fixtureDir = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures/code-context",
-);
+const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures/code-context");
 
 async function tempProject(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "sdd-cc-"));
@@ -46,9 +43,7 @@ afterEach(async () => {
 
 describe("code-context helpers", () => {
   it("tokenizes keywords and drops stopwords", () => {
-    const kw = tokenizeKeywords(
-      "I want to add a feature for AST ranking using agents",
-    );
+    const kw = tokenizeKeywords("I want to add a feature for AST ranking using agents");
     expect(kw).toContain("ranking");
     expect(kw).not.toContain("want");
     expect(kw).not.toContain("feature");
@@ -120,9 +115,7 @@ describe("generateCodeContext", () => {
     expect(result.summary.filesAnalyzed).toBeGreaterThanOrEqual(1);
     expect(result.markdown).toContain("## Gaps");
     expect(result.markdown).toContain("## Slices");
-    expect(result.slices.some((s) => s.symbolName === "buildAgentPrompt")).toBe(
-      true,
-    );
+    expect(result.slices.some((s) => s.symbolName === "buildAgentPrompt")).toBe(true);
     expect(result.markdown).toContain("buildAgentPrompt");
   });
 
@@ -159,11 +152,7 @@ describe("generateCodeContext", () => {
     const root = await tempProject();
     await copyFixtures(root);
     await writeFile(join(root, ".env"), "SECRET=super-secret-value\n", "utf8");
-    await writeFile(
-      join(root, "packages/demo/src/.env.local"),
-      "TOKEN=abc\n",
-      "utf8",
-    );
+    await writeFile(join(root, "packages/demo/src/.env.local"), "TOKEN=abc\n", "utf8");
     const result = await generateCodeContext({
       projectRoot: root,
       paths: [".env", "packages/demo/src"],
@@ -172,9 +161,7 @@ describe("generateCodeContext", () => {
     expect(result.ok).toBe(true);
     expect(result.markdown).not.toContain("super-secret-value");
     expect(result.markdown).not.toContain("TOKEN=abc");
-    expect(
-      result.gaps.some((g) => g.code === "path_denied_secret"),
-    ).toBe(true);
+    expect(result.gaps.some((g) => g.code === "path_denied_secret")).toBe(true);
     for (const s of result.slices) {
       expect(s.body).not.toContain("super-secret");
     }
@@ -188,12 +175,8 @@ describe("generateCodeContext", () => {
       paths: ["packages/demo/src/gamma.py", "packages/demo/src/alpha.ts"],
     });
     expect(result.ok).toBe(true);
-    expect(result.gaps.some((g) => g.code === "unsupported_language")).toBe(
-      true,
-    );
-    expect(result.slices.some((s) => s.filePath.endsWith("alpha.ts"))).toBe(
-      true,
-    );
+    expect(result.gaps.some((g) => g.code === "unsupported_language")).toBe(true);
+    expect(result.slices.some((s) => s.filePath.endsWith("alpha.ts"))).toBe(true);
   });
 
   it("returns no_focus hard failure when empty", async () => {
@@ -207,11 +190,7 @@ describe("generateCodeContext", () => {
   it("works with mock LanguageAdapter", async () => {
     const root = await tempProject();
     await mkdir(join(root, "src"), { recursive: true });
-    await writeFile(
-      join(root, "src/mock.ts"),
-      "export function mocked() {}\n",
-      "utf8",
-    );
+    await writeFile(join(root, "src/mock.ts"), "export function mocked() {}\n", "utf8");
 
     const mock: LanguageAdapter = {
       id: "mock",
@@ -294,9 +273,7 @@ describe("typescript adapter unit", () => {
       projectRoot: fixtureDir,
     });
     expect(extract.ok).toBe(true);
-    expect(extract.symbols.some((s) => s.name === "buildAgentPrompt")).toBe(
-      true,
-    );
+    expect(extract.symbols.some((s) => s.name === "buildAgentPrompt")).toBe(true);
     expect(extract.imports.some((i) => i.from.includes("beta"))).toBe(true);
   });
 });

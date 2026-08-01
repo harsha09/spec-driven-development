@@ -16,7 +16,7 @@
     "dev": "tsup --watch",
     "test": "pnpm --filter @structured-vibe-coding/core run build && pnpm run build && vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "cd ../.. && biome check packages/cli/src",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {

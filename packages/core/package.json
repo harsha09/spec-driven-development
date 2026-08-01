@@ -17,12 +17,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "cd ../.. && biome check packages/core/src",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {

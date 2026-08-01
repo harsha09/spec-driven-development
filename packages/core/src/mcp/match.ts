@@ -16,10 +16,7 @@ function includesCI(list: string[], value: string): boolean {
  *
  * So: stage routing always; intents/keywords refine when the caller provides signals.
  */
-export function matchMcpSources(
-  sources: McpSource[],
-  ctx: McpMatchContext,
-): McpSource[] {
+export function matchMcpSources(sources: McpSource[], ctx: McpMatchContext): McpSource[] {
   const stage = ctx.stage ?? "";
   const workflow = ctx.workflow ?? "";
   const query = (ctx.query ?? "").toLowerCase();

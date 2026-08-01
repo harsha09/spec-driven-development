@@ -1,10 +1,7 @@
 import type { ChangeContext } from "../change-context.js";
 import { callMcpSourceTool } from "./client.js";
 import { matchMcpSources } from "./match.js";
-import {
-  interpolateArgs,
-  loadMcpConfig,
-} from "./sources.js";
+import { interpolateArgs, loadMcpConfig } from "./sources.js";
 import type { McpFetchResult, McpMatchContext, McpSource } from "./types.js";
 
 export interface GatherMcpOptions {
@@ -22,9 +19,7 @@ export interface GatherMcpOptions {
 /**
  * Call matching external MCP sources and collect text for agents / handoff.
  */
-export async function gatherMcpContext(
-  opts: GatherMcpOptions,
-): Promise<McpFetchResult[]> {
+export async function gatherMcpContext(opts: GatherMcpOptions): Promise<McpFetchResult[]> {
   const cfg = await loadMcpConfig(opts.projectRoot);
   let sources = matchMcpSources(cfg.sources, opts.match);
   if (opts.sourceIds?.length) {
@@ -51,23 +46,14 @@ export async function gatherMcpContext(
           tool: "(none)",
           ok: false,
           text: "",
-          error:
-            "No invoke.tool configured. Set invoke in .sdd/mcp.yaml or pass --tool.",
+          error: "No invoke.tool configured. Set invoke in .sdd/mcp.yaml or pass --tool.",
         });
       }
       continue;
     }
     const baseArgs = opts.args ?? source.invoke?.args ?? {};
-    const args = interpolateArgs(
-      baseArgs as Record<string, unknown>,
-      vars,
-    );
-    const called = await callMcpSourceTool(
-      source,
-      opts.projectRoot,
-      tool,
-      args,
-    );
+    const args = interpolateArgs(baseArgs as Record<string, unknown>, vars);
+    const called = await callMcpSourceTool(source, opts.projectRoot, tool, args);
     const max = cfg.max_chars_per_source ?? 6000;
     let text = called.text;
     if (text.length > max) {
@@ -106,9 +92,7 @@ export async function gatherMcpContextForChange(
   });
 }
 
-export function formatMcpContextForHandoff(
-  results: McpFetchResult[],
-): string {
+export function formatMcpContextForHandoff(results: McpFetchResult[]): string {
   if (!results.length) return "";
   const parts: string[] = [
     "## External MCP context",
@@ -130,9 +114,6 @@ export function formatMcpContextForHandoff(
   return parts.join("\n");
 }
 
-export function listMatchingSourceIds(
-  sources: McpSource[],
-  match: McpMatchContext,
-): string[] {
+export function listMatchingSourceIds(sources: McpSource[], match: McpMatchContext): string[] {
   return matchMcpSources(sources, match).map((s) => s.id);
 }

@@ -5,11 +5,11 @@
 
 import { promises as fs } from "node:fs";
 import { isAbsolute, join, normalize, relative } from "pathe";
+import { getActiveChangeId } from "../change-context.js";
+import { loadConfig } from "../config.js";
 import { pathExists, readText, readYaml } from "../fs.js";
 import { changePath } from "../paths.js";
 import type { Config } from "../schemas.js";
-import { loadConfig } from "../config.js";
-import { getActiveChangeId } from "../change-context.js";
 import { classifyPath } from "./ignore.js";
 import type { CodeContextGap, CodeContextRequest, FocusPlan } from "./types.js";
 
@@ -210,10 +210,7 @@ async function collectUnderPaths(
   return uniq;
 }
 
-async function readBounded(
-  absPath: string,
-  maxChars: number,
-): Promise<string | null> {
+async function readBounded(absPath: string, maxChars: number): Promise<string | null> {
   if (!(await pathExists(absPath))) return null;
   try {
     const text = await readText(absPath);
@@ -394,12 +391,7 @@ export async function resolveFocus(
 
     // If no explicit paths, expand candidates via keyword search under source roots
     if (!request.paths?.length && (keywords.length || seedSymbols.length)) {
-      const found = await searchByKeywords(
-        projectRoot,
-        keywords,
-        seedSymbols,
-        maxWalk,
-      );
+      const found = await searchByKeywords(projectRoot, keywords, seedSymbols, maxWalk);
       for (const f of found) {
         if (!candidatePaths.includes(f)) candidatePaths.push(f);
         if (!seedPaths.includes(f) && seedPaths.length < 20) seedPaths.push(f);
@@ -409,18 +401,9 @@ export async function resolveFocus(
   }
 
   // 3) Query/symbols only (no change, no paths)
-  if (
-    !request.paths?.length &&
-    !change &&
-    (request.query || seedSymbols.length)
-  ) {
+  if (!request.paths?.length && !change && (request.query || seedSymbols.length)) {
     notes.push("Focus from query/symbols only");
-    const found = await searchByKeywords(
-      projectRoot,
-      keywords,
-      seedSymbols,
-      maxWalk,
-    );
+    const found = await searchByKeywords(projectRoot, keywords, seedSymbols, maxWalk);
     for (const f of found) {
       if (!candidatePaths.includes(f)) candidatePaths.push(f);
       if (!seedPaths.includes(f)) seedPaths.push(f);

@@ -7,18 +7,18 @@
  * - copilot: host UI handles agents — we refresh handoff + instruct the human
  */
 import { spawnSync } from "node:child_process";
-import { consola } from "consola";
-import pc from "picocolors";
 import {
+  type AgentTarget,
+  type ChangeContext,
+  type Config,
   agentKickoffMessage,
   loadInstalledAgent,
   refreshActiveAgentContext,
   resolveChangeId,
   writeAgentHandoff,
-  type AgentTarget,
-  type Config,
-  type ChangeContext,
 } from "@structured-vibe-coding/core";
+import { consola } from "consola";
+import pc from "picocolors";
 
 export interface LaunchAgentOptions {
   projectRoot: string;
@@ -89,9 +89,7 @@ export async function launchAgentAfterNew(opts: {
 /**
  * Refresh context, write handoff, launch the init-configured agent.
  */
-export async function launchConfiguredAgent(
-  opts: LaunchAgentOptions,
-): Promise<LaunchAgentResult> {
+export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<LaunchAgentResult> {
   let changeId = opts.changeId ?? opts.ctx?.id;
   try {
     if (!changeId) {
@@ -111,11 +109,7 @@ export async function launchConfiguredAgent(
   let handoffPath: string | null = null;
   if (!opts.reuseHandoff) {
     try {
-      handoffPath = await writeAgentHandoff(
-        opts.projectRoot,
-        opts.config,
-        changeId,
-      );
+      handoffPath = await writeAgentHandoff(opts.projectRoot, opts.config, changeId);
     } catch (err) {
       return {
         handoffPath: null,
@@ -143,9 +137,10 @@ export async function launchConfiguredAgent(
       handoffPath,
       target: installed.target,
       launched: false,
-      reason: opts.noAgent || process.env.SDD_NO_AGENT
-        ? "Skipped (--no-agent or SDD_NO_AGENT)"
-        : "Launch disabled",
+      reason:
+        opts.noAgent || process.env.SDD_NO_AGENT
+          ? "Skipped (--no-agent or SDD_NO_AGENT)"
+          : "Launch disabled",
     };
   }
 
@@ -242,9 +237,7 @@ async function spawnOllamaAgent(opts: {
 
   consola.info(pc.cyan(`Starting ${opts.label} (${model})…`));
   consola.info(
-    pc.dim(
-      `Model: ${model} · override with SDD_OLLAMA_MODEL=… · pull first: ollama pull ${model}`,
-    ),
+    pc.dim(`Model: ${model} · override with SDD_OLLAMA_MODEL=… · pull first: ollama pull ${model}`),
   );
 
   // One-shot: ollama run <model> "<prompt>"
@@ -265,9 +258,7 @@ async function spawnOllamaAgent(opts: {
 
   // Interactive session fallback
   consola.info(pc.dim(`Opening interactive ollama run ${model}…`));
-  consola.info(
-    pc.dim(`Read .sdd/handoff.md and .ollama/sdd.md in this project first.`),
-  );
+  consola.info(pc.dim(`Read .sdd/handoff.md and .ollama/sdd.md in this project first.`));
   const r2 = spawnSync(bin, ["run", model], {
     cwd: opts.cwd,
     stdio: "inherit",
@@ -339,9 +330,7 @@ export async function reportAgentLaunch(result: LaunchAgentResult): Promise<void
     consola.info(`Handoff: ${result.handoffPath}`);
   }
   if (result.launched) {
-    consola.success(
-      `Started ${result.target} (${(result.command ?? []).join(" ")})`,
-    );
+    consola.success(`Started ${result.target} (${(result.command ?? []).join(" ")})`);
     return;
   }
   if (result.reason) {
@@ -349,7 +338,9 @@ export async function reportAgentLaunch(result: LaunchAgentResult): Promise<void
   }
   if (result.target === "grok" && !result.launched) {
     consola.log(
-      pc.dim("  Tip: open Grok Build in this folder — AGENTS.md + .grok/rules/sdd.md load automatically"),
+      pc.dim(
+        "  Tip: open Grok Build in this folder — AGENTS.md + .grok/rules/sdd.md load automatically",
+      ),
     );
   }
   if (result.target === "ollama" && !result.launched) {

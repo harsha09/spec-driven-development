@@ -1,16 +1,11 @@
 /**
  * Unit tests: project templates under .sdd/templates are overridable.
  */
-import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  createChange,
-  initProject,
-  loadConfig,
-  pathExists,
-} from "../index.js";
+import { createChange, initProject, loadConfig, pathExists } from "../index.js";
 
 const temps: string[] = [];
 

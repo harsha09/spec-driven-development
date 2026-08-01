@@ -5,16 +5,11 @@
  */
 
 import { join } from "pathe";
-import type { Config } from "./schemas.js";
-import { buildContext, type ChangeContext } from "./change-context.js";
+import { type ChangeContext, buildContext } from "./change-context.js";
 import { pathExists, writeText } from "./fs.js";
 import { memoryDir, sddRoot } from "./paths.js";
-import {
-  getStage,
-  isStageSkipped,
-  resolveStages,
-  shouldAutoSkip,
-} from "./workflow.js";
+import type { Config } from "./schemas.js";
+import { getStage, isStageSkipped, resolveStages, shouldAutoSkip } from "./workflow.js";
 
 export type RefineMode = "refine" | "analyze";
 
@@ -59,10 +54,7 @@ export interface RefinePlan {
   briefMarkdown: string;
 }
 
-function stageArtifactRefs(
-  ctx: ChangeContext,
-  stageId: string,
-): RefineArtifactRef[] {
+function stageArtifactRefs(ctx: ChangeContext, stageId: string): RefineArtifactRef[] {
   const stage = getStage(ctx.workflow, ctx.meta, stageId);
   if (!stage) return [];
   return stage.artifacts.map((a) => ({
@@ -86,14 +78,8 @@ function listMarkdown(refs: RefineArtifactRef[]): string {
 /**
  * Build a refine plan for the active (or given) change and optional stage.
  */
-export async function buildRefinePlan(
-  opts: BuildRefinePlanOptions,
-): Promise<RefinePlan> {
-  const ctx = await buildContext(
-    opts.projectRoot,
-    opts.config,
-    opts.changeId,
-  );
+export async function buildRefinePlan(opts: BuildRefinePlanOptions): Promise<RefinePlan> {
+  const ctx = await buildContext(opts.projectRoot, opts.config, opts.changeId);
   const mode: RefineMode = opts.mode ?? "refine";
   const focusOnly = Boolean(opts.focusOnly);
   const focusStageId = opts.stageId?.trim() || ctx.meta.stage;
@@ -107,10 +93,7 @@ export async function buildRefinePlan(
     );
   }
 
-  if (
-    isStageSkipped(ctx.meta, focusStageId) ||
-    shouldAutoSkip(all[focusIdx]!, ctx.meta)
-  ) {
+  if (isStageSkipped(ctx.meta, focusStageId) || shouldAutoSkip(all[focusIdx]!, ctx.meta)) {
     throw new Error(
       `Stage "${focusStageId}" is skipped for this change. Un-skip it or pick another stage.`,
     );

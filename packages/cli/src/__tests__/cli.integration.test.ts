@@ -3,8 +3,8 @@
  * Requires `pnpm build` in packages/cli (CI builds before test).
  */
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, readFile, access } from "node:fs/promises";
 import { constants } from "node:fs";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -210,11 +210,7 @@ describe("CLI integration", () => {
     temps.push(root);
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
 
-    const gf = runSdd(root, [
-      "greenfield",
-      "Shared shopping list for roommates",
-      "--no-agent",
-    ]);
+    const gf = runSdd(root, ["greenfield", "Shared shopping list for roommates", "--no-agent"]);
     expect(gf.status, gf.stderr + gf.stdout).toBe(0);
     expect(gf.stdout + gf.stderr).toMatch(/greenfield|vision/i);
     expect(await exists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(true);

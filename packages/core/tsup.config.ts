@@ -11,11 +11,9 @@ const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8")) as {
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
+  dts: true,
   clean: true,
-  banner: {
-    js: "#!/usr/bin/env node",
-  },
   define: {
-    __SDD_VERSION__: JSON.stringify(pkg.version),
+    __SDD_CORE_VERSION__: JSON.stringify(pkg.version),
   },
 });

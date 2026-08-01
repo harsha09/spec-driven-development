@@ -1,10 +1,10 @@
 import { join } from "pathe";
-import { pathExists, readText, removePath, writeText } from "./fs.js";
-import { loadConfig } from "./config.js";
-import { buildContext, getActiveChangeId } from "./change-context.js";
-import type { Config } from "./schemas.js";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
+import { buildContext, getActiveChangeId } from "./change-context.js";
+import { loadConfig } from "./config.js";
+import { pathExists, readText, removePath, writeText } from "./fs.js";
 import { sddRoot } from "./paths.js";
+import type { Config } from "./schemas.js";
 
 /**
  * AI coding agents (not IDEs).
@@ -116,14 +116,7 @@ export const AGENT_TARGET_OPTIONS: AgentTargetOption[] = AGENT_INTEGRATIONS.map(
   }),
 );
 
-const IDE_NAMES = new Set([
-  "intellij",
-  "idea",
-  "jetbrains",
-  "vscode",
-  "vs-code",
-  "cursor",
-]);
+const IDE_NAMES = new Set(["intellij", "idea", "jetbrains", "vscode", "vs-code", "cursor"]);
 
 export function getIntegration(target: AgentTarget): AgentIntegration {
   const found = AGENT_INTEGRATIONS.find((i) => i.id === target);
@@ -251,11 +244,7 @@ export function parseAgentTargets(raw: string | string[]): AgentTarget[] {
 }
 
 /** Roles emitted as thin agents (shared body generator). */
-export type SddAgentRoleId =
-  | "sdd"
-  | "sdd-planner"
-  | "sdd-implementer"
-  | "sdd-reviewer";
+export type SddAgentRoleId = "sdd" | "sdd-planner" | "sdd-implementer" | "sdd-reviewer";
 
 export interface SddAgentRole {
   id: SddAgentRoleId;
@@ -289,8 +278,7 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
   },
   {
     id: "sdd-implementer",
-    description:
-      "SDD implementer. Use when coding the active change (implement stage).",
+    description: "SDD implementer. Use when coding the active change (implement stage).",
     roleLine: "Implementer: code only for the active change pack.",
     roleRules: [
       "Follow tasks.md / acceptance; honor arb-decision and design constraints.",
@@ -365,10 +353,9 @@ export async function installAgentIntegration(
   await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
   await refreshActiveAgentContext(root);
 
-  const roles =
-    integ.rolesToInstall?.length
-      ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
-      : SDD_AGENT_ROLES;
+  const roles = integ.rolesToInstall?.length
+    ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
+    : SDD_AGENT_ROLES;
   for (const role of roles) {
     await write(integ.rolePath(role.id), renderThinAgent(role));
   }

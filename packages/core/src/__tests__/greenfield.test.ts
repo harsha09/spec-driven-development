@@ -1,7 +1,7 @@
 /**
  * Greenfield bootstrap: idea → stages → promote → feature start
  */
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,13 +9,13 @@ import {
   advanceStage,
   completeChange,
   initProject,
+  listBacklogFeatures,
   loadConfig,
   parseFeaturesBacklog,
   pathExists,
   promoteGreenfieldToMemory,
   startFeatureFromBacklog,
   startGreenfield,
-  listBacklogFeatures,
 } from "../index.js";
 
 const temps: string[] = [];
@@ -96,9 +96,7 @@ describe("greenfield lifecycle", () => {
     const vision = await readFile(visionPath, "utf8");
     expect(vision).toContain(idea);
     expect(vision).not.toContain("{{idea}}");
-    expect(await pathExists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(
-      true,
-    );
+    expect(await pathExists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(true);
   });
 
   it("rejects empty idea", async () => {
@@ -106,9 +104,9 @@ describe("greenfield lifecycle", () => {
     temps.push(root);
     await initProject({ projectRoot: root, agents: "grok" });
     const config = await loadConfig(root);
-    await expect(
-      startGreenfield({ projectRoot: root, config, idea: "ab" }),
-    ).rejects.toThrow(/one-line product idea/i);
+    await expect(startGreenfield({ projectRoot: root, config, idea: "ab" })).rejects.toThrow(
+      /one-line product idea/i,
+    );
   });
 
   it("walks stages, promotes to memory, starts F-001", async () => {
@@ -126,10 +124,7 @@ describe("greenfield lifecycle", () => {
 
     await writeFile(
       join(ctx.path, "requirements.md"),
-      meat(
-        "Requirements",
-        "R-001: Users shall add items. R-002: Users shall mark bought.",
-      ),
+      meat("Requirements", "R-001: Users shall add items. R-002: Users shall mark bought."),
       "utf8",
     );
     adv = await advanceStage(root, config, ctx.id);
@@ -177,10 +172,7 @@ describe("greenfield lifecycle", () => {
     expect(backlog).toMatch(/## F-001:[\s\S]*?\*\*Status:\*\*\s*in_progress/i);
 
     // Seeded first artifact is substantive
-    const featureMd = await readFile(
-      join(started.ctx.path, "feature.md"),
-      "utf8",
-    );
+    const featureMd = await readFile(join(started.ctx.path, "feature.md"), "utf8");
     expect(featureMd).toMatch(/Capture expense|F-001/);
     expect(featureMd).toMatch(/receipt/i);
   });

@@ -27,10 +27,7 @@ export function isSubstantiveArtifactContent(content: string): boolean {
   return meaningful.length >= 32;
 }
 
-export function incompleteArtifactReason(
-  path: string,
-  content: string | null,
-): string | null {
+export function incompleteArtifactReason(path: string, content: string | null): string | null {
   if (content == null) {
     return `Missing required artifact: ${path}`;
   }
