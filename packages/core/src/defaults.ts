@@ -33,3 +33,7 @@ export function defaultTemplatesDir(): string {
 export function defaultMemoryDir(): string {
   return join(defaultsRoot(), "memory");
 }
+
+export function defaultMcpYamlPath(): string {
+  return join(defaultsRoot(), "mcp.yaml");
+}

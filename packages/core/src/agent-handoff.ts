@@ -102,7 +102,7 @@ export async function buildAgentPrompt(
   parts.push("");
 
   // Structure-aware product code context pointer (implement / local_verify only).
-  // Do NOT run the code-context pipeline here — instructional pointer only (ARB #8).
+  // Local AST: sdd context. External engines: .sdd/mcp.yaml sources (auto-fetched below when configured).
   const stageId = ctx.meta.stage;
   if (stageId === "implement" || stageId === "local_verify") {
     parts.push(`## Code context (product code)`);
@@ -120,9 +120,43 @@ export async function buildAgentPrompt(
       `2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`,
     );
     parts.push(
-      `Do not dump unbounded source into the prompt; prefer the sliced output.`,
+      `3. Org libraries / remote AST: configure \`.sdd/mcp.yaml\` and \`sdd mcp fetch\` (see External MCP context below)`,
+    );
+    parts.push(
+      `Do not dump unbounded source into the prompt; prefer sliced / MCP output.`,
     );
     parts.push("");
+  }
+
+  // Pull from project-configured external MCP sources (design system, AST, API catalog, …)
+  try {
+    const { loadMcpConfig } = await import("./mcp/sources.js");
+    const {
+      gatherMcpContextForChange,
+      formatMcpContextForHandoff,
+    } = await import("./mcp/gather.js");
+    const mcpCfg = await loadMcpConfig(projectRoot);
+    if (mcpCfg.auto_fetch_on_handoff && mcpCfg.sources.length) {
+      const fetched = await gatherMcpContextForChange(projectRoot, ctx);
+      const block = formatMcpContextForHandoff(
+        fetched.filter((r) => r.ok || r.error),
+      );
+      if (block) {
+        parts.push(block);
+      }
+    } else if (mcpCfg.sources.length === 0) {
+      parts.push(`## External MCP sources`);
+      parts.push("");
+      parts.push(
+        `No sources in \`.sdd/mcp.yaml\` yet. To attach org libraries / AST engines:`,
+      );
+      parts.push(
+        `\`sdd mcp sources add --help\` · docs: Configure MCP sources`,
+      );
+      parts.push("");
+    }
+  } catch {
+    // Non-fatal: handoff still useful without MCP
   }
 
   parts.push(

@@ -64,6 +64,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(zod@3.25.76)
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
