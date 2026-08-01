@@ -25,7 +25,7 @@ Specs can look long, but **git markdown is the right default**:
 - Agents and humans share the same files  
 - No second database to sync  
 
-Save **tokens on product source code** (use `sdd context` or the [MCP AST server](../guides/code-context)), not by inventing a private format for intent/design.
+Save **tokens on product source code** (use `sdd context` or **`sdd mcp`** tools in the CLI — [guide](../guides/code-context)), not by inventing a private format for intent/design.
 
 ## Layout
 
