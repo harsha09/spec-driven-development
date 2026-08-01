@@ -103,7 +103,7 @@ export default defineConfig({
             description: defaultDescription,
             url: siteUrl,
             downloadUrl: "https://www.npmjs.com/package/@structured-vibe-coding/cli",
-            softwareVersion: "0.12",
+            softwareVersion: "0.13",
             license: "https://opensource.org/licenses/MIT",
             offers: {
               "@type": "Offer",
