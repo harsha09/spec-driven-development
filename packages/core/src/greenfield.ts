@@ -189,7 +189,13 @@ export async function listBacklogFeatures(
   const path = await findFeaturesBacklogPath(projectRoot, config);
   if (!path) {
     throw new Error(
-      "No feature backlog found. Run `sdd greenfield \"your idea\"` and complete the features stage (or add memory/features.md).",
+      [
+        "No feature backlog found.",
+        "Options:",
+        '  1. sdd greenfield "your idea" → fill features.md → sdd next … → sdd complete',
+        "  2. Or add memory/features.md with ## F-001: Name blocks",
+        "  3. If a greenfield pack is mid-flight, finish the features stage first (features.md must exist and list F-NNN items)",
+      ].join("\n"),
     );
   }
   const features = parseFeaturesBacklog(await readText(path), path);

@@ -46,8 +46,8 @@ export async function toolHelp() {
       "- Project must be initialized: `sdd init --here --ai …`",
       "- Prefer env `SDD_PROJECT_ROOT=/abs/path/to/app` in MCP config",
       "",
-      "## Process",
-      "- sdd_status, sdd_list_changes, sdd_workflows",
+      "## Process (same as CLI)",
+      "- sdd_doctor, sdd_status (list=true for all open changes), sdd_workflows",
       "- sdd_new, sdd_greenfield, sdd_feature_list, sdd_feature_start",
       "- sdd_next, sdd_skip, sdd_use, sdd_gate, sdd_verify, sdd_complete",
       "- sdd_handoff (refresh brief for the current change)",
@@ -56,6 +56,7 @@ export async function toolHelp() {
       "- sdd_code_context — AST slices; prefer symbols/paths; default maxTokens 4000",
       "",
       "Use sdd_code_context for product code. Keep specs as markdown under changes/.",
+      "CLI and MCP both honor SDD_PROJECT_ROOT when set.",
       "",
     ].join("\n"),
   );
