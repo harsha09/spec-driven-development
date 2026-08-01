@@ -16,6 +16,17 @@ After work finishes, copy lasting rules into `memory/constitution.md` when they 
 
 **Pack = this work. Memory = product law.**
 
+### Why markdown (not a binary store)?
+
+Specs can look long, but **git markdown is the right default**:
+
+- Reviewable in PRs next to code  
+- Works offline with any editor  
+- Agents and humans share the same files  
+- No second database to sync  
+
+Save **tokens on product source code** (use `sdd context` or the [MCP AST server](../guides/code-context)), not by inventing a private format for intent/design.
+
 ## Layout
 
 ```text
