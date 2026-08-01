@@ -1,6 +1,6 @@
 {
   "name": "@structured-vibe-coding/core",
-  "version": "0.16.1",
+  "version": "0.16.2",
   "description": "Core engine for sdd — local Spec-Driven Development workflows, change packs, greenfield, and agent handoff",
   "type": "module",
   "main": "./dist/index.js",
