@@ -1,8 +1,13 @@
+---
+title: Everyday sdd loop
+description: The daily Spec-Driven Development loop with sdd — new, next, refine, verify, complete — plus greenfield discovery and multi-PR checkout.
+---
+
 # Everyday loop
 
-> Run the normal change lifecycle without rereading the whole site.
+You already know the tool. You do not want to re-open the whole docs site every Monday.
 
-You shouldn’t have to relearn which command comes after implement. Use one fixed loop so handoffs stay consistent for you and the agent.
+This page is the **fixed rhythm**: same commands, same handoff to the agent, every change.
 
 ::: tip First time?
 Use the [first change tutorial](../tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](./simple-feature) / [enterprise](./enterprise) guides for larger work. **New product?** → [Greenfield](./greenfield).

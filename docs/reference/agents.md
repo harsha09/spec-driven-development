@@ -1,3 +1,8 @@
+---
+title: Available AI agents for sdd
+description: AI hosts supported by sdd init — GitHub Copilot, Grok Build, Claude Code, and Ollama — install paths and how each launches.
+---
+
 # Available AI agents
 
 At **`sdd init`** you install **exactly one** AI coding agent host. Switch later with `sdd agents install --ai <host> --force`.

@@ -1,4 +1,11 @@
+---
+title: What you can achieve with sdd
+description: Outcomes with local Spec-Driven Development — paper trail per PR, greenfield product spine, AI handoffs in git, hotfix to enterprise ARB on one CLI.
+---
+
 # What you can achieve with sdd
+
+Not features of a tool — **outcomes you can point at in the repo** after a week of use.
 
 ## For any team size
 

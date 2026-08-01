@@ -1,7 +1,7 @@
 {
   "name": "@structured-vibe-coding/core",
   "version": "0.13.0",
-  "description": "Core engine for structured vibe coding (local-first Spec-Driven Development)",
+  "description": "Core engine for sdd — local Spec-Driven Development workflows, change packs, greenfield, and agent handoff",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -58,6 +58,10 @@
     "spec-driven-development",
     "structured-vibe-coding",
     "ai-coding",
-    "workflow"
+    "ai-coding-agent",
+    "workflow",
+    "greenfield",
+    "change-packs",
+    "local-sdd"
   ]
 }

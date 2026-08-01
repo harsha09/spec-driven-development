@@ -1,13 +1,22 @@
+---
+title: Enterprise Spec-Driven Development with sdd
+description: Run ARB, LLD, DB design, and hard gates with the same local sdd CLI — process encoded in the repo for platform and multi-team work.
+---
+
 # Enterprise-level work
 
-Use the same `sdd` CLI with a **heavier workflow**, **hard gates**, and **project memory** (constitution / conventions).
+Platform migration. Shared auth. A change auditors will ask about. You need a **reviewable trail** and hard stop-points — not a second SaaS for process.
+
+Use the same `sdd` CLI with a **heavier workflow**, **hard gates**, and **project memory** (constitution / conventions). Process stays next to the code on every laptop that clones the repo.
+
+> **Outcome:** ARB packet and decision in the pack, LLD and research when needed, implement only after gates pass.
 
 ## When to use this path
 
 - Cross-team platform or migration work  
 - Architecture review board (ARB) required  
 - Explicit design / DB / research before code  
-- You need a reviewable pack for auditors or architects  
+- Reviewable pack for auditors or architects  
 
 ::: tip New product first?
 If the **product does not exist yet**, start with [Greenfield](./greenfield) for vision + backlog, then use `enterprise-feature` (or set `Workflow: enterprise-feature` on a backlog row) for high-risk delivery packs.
@@ -74,7 +83,8 @@ Not a multi-tenant cloud control plane — suitable for regulated *engineering p
 
 ## Related
 
-- [Built-in workflows](../reference/workflows)  
 - [What you can achieve](../concepts/what-you-can-achieve)  
+- [Built-in workflows](../reference/workflows)  
 - [Simple feature](./simple-feature)  
+- [Greenfield](./greenfield)  
 - [CI/CD for this monorepo](../maintainers/ci-cd)  

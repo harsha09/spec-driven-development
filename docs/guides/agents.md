@@ -1,6 +1,11 @@
+---
+title: AI agents setup for sdd
+description: Install one AI coding agent with sdd init — GitHub Copilot, Grok Build, Claude Code, or Ollama — and run the Spec-Driven Development agent loop.
+---
+
 # AI agents (init + hosts)
 
-> Install **one** AI coding agent with `sdd init` and run the everyday agent loop.
+Pick **one** AI host. Run the process CLI. The agent does the writing.
 
 People often confuse IDEs with AI agents, or install every host at once. `sdd` follows a Spec Kit–style single host: `--ai grok | copilot | claude | ollama` — clean stubs, one protocol, no extension required.
 

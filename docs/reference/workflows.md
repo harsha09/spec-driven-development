@@ -1,3 +1,8 @@
+---
+title: Built-in sdd workflows
+description: Default Spec-Driven Development workflow packs — hotfix, patch, feature, greenfield, spike, enterprise-feature — stages and when to use each.
+---
+
 # Built-in workflows
 
 Shipped under `.sdd/workflows/` after `sdd init` (from package defaults). List anytime:
