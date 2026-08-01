@@ -145,24 +145,25 @@ export default defineConfig({
   themeConfig: {
     siteTitle: "sdd",
     nav: [
-      { text: "Get started", link: "/tutorials/first-change" },
+      { text: "Start (10 min)", link: "/tutorials/first-change" },
       { text: "What is sdd", link: "/concepts/what-is-sdd" },
       {
-        text: "Paths",
+        text: "Guides",
         items: [
-          { text: "New product (greenfield)", link: "/guides/greenfield" },
-          { text: "Simple feature", link: "/guides/simple-feature" },
-          { text: "Enterprise / ARB", link: "/guides/enterprise" },
           { text: "Everyday loop", link: "/guides/everyday-loop" },
+          { text: "Simple feature", link: "/guides/simple-feature" },
+          { text: "New product", link: "/guides/greenfield" },
+          { text: "Enterprise", link: "/guides/enterprise" },
+          { text: "Set up AI", link: "/guides/agents" },
         ],
       },
       {
         text: "Reference",
         items: [
+          { text: "Commands", link: "/reference/cli" },
           { text: "Workflows", link: "/reference/workflows" },
-          { text: "AI agents", link: "/reference/agents" },
-          { text: "CLI commands", link: "/reference/cli" },
-          { text: "Project layout", link: "/reference/layout" },
+          { text: "AI hosts", link: "/reference/agents" },
+          { text: "Folders", link: "/reference/layout" },
         ],
       },
       {
@@ -176,44 +177,39 @@ export default defineConfig({
         text: "Start here",
         items: [
           { text: "Home", link: "/" },
-          { text: "Your first change (10 min)", link: "/tutorials/first-change" },
+          { text: "Start in 10 minutes", link: "/tutorials/first-change" },
           { text: "What is sdd?", link: "/concepts/what-is-sdd" },
           { text: "Why sdd exists", link: "/concepts/why-sdd" },
           { text: "What you can achieve", link: "/concepts/what-you-can-achieve" },
         ],
       },
       {
-        text: "Paths",
+        text: "Do the work",
         items: [
-          { text: "New product (greenfield)", link: "/guides/greenfield" },
-          { text: "Simple feature", link: "/guides/simple-feature" },
-          { text: "Enterprise / ARB", link: "/guides/enterprise" },
           { text: "Everyday loop", link: "/guides/everyday-loop" },
+          { text: "Simple feature", link: "/guides/simple-feature" },
+          { text: "New product", link: "/guides/greenfield" },
+          { text: "Enterprise", link: "/guides/enterprise" },
+          { text: "Set up your AI", link: "/guides/agents" },
         ],
       },
       {
-        text: "Concepts",
+        text: "Learn more",
         items: [
           { text: "Change packs & memory", link: "/concepts/change-packs" },
-          { text: "Agents vs IDEs", link: "/concepts/agents-vs-ides" },
-        ],
-      },
-      {
-        text: "How to",
-        items: [
-          { text: "AI agents setup", link: "/guides/agents" },
-          { text: "Refine a stage", link: "/guides/refine" },
-          { text: "Code context (AST)", link: "/guides/code-context" },
+          { text: "Agents vs editors", link: "/concepts/agents-vs-ides" },
+          { text: "Improve notes (refine)", link: "/guides/refine" },
+          { text: "Code context", link: "/guides/code-context" },
           { text: "Customize workflows", link: "/guides/customize" },
         ],
       },
       {
-        text: "Reference",
+        text: "Look up",
         items: [
-          { text: "Built-in workflows", link: "/reference/workflows" },
-          { text: "Available agents", link: "/reference/agents" },
-          { text: "CLI commands", link: "/reference/cli" },
-          { text: "Project layout", link: "/reference/layout" },
+          { text: "Commands", link: "/reference/cli" },
+          { text: "Workflows", link: "/reference/workflows" },
+          { text: "AI hosts", link: "/reference/agents" },
+          { text: "Folders", link: "/reference/layout" },
         ],
       },
       {

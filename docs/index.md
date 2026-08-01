@@ -2,103 +2,77 @@
 layout: home
 title: Local Spec-Driven Development for AI coding
 titleTemplate: sdd
-description: Your AI ships code in minutes. The decisions evaporate. sdd is a local CLI process coach that keeps intent, design, and verify notes in git — hotfix to greenfield to enterprise ARB. No IDE extension.
+description: sdd keeps your AI coding decisions in git. A simple CLI process coach for hotfixes, features, new products, and enterprise work. No IDE extension.
 head:
   - - meta
     - name: description
-      content: Your AI ships code in minutes. The decisions evaporate. sdd is a local CLI process coach that keeps intent, design, and verify notes in git — hotfix to greenfield to enterprise ARB.
+      content: sdd keeps your AI coding decisions in git. A simple CLI process coach for hotfixes, features, new products, and enterprise work. No IDE extension.
 hero:
   name: sdd
-  text: The process spine for AI coding
-  tagline: Your agent writes fast. Decisions still get lost. Keep the trail next to the code — stages, markdown packs, one AI host. No cloud SDD product. No IDE extension.
+  text: Stop losing the “why”
+  tagline: Your AI writes code fast. The reasons disappear into chat. sdd is a small CLI that keeps short notes next to your code — so you, your team, and the agent stay aligned.
   actions:
     - theme: brand
-      text: Your first change · 10 min
+      text: Start in 10 minutes
       link: /tutorials/first-change
     - theme: alt
       text: What is sdd?
       link: /concepts/what-is-sdd
-    - theme: alt
-      text: Why it exists
-      link: /concepts/why-sdd
 features:
-  - title: Feel the win in ten minutes
-    details: Init once, open a tiny hotfix pack, paste three sentences of intent, run sdd next. You will see stages move — process without a second career in process.
-  - title: Match ceremony to risk
-    details: Typo? Three stages. Real feature? Design and tasks. New product? Vision and backlog. Enterprise? ARB hard gates. Same CLI.
-  - title: Agents write. You own the trail.
-    details: Copilot, Grok, Claude, or Ollama — one host at init. Specs and verify notes live in git where reviewers already look.
+  - title: Simple commands
+    details: "new → fill a short file → next → code → complete. You always know where you are with sdd status."
+  - title: As light or as heavy as you need
+    details: Tiny fix? Three steps. Real feature? A bit more. New product or big platform work? Longer path. Same tool.
+  - title: Works with your AI
+    details: Pick Copilot, Grok, Claude, or Ollama once. Use any editor. No marketplace extension required.
 ---
 
-## The problem in one breath
-
-Vibe coding ships. Then nobody remembers *why* that edge case was “fine,” what success meant, or what was out of scope. Heavy SDD tools fix that — and often feel like a second job.
-
-**`sdd` is the middle path:** a local process coach in your terminal. You and your AI fill short markdown files; the CLI moves you through stages and hands the agent a live brief.
-
----
-
-## Start here
-
-| You are… | Go here |
-|----------|---------|
-| **New — I want a win today** | [Your first change (10 min)](./tutorials/first-change) |
-| **Starting a brand-new product** | [Greenfield from a one-line idea](./guides/greenfield) |
-| **Adding a feature to an existing app** | [Simple feature guide](./guides/simple-feature) |
-| **Doing platform / ARB / multi-team work** | [Enterprise path](./guides/enterprise) |
-
-| Question | Page |
-|----------|------|
-| What is this, in plain language? | [What is sdd](./concepts/what-is-sdd) |
-| Why not just chat with the agent? | [Why sdd exists](./concepts/why-sdd) |
-| What can my team actually achieve? | [What you can achieve](./concepts/what-you-can-achieve) |
-| Which AI hosts? | [Available agents](./reference/agents) |
-| Command list | [CLI reference](./reference/cli) |
-
----
-
-## Quick start
-
-**First loop (hotfix — learn the tool):**
+## Try it in three steps
 
 ```bash
-npm install -g @structured-vibe-coding/cli   # Node 20+; 24 recommended
+npm install -g @structured-vibe-coding/cli
 cd your-app
-sdd init --here --ai copilot                 # or: grok | claude | ollama
-sdd doctor
-sdd new "Fix empty list crash" -w hotfix -y
-# paste real intent into changes/<id>/intent.md  →  sdd next  →  implement  →  sdd complete
+sdd init --here --ai copilot          # or: grok | claude | ollama
+sdd new "Fix empty list crash" -w hotfix -y --no-agent
+# open the intent.md path it prints → paste a few real sentences →
+sdd next --no-agent
 ```
 
-Prefer a guided walkthrough with a paste-ready sample? → **[Your first change](./tutorials/first-change)**.
+Full walkthrough with a paste-ready example: **[Start in 10 minutes](./tutorials/first-change)**.
 
-**New product (one-line idea):**
-
-```bash
-sdd greenfield "Team expense tracker for remote startups"
-# vision → requirements → features → architecture → sdd complete
-sdd feature list && sdd feature start F-001
-```
-
-Full path: [Greenfield guide](./guides/greenfield).
+::: tip Learning tip
+Add `--no-agent` the first time. You learn the process without the AI window popping up. Drop the flag later when you want the agent to help.
+:::
 
 ---
 
-## Needs
+## Which page should I open?
 
-| | |
-|--|--|
-| **Node.js** | 20+ (24 recommended) |
-| **AI host** | Copilot, Grok, Claude Code, or Ollama at `sdd init` (required) |
-| **Time** | ~10 minutes for the first hotfix loop |
-| **Editor** | Any — no extension |
-
-Learn process without the agent launching every time: add `--no-agent` (or `SDD_NO_AGENT=1`).
+| I want to… | Open this |
+|------------|-----------|
+| **Learn sdd right now** | [Start in 10 minutes](./tutorials/first-change) |
+| **Understand what it is** | [What is sdd?](./concepts/what-is-sdd) |
+| **Build a new product from an idea** | [New product (greenfield)](./guides/greenfield) |
+| **Add a feature to my app** | [Simple feature](./guides/simple-feature) |
+| **Do serious / multi-team work** | [Enterprise path](./guides/enterprise) |
+| **See the daily commands** | [Everyday loop](./guides/everyday-loop) |
+| **Look up a command** | [CLI reference](./reference/cli) |
 
 ---
 
-## What people say after the first loop
+## What you need
 
-You will not get a new IDE. You will get a folder under `changes/` with intent, a status line that moves, and a habit your agent can follow next time.
+| Need | Detail |
+|------|--------|
+| **Node.js** | 20 or newer (24 is nice) |
+| **An AI tool** | One of: GitHub Copilot, Grok, Claude Code, or Ollama |
+| **Time** | About 10 minutes for the first loop |
+| **Editor** | Whatever you already use |
 
-When you are ready for the daily rhythm: [Everyday loop](./guides/everyday-loop).
+---
+
+## How it feels after the first run
+
+You get a folder under `changes/` with a short write-up of the work, a status that moves when you run `sdd next`, and a habit your AI can follow next time.
+
+Ready for the daily rhythm? → [Everyday loop](./guides/everyday-loop)

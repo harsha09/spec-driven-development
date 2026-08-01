@@ -1,57 +1,48 @@
 ---
-title: Your first change with sdd (10 minutes)
-description: Install the sdd Spec-Driven Development CLI, run a hotfix change pack with your AI coding agent, and complete your first local loop in about ten minutes.
+title: Start with sdd in 10 minutes
+description: Install sdd, create a small change, write a few sentences, and finish your first loop — step by step for beginners.
 ---
 
-# Tutorial: your first change
+# Start in 10 minutes
 
-You are ten minutes from a working habit: a **change pack** in git, stages that move when you say so, and a file your AI can fill next time.
+This is the friendliest way to learn **sdd**. You’ll make a tiny “change,” write a few sentences, and finish. No enterprise process. No long theory.
 
-> **You need:** Node.js 20+ (24 recommended) and about **10 minutes**.  
-> You will install `sdd`, create a small hotfix pack, paste a few sentences, advance stages, and complete.
+| | |
+|--|--|
+| **Time** | About 10 minutes |
+| **You need** | Node.js 20+ and a folder for an app (or an empty folder) |
+| **Goal** | Feel the loop: start → write a note → next → finish |
 
-::: tip One path only
-This page is a single **hotfix** happy path so you learn the loop fast.  
-New product? → [Greenfield](../guides/greenfield).  
-Larger existing-app feature? → [Simple feature](../guides/simple-feature).  
-Everyday loop after this: [everyday loop](../guides/everyday-loop).
+::: tip Stay calm
+We’ll use `--no-agent` so nothing launches an AI window while you learn. You can turn the agent on later.
 :::
 
-## What you’ll get
-
-`sdd` is a **process coach** in your terminal. It keeps a folder of markdown for *this* piece of work (a “change pack”). You and your AI write the content; `sdd` moves you through stages.
-
-```text
-your-app/
-  .sdd/                 ← process config
-  memory/               ← optional project notes
-  changes/
-    2026-…-fix-…/
-      meta.yaml         ← stage + status
-      intent.md         ← you fill this first
-```
+::: info Other paths
+New product? → [Greenfield](../guides/greenfield)  
+Bigger feature? → [Simple feature](../guides/simple-feature) after this tutorial  
+:::
 
 ---
 
-## 1. Install the CLI (pick one)
+## Step 1 — Install
 
-### A — Quickest (no global install)
-
-From any folder, once packages are on npm:
-
-```bash
-npx @structured-vibe-coding/cli --help
-# later commands: npx @structured-vibe-coding/cli init --here --ai copilot
-```
-
-Or install globally:
+**Easiest (recommended):**
 
 ```bash
 npm install -g @structured-vibe-coding/cli
 sdd --help
 ```
 
-### B — Build from this monorepo (if npm package isn’t available yet)
+**Or without a global install:**
+
+```bash
+npx @structured-vibe-coding/cli --help
+```
+
+If you use `npx`, put `npx @structured-vibe-coding/cli` wherever you see `sdd` below.
+
+<details>
+<summary>Building from this GitHub repo instead?</summary>
 
 ```bash
 git clone https://github.com/harsha09/spec-driven-development.git
@@ -62,79 +53,75 @@ pnpm --filter @structured-vibe-coding/cli link --global
 sdd --help
 ```
 
-If `sdd` is “not found”, use path B again or call:
-
-```bash
-node /path/to/spec-driven-development/packages/cli/dist/index.js --help
-```
+</details>
 
 ---
 
-## 2. Open an app folder
+## Step 2 — Go to your app
 
 ```bash
-cd ~/projects/my-app    # any project, or mkdir demo-app && cd demo-app
+cd ~/projects/my-app
+# or: mkdir demo-app && cd demo-app
 ```
 
-`sdd` lives **next to** your code. It does not replace React, Python, etc.
+`sdd` lives **next to** your code. It doesn’t replace React, Python, etc.
 
 ---
 
-## 3. Pick your AI (required — one host)
+## Step 3 — One-time setup
 
-| You have… | Init command |
-|-----------|----------------|
-| **GitHub Copilot** in VS Code / Cursor | `sdd init --here --ai copilot` |
-| **Grok Build** CLI | `sdd init --here --ai grok` |
-| **Claude Code** CLI | `sdd init --here --ai claude` |
-| **Ollama** (local models) | `sdd init --here --ai ollama` then `ollama pull llama3.2` |
+Pick **one** AI tool (you can change later):
+
+| If you use… | Run |
+|-------------|-----|
+| GitHub Copilot | `sdd init --here --ai copilot` |
+| Grok | `sdd init --here --ai grok` |
+| Claude Code | `sdd init --here --ai claude` |
+| Ollama (local) | `sdd init --here --ai ollama` then `ollama pull llama3.2` |
 
 ```bash
 sdd init --here --ai copilot
 sdd doctor
 ```
 
-`sdd doctor` should show green checks for init (and AI host if you picked one).
-
-**Expected folders** after init:
-
-```text
-.sdd/
-memory/
-changes/
-# plus, depending on --ai:
-# .github/agents/   or  .grok/rules/  or  .claude/agents/
-```
+You want green checks from `sdd doctor`. After init you should see folders like `.sdd/`, `memory/`, and `changes/`.
 
 ---
 
-## 4. Start a change
+## Step 4 — Start a tiny change
 
 ```bash
-sdd new "Fix empty list crash" -w hotfix -y
+sdd new "Fix empty list crash" -w hotfix -y --no-agent
 ```
 
-| Flag | Meaning |
-|------|---------|
-| `-w hotfix` | Short 3-stage path (good first loop) |
-| `-y` | Accept workflow without an extra confirm prompt |
+| Flag | Why |
+|------|-----|
+| `-w hotfix` | Shortest path (great for learning) |
+| `-y` | Don’t ask extra questions |
+| `--no-agent` | Don’t open the AI yet |
 
-The CLI prints **Next steps** and a file path. Copy that path. (It may also launch your AI agent — you can still edit `intent.md` yourself.)
+The tool prints a path to a file. That’s your **intent** file — the short note for this work.
 
-**Example status shape:**
+Check where you are anytime:
+
+```bash
+sdd status
+```
+
+You should see something like:
 
 ```text
 Stage:    intent
-[●] intent — Intent
-[ ] implement — Implement
-[ ] local_verify — Local smoke
+[●] intent
+[ ] implement
+[ ] local_verify
 ```
 
 ---
 
-## 5. Fill the first file (paste this)
+## Step 5 — Write a few real sentences
 
-Open the file under `changes/<id>/` named **`intent.md`** (hotfix) and replace everything with:
+Open `intent.md` under `changes/<something>/` and **replace** the template with:
 
 ```markdown
 # Intent
@@ -146,44 +133,51 @@ Fix: show an empty state when there are zero rows instead of throwing.
 Success: open expenses with no data — no error, empty state UI visible.
 ```
 
-That is enough “real content” for `sdd next` to accept the stage.
-
-::: tip
-If you prefer AI to draft it: run `sdd agent` (without `--no-agent` on a later `new`) and say: “Fill intent.md only with a short problem, fix, and success.”
-:::
+That’s enough. Empty templates block the next step on purpose — so the note is real, not a placeholder.
 
 ---
 
-## 6. Advance, implement, finish
+## Step 6 — Move forward and finish
 
 ```bash
-sdd next
-# Now stage is implement — fix the bug in your app (or ask your AI to)
-sdd next
-# optional: write a line in local-test-results.md
-sdd complete
+sdd next --no-agent
+# stage is now "implement" — fix the bug (or skip real code in a demo folder)
+sdd next --no-agent
+sdd complete --no-agent
 ```
 
-**You’re done when** `sdd status` shows no active change (or the pack’s `meta.yaml` has `status: completed`).
+**You’re done when** `sdd status` no longer shows this as the active in-progress work (or the change’s status is completed).
 
 ---
 
-## If something fails
+## If something goes wrong
 
-| Problem | What to do |
-|---------|------------|
-| `sdd: command not found` | Re-run install, or use `npx` / full path to `packages/cli/dist/index.js` |
-| `next` says artifact incomplete | Open the file in the error; paste the sample intent above |
-| Wrong AI files | `sdd agents install --ai copilot --force` (or grok / claude) |
-| Unsure about setup | `sdd doctor` |
+| What you see | What to do |
+|--------------|------------|
+| `sdd: command not found` | Install again, or use `npx @structured-vibe-coding/cli …` |
+| `next` says the file is incomplete | Paste the sample intent above into `intent.md` |
+| Unsure if setup is OK | Run `sdd doctor` |
+| Want a different AI | `sdd agents install --ai grok --force` (or copilot / claude / ollama) |
 
 ---
 
-## Next steps
+## What you just learned
 
-| Goal | Page |
-|------|------|
-| Run the loop with the agent every time | [Everyday loop](../guides/everyday-loop) |
-| Wire Copilot / Grok / Claude properly | [Agents](../guides/agents) |
-| Improve specs mid-change | [Refine](../guides/refine) |
-| Why this tool exists | [Why sdd](../concepts/why-sdd) |
+| Command | Meaning |
+|---------|---------|
+| `sdd init` | One-time project setup |
+| `sdd new` | Start a piece of work |
+| `sdd status` | Where am I? |
+| `sdd next` | This step is done; go to the next |
+| `sdd complete` | This piece of work is finished |
+
+---
+
+## What next?
+
+| I want to… | Go here |
+|------------|---------|
+| Use the same loop every day | [Everyday loop](../guides/everyday-loop) |
+| Turn the AI on after process steps | [AI agents setup](../guides/agents) |
+| Ship a real feature | [Simple feature](../guides/simple-feature) |
+| Start a product from one sentence | [Greenfield](../guides/greenfield) |

@@ -1,79 +1,87 @@
 ---
-title: Greenfield — new product from a one-line idea
-description: Bootstrap a new product with sdd greenfield — vision, requirements, feature backlog, architecture — then implement each F-001 item as a normal change pack.
+title: New product from a one-line idea
+description: Turn a one-line product idea into vision, requirements, a feature list, and architecture with sdd greenfield — then build each feature one at a time.
 ---
 
-# Greenfield: new product from a one-line idea
+# New product from a one-line idea
 
-You have a **one-line idea**. You do not have a backlog, an architecture doodle, or six half-started repos.
+You have a **sentence**, not a backlog. Greenfield helps you write a small product plan *before* you drown in code — then you build **one feature at a time**.
 
-Greenfield is the path that turns that sentence into a **product spine** — vision, testable requirements, PR-sized features, and a simple architecture — *before* you drown in implementation. Then each feature ships as its own change pack.
+| | |
+|--|--|
+| **Best for** | Empty repo / brand-new MVP |
+| **You’ll get** | Notes in `memory/` + a list of features like F-001 |
+| **Not for** | A single bug on an existing app → use [simple feature](./simple-feature) or a hotfix |
 
-> **Outcome:** `memory/product.md`, requirements, `features.md` (F-001…), architecture — plus a habit your agent can follow on day two.
+> **Picture it:** idea → short plan → list of features → simple architecture → implement F-001, F-002, …
 
-**Time:** discovery is a focused session (not ten minutes). Delivery packs after that use the normal feature loop.
+---
 
-## When to use
+## When to use which path
 
 | Situation | Command |
 |-----------|---------|
-| Empty repo / new MVP | `sdd greenfield "…"` |
-| Existing app, one feature | [Simple feature](./simple-feature) |
-| Hotfix / typo | `sdd new "…" -w hotfix -y` |
+| New product | `sdd greenfield "…"` |
+| Feature on existing app | [Simple feature](./simple-feature) |
+| Tiny fix | `sdd new "…" -w hotfix -y` |
 
-## 1. Init (once)
+---
+
+## 1. One-time setup
 
 ```bash
-cd your-app   # or empty folder
+cd your-app   # or an empty folder
 sdd init --here --ai copilot    # or grok | claude | ollama
 sdd doctor
 ```
 
-## 2. Start greenfield
+---
+
+## 2. Start from your idea
 
 ```bash
 sdd greenfield "Team expense tracker for remote startups"
 ```
 
-That creates a **greenfield** change pack and seeds `vision.md` with your idea. Stages:
+You’ll walk four steps (fill a short file each time):
 
-1. **vision** — who, problem, MVP success, non-goals  
-2. **requirements** — testable shall/should statements  
-3. **features** — PR-sized items `F-001`, `F-002`, …  
-4. **architecture** — simple MVP shape (not enterprise scale)
+1. **Vision** — who is it for, problem, how you know MVP worked  
+2. **Requirements** — clear “must / should” statements  
+3. **Features** — small items `F-001`, `F-002`, … (one PR each)  
+4. **Architecture** — simple system shape (keep it modest)
 
 ```bash
-# Fill vision.md with real sentences (smallest useful product)
+# After writing each file:
 sdd next
-# Fill requirements.md
-sdd next
-# Fill features.md (keep Status: planned)
-sdd next
-# Fill architecture.md
+# … until architecture is done …
 sdd complete
 ```
 
-On **complete**, substantive files promote into **memory/**:
+When you complete, good content is copied into **`memory/`** so later work can reuse it:
 
-| Change artifact | Memory file |
-|-----------------|-------------|
-| `vision.md` | `memory/product.md` |
-| `requirements.md` | `memory/requirements.md` |
-| `features.md` | `memory/features.md` |
-| `architecture.md` | `memory/architecture.md` |
+| You wrote | Saved as |
+|-----------|----------|
+| vision | `memory/product.md` |
+| requirements | `memory/requirements.md` |
+| features | `memory/features.md` |
+| architecture | `memory/architecture.md` |
 
-## 3. Implement the backlog
+---
+
+## 3. Build features one by one
 
 ```bash
 sdd feature list
 sdd feature start F-001
-# normal feature loop: fill stage docs → sdd next → implement → sdd verify → sdd complete
+# normal loop: notes → sdd next → code → sdd verify → sdd complete
 sdd feature start F-002
 ```
 
-`sdd feature start` creates a normal **feature** pack (or the workflow named in the backlog row), seeds the first artifact from the summary, and sets that row’s **Status** to `in_progress`.
+Each start creates a normal change folder and marks that backlog row **in progress**.
 
-## Feature block format
+---
+
+## How to write a feature row
 
 ```markdown
 ## F-001: Capture expense
@@ -86,31 +94,34 @@ sdd feature start F-002
 - **Notes:** Mobile first
 ```
 
-Headings must look like `## F-001: Short name` so the CLI can parse them.
+Headings must look like `## F-001: Short name` so the tool can read them.
 
-## Tips
+---
 
-- Prefer the **smallest useful product** in vision; non-goals keep scope honest.  
-- One feature ≈ one PR. Split “build the whole app” into F-001, F-002, …  
-- After promote, agents read `memory/index.md` → product, requirements, features, architecture.  
-- Re-init with `sdd init --force` to pick up the greenfield workflow if an older project lacks it (memory files are preserved).  
-- Only **substantive** artifacts promote (empty templates are skipped).  
-- `sdd greenfield` is the clear UX; `sdd new "…" -w greenfield` also works.
+## Friendly tips
+
+- Keep vision **small** — the smallest useful product.  
+- One feature ≈ one PR.  
+- Blank templates don’t get saved into memory — write real sentences.  
+- First time with sdd? The [10-minute tutorial](../tutorials/first-change) still helps.
+
+---
 
 ## Limits (v1)
 
-| Supported | Not automated yet |
-|-----------|-------------------|
-| Parse `## F-001: Name` blocks + list/start | `sdd feature done` / auto-set Status to `done` on complete |
-| Promote vision/requirements/features/architecture | Bidirectional sync if you edit memory and the old change pack |
-| Override workflow with `-w` on `feature start` | Multi-product backlogs in one repo |
+| Works today | Not automatic yet |
+|-------------|-------------------|
+| List and start F-001… | Marking features `done` when a pack completes |
+| Promote plan into memory | Syncing edits both ways forever |
+| Choose workflow per feature | Multiple products in one repo |
 
-Update Status to `done` by hand in `memory/features.md` when a delivery pack ships, or extend the workflow later.
+When a feature ships, set **Status** to `done` in `memory/features.md` by hand (for now).
+
+---
 
 ## Related
 
-- [Change packs & memory](../concepts/change-packs)  
+- [What is a change pack?](../concepts/change-packs)  
 - [Simple feature](./simple-feature)  
 - [Everyday loop](./everyday-loop)  
-- [Built-in workflows](../reference/workflows)  
 - [CLI reference](../reference/cli)  

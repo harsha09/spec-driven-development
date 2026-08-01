@@ -5,11 +5,15 @@ description: Run ARB, LLD, DB design, and hard gates with the same local sdd CLI
 
 # Enterprise-level work
 
-Platform migration. Shared auth. A change auditors will ask about. You need a **reviewable trail** and hard stop-points — not a second SaaS for process.
+Big change. Shared platform. Something people will ask “who approved this?” about.
 
-Use the same `sdd` CLI with a **heavier workflow**, **hard gates**, and **project memory** (constitution / conventions). Process stays next to the code on every laptop that clones the repo.
+You still use the **same** `sdd` commands — just a longer path, with **hard stop-points** (gates) and project rules in `memory/`. Everything stays in the repo, on every laptop.
 
-> **Outcome:** ARB packet and decision in the pack, LLD and research when needed, implement only after gates pass.
+> **You’ll get:** clear design/approval notes in the change folder, then code only after gates pass.
+
+::: tip New to sdd?
+Do the [10-minute tutorial](../tutorials/first-change) first so the basic loop feels familiar.
+:::
 
 ## When to use this path
 
