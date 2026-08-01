@@ -4,7 +4,9 @@
 
 Keep intent, design, and verify notes next to the code. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
-**npm:** https://www.npmjs.com/package/@structured-vibe-coding/cli
+**npm:** https://www.npmjs.com/package/@structured-vibe-coding/cli  
+**Docs (GitHub Pages):** https://harsha09.github.io/spec-driven-development/  
+**Start here:** https://harsha09.github.io/spec-driven-development/tutorials/first-change/
 
 ## Install
 
@@ -42,13 +44,18 @@ sdd feature list && sdd feature start F-001
 
 ## Docs
 
-- [What is sdd](https://github.com/harsha09/spec-driven-development/blob/main/docs/concepts/what-is-sdd.md)
-- [Greenfield](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/greenfield.md)
-- [Simple feature](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/simple-feature.md)
-- [Enterprise](https://github.com/harsha09/spec-driven-development/blob/main/docs/guides/enterprise.md)
-- [Workflows](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/workflows.md)
-- [Agents](https://github.com/harsha09/spec-driven-development/blob/main/docs/reference/agents.md)
-- Site: https://harsha09.github.io/spec-driven-development/
+Full site: **https://harsha09.github.io/spec-driven-development/**
+
+| Topic | Link |
+|-------|------|
+| Start in 10 minutes | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
+| What is sdd? | https://harsha09.github.io/spec-driven-development/concepts/what-is-sdd/ |
+| New product | https://harsha09.github.io/spec-driven-development/guides/greenfield/ |
+| Simple feature | https://harsha09.github.io/spec-driven-development/guides/simple-feature/ |
+| Enterprise | https://harsha09.github.io/spec-driven-development/guides/enterprise/ |
+| Workflows | https://harsha09.github.io/spec-driven-development/reference/workflows/ |
+| Agents | https://harsha09.github.io/spec-driven-development/reference/agents/ |
+| CLI | https://harsha09.github.io/spec-driven-development/reference/cli/ |
 
 ## License
 
