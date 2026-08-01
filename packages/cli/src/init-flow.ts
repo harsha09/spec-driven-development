@@ -1,13 +1,13 @@
+import { spawnSync } from "node:child_process";
 /**
  * Speckit-style init UX: project path, single AI integration, steps, tool check.
  */
 import { mkdir, readdir } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
-import { resolve, basename, isAbsolute } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 import * as p from "@clack/prompts";
-import pc from "picocolors";
 import {
   AGENT_TARGET_OPTIONS,
+  type AgentTarget,
   DEFAULT_INIT_INTEGRATION,
   getIntegration,
   initProject,
@@ -16,8 +16,8 @@ import {
   listWorkflowNames,
   optionForTarget,
   parseIntegration,
-  type AgentTarget,
 } from "@structured-vibe-coding/core";
+import pc from "picocolors";
 
 export interface InitCliArgs {
   path?: string;
@@ -149,9 +149,7 @@ async function maybeConfirmNonEmpty(
 
   if (await isInitialized(projectRoot)) {
     if (!isInteractive()) {
-      throw new Error(
-        "Already initialized. Re-run with --force to re-copy defaults.",
-      );
+      throw new Error("Already initialized. Re-run with --force to re-copy defaults.");
     }
     const again = await p.confirm({
       message: "SDD already initialized. Re-copy default workflows/templates?",
@@ -166,9 +164,7 @@ async function maybeConfirmNonEmpty(
 
   if (!here && items.length) {
     if (!isInteractive()) {
-      throw new Error(
-        `Directory is not empty (${items.length} items). Use --force to merge.`,
-      );
+      throw new Error(`Directory is not empty (${items.length} items). Use --force to merge.`);
     }
     const proceed = await p.confirm({
       message: `Directory is not empty (${items.length} items). Merge SDD files into it?`,
@@ -181,10 +177,7 @@ async function maybeConfirmNonEmpty(
   }
 }
 
-async function checkAgentTool(
-  target: AgentTarget,
-  ignoreAgentTools: boolean,
-): Promise<void> {
+async function checkAgentTool(target: AgentTarget, ignoreAgentTools: boolean): Promise<void> {
   if (ignoreAgentTools) return;
   const integ = getIntegration(target);
   if (!integ.requiresCli) return;

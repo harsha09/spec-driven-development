@@ -1,29 +1,29 @@
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import {
-  initProject,
-  loadConfig,
-  createChange,
-  advanceStage,
-  skipStage,
-  completeChange,
-  getActiveChangeId,
-  buildContext,
-  switchWorkflow,
-  approveGate,
-  recommendWorkflow,
-  runLocalVerify,
-  nextStageId,
-  loadWorkflow,
-  listChanges,
+  type ChangeMeta,
   activePointerPath,
+  advanceStage,
+  approveGate,
+  buildContext,
+  completeChange,
+  createChange,
+  getActiveChangeId,
+  initProject,
+  listChanges,
+  loadConfig,
+  loadWorkflow,
+  nextStageId,
   pathExists,
   readText,
-  type ChangeMeta,
+  recommendWorkflow,
+  runLocalVerify,
+  skipStage,
+  switchWorkflow,
 } from "../index.js";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const meat = (t: string) =>
   `# ${t}\n\nSubstantive stage content for tests so empty templates do not pass completeness checks. Includes constraints and expected outcomes for the change.\n`;

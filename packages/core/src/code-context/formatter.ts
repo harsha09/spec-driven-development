@@ -2,12 +2,7 @@
  * Formatter: stable agent-facing markdown (LLD §2.6).
  */
 
-import type {
-  CodeContextGap,
-  CodeContextSummary,
-  CodeSlice,
-  FocusPlan,
-} from "./types.js";
+import type { CodeContextGap, CodeContextSummary, CodeSlice, FocusPlan } from "./types.js";
 
 export interface FormatInput {
   plan: FocusPlan;
@@ -22,18 +17,10 @@ export interface FormatInput {
 function fenceLang(filePath: string): string {
   const lower = filePath.toLowerCase();
   if (lower.endsWith(".tsx") || lower.endsWith(".jsx")) return "tsx";
-  if (
-    lower.endsWith(".ts") ||
-    lower.endsWith(".mts") ||
-    lower.endsWith(".cts")
-  ) {
+  if (lower.endsWith(".ts") || lower.endsWith(".mts") || lower.endsWith(".cts")) {
     return "ts";
   }
-  if (
-    lower.endsWith(".js") ||
-    lower.endsWith(".mjs") ||
-    lower.endsWith(".cjs")
-  ) {
+  if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) {
     return "js";
   }
   return "";
@@ -46,20 +33,12 @@ export function formatMarkdown(input: FormatInput): {
   const lines: string[] = [];
   lines.push("# Code context");
   lines.push("");
-  lines.push(
-    "> Generated on-demand for agents. Not a substitute for process context",
-  );
-  lines.push(
-    "> (.sdd/protocol.md, active-context, change packs).",
-  );
-  lines.push(
-    "> Regenerable — run `sdd context --out change` (or pass `--path` / `--symbol`).",
-  );
+  lines.push("> Generated on-demand for agents. Not a substitute for process context");
+  lines.push("> (.sdd/protocol.md, active-context, change packs).");
+  lines.push("> Regenerable — run `sdd context --out change` (or pass `--path` / `--symbol`).");
   lines.push("");
   lines.push("## Summary");
-  lines.push(
-    `- Change: ${input.changeTitle ?? input.plan.changeId ?? "(none)"}`,
-  );
+  lines.push(`- Change: ${input.changeTitle ?? input.plan.changeId ?? "(none)"}`);
   lines.push(
     `- Focus paths: ${input.summary.focusPaths.length ? input.summary.focusPaths.join(", ") : "(none)"}`,
   );
@@ -121,9 +100,7 @@ export function formatMarkdown(input: FormatInput): {
   }
 
   lines.push("## Structural notes");
-  const topFiles = [
-    ...new Set(input.slices.map((s) => s.filePath)),
-  ].slice(0, 15);
+  const topFiles = [...new Set(input.slices.map((s) => s.filePath))].slice(0, 15);
   if (topFiles.length) {
     lines.push(`- Ranked files (sample): ${topFiles.join(", ")}`);
   } else {

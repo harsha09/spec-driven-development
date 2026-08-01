@@ -1,7 +1,7 @@
 /**
  * Stable memory (constitution, product, …) must survive sdd init --force.
  */
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";

@@ -43,9 +43,7 @@ function scoreSymbol(
       score += 100;
       reasons.push("exact-symbol");
     } else {
-      const ci = seedSymbols.find(
-        (s) => s.toLowerCase() === symbol.name.toLowerCase(),
-      );
+      const ci = seedSymbols.find((s) => s.toLowerCase() === symbol.name.toLowerCase());
       if (ci) {
         score += 90;
         reasons.push("symbol-ci");
@@ -141,11 +139,7 @@ function scoreSymbol(
   }
 
   // Prefer real declarations slightly
-  if (
-    symbol.kind === "function" ||
-    symbol.kind === "class" ||
-    symbol.kind === "interface"
-  ) {
+  if (symbol.kind === "function" || symbol.kind === "class" || symbol.kind === "interface") {
     score += 2;
   }
 

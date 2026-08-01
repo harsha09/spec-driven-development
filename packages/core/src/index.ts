@@ -8,6 +8,9 @@ export * from "./verify.js";
 export * from "./slug.js";
 export * from "./defaults.js";
 export * from "./fs.js";
+export * from "./errors.js";
+export * from "./env.js";
+export * from "./version.js";
 export * from "./agents.js";
 export {
   generateCodeContext,
@@ -64,4 +67,3 @@ export type {
   StartFeatureInput,
 } from "./greenfield.js";
 export * from "./mcp/index.js";
-

@@ -1,11 +1,7 @@
 import { join } from "pathe";
-import type { Config } from "./schemas.js";
-import {
-  getStage,
-  isStageSkipped,
-  shouldAutoSkip,
-} from "./workflow.js";
 import type { ChangeContext } from "./change-context.js";
+import type { Config } from "./schemas.js";
+import { getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
 export function formatStatus(ctx: ChangeContext): string {
   const lines: string[] = [];
@@ -17,8 +13,7 @@ export function formatStatus(ctx: ChangeContext): string {
   lines.push("");
   lines.push("Stages:");
   for (const stage of ctx.stages) {
-    const skipped =
-      isStageSkipped(ctx.meta, stage.id) || shouldAutoSkip(stage, ctx.meta);
+    const skipped = isStageSkipped(ctx.meta, stage.id) || shouldAutoSkip(stage, ctx.meta);
     let mark = " ";
     if (skipped) mark = "·";
     else if (stage.id === ctx.meta.stage) mark = "●";
@@ -57,9 +52,7 @@ export async function buildAgentPrompt(
   parts.push(`- Title: ${ctx.meta.title}`);
   parts.push(`- ID: ${ctx.id}`);
   parts.push(`- Workflow: ${ctx.meta.workflow}`);
-  parts.push(
-    `- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`,
-  );
+  parts.push(`- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`);
   parts.push(`- Change path: ${ctx.path}`);
   parts.push("");
 
@@ -107,56 +100,46 @@ export async function buildAgentPrompt(
   if (stageId === "implement" || stageId === "local_verify") {
     parts.push(`## Code context (product code)`);
     parts.push("");
-    parts.push(
-      `Process context above is not enough for product code structure.`,
-    );
-    parts.push(
-      `When you need symbols, callers, or package-boundary context:`,
-    );
+    parts.push(`Process context above is not enough for product code structure.`);
+    parts.push(`When you need symbols, callers, or package-boundary context:`);
     parts.push(
       `1. Run: \`sdd context\` (optional: \`--path …\`, \`--symbol …\`, \`--out change\`)`,
     );
-    parts.push(
-      `2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`,
-    );
+    parts.push(`2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`);
     parts.push(
       `3. Org libraries / remote AST: \`.sdd/mcp.yaml\` sources via \`sdd mcp sources\` / \`sdd mcp fetch\``,
     );
-    parts.push(
-      `Do not dump unbounded source into the prompt; prefer sliced / MCP output.`,
-    );
+    parts.push(`Do not dump unbounded source into the prompt; prefer sliced / MCP output.`);
     parts.push("");
   }
 
   // Pull from project-configured external MCP sources (design system, AST, API catalog, …)
   try {
     const { loadMcpConfig } = await import("./mcp/sources.js");
-    const {
-      gatherMcpContextForChange,
-      formatMcpContextForHandoff,
-    } = await import("./mcp/gather.js");
+    const { gatherMcpContextForChange, formatMcpContextForHandoff } = await import(
+      "./mcp/gather.js"
+    );
     const mcpCfg = await loadMcpConfig(projectRoot);
     if (mcpCfg.auto_fetch_on_handoff && mcpCfg.sources.length) {
       const fetched = await gatherMcpContextForChange(projectRoot, ctx);
-      const block = formatMcpContextForHandoff(
-        fetched.filter((r) => r.ok || r.error),
-      );
+      const block = formatMcpContextForHandoff(fetched.filter((r) => r.ok || r.error));
       if (block) {
         parts.push(block);
       }
     } else if (mcpCfg.sources.length === 0) {
       parts.push(`## External MCP sources`);
       parts.push("");
-      parts.push(
-        `No sources in \`.sdd/mcp.yaml\` yet. To attach org libraries / AST engines:`,
-      );
-      parts.push(
-        `\`sdd mcp sources add --help\` · docs: Configure MCP sources`,
-      );
+      parts.push(`No sources in \`.sdd/mcp.yaml\` yet. To attach org libraries / AST engines:`);
+      parts.push(`\`sdd mcp sources add --help\` · docs: Configure MCP sources`);
       parts.push("");
     }
-  } catch {
+  } catch (err) {
     // Non-fatal: handoff still useful without MCP
+    const msg = err instanceof Error ? err.message : String(err);
+    parts.push(`## External MCP sources`);
+    parts.push("");
+    parts.push(`_MCP auto-fetch skipped (non-fatal): ${msg}_`);
+    parts.push("");
   }
 
   parts.push(

@@ -4,8 +4,21 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { McpSource } from "./types.js";
+import { toProcessEnv } from "../env.js";
+import { SddError } from "../errors.js";
+import { SDD_CORE_VERSION } from "../version.js";
 import { interpolate } from "./sources.js";
+import type { McpSource } from "./types.js";
+
+/** Default timeout for connect + tool call (ms). Override with SDD_MCP_TIMEOUT_MS. */
+export function mcpTimeoutMs(): number {
+  const raw = process.env.SDD_MCP_TIMEOUT_MS;
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 30_000;
+}
 
 export interface CallMcpToolResult {
   ok: boolean;
@@ -19,9 +32,30 @@ function contentToText(result: {
 }): string {
   const parts = result.content ?? [];
   return parts
-    .map((p) => (p.type === "text" ? p.text ?? "" : JSON.stringify(p)))
+    .map((p) => (p.type === "text" ? (p.text ?? "") : JSON.stringify(p)))
     .join("\n")
     .trim();
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new SddError(`MCP ${label} timed out after ${ms}ms`, {
+              code: "MCP_TIMEOUT",
+              hint: "Raise SDD_MCP_TIMEOUT_MS or fix the source server.",
+            }),
+          );
+        }, ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**
@@ -33,14 +67,11 @@ export async function withMcpSource<T>(
   fn: (client: Client) => Promise<T>,
 ): Promise<T> {
   const vars = { projectRoot };
-  const cwd = source.cwd
-    ? interpolate(source.cwd, vars)
-    : projectRoot;
-  const env: Record<string, string> = {
-    ...process.env,
+  const cwd = source.cwd ? interpolate(source.cwd, vars) : projectRoot;
+  const env = toProcessEnv(process.env, {
     ...source.env,
     SDD_PROJECT_ROOT: projectRoot,
-  } as Record<string, string>;
+  });
 
   const transport = new StdioClientTransport({
     command: source.command,
@@ -51,17 +82,18 @@ export async function withMcpSource<T>(
 
   const client = new Client({
     name: "sdd-mcp-client",
-    version: "0.14.0",
+    version: SDD_CORE_VERSION,
   });
 
-  await client.connect(transport);
+  const ms = mcpTimeoutMs();
+  await withTimeout(client.connect(transport), ms, `connect (${source.id})`);
   try {
-    return await fn(client);
+    return await withTimeout(fn(client), ms, `call (${source.id})`);
   } finally {
     try {
       await client.close();
     } catch {
-      // ignore close errors
+      // ignore close errors after success/failure
     }
   }
 }

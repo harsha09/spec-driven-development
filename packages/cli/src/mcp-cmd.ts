@@ -7,15 +7,7 @@ import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
 import { withProject } from "./project.js";
-
-function asStringList(value: unknown): string[] {
-  if (value == null) return [];
-  if (Array.isArray(value)) {
-    return value.flatMap((v) => asStringList(v));
-  }
-  const s = String(value).trim();
-  return s ? [s] : [];
-}
+import { asStringList } from "./shared.js";
 
 const sourcesList = defineCommand({
   meta: {
@@ -37,7 +29,7 @@ const sourcesList = defineCommand({
         consola.info("No external MCP sources yet.");
         consola.log(
           pc.dim(
-            'Add: sdd mcp sources add --id design-system --command npx --arg -y --arg @acme/ds-mcp --stages design,implement --tool search --tool-arg query={{query}}',
+            "Add: sdd mcp sources add --id design-system --command npx --arg -y --arg @acme/ds-mcp --stages design,implement --tool search --tool-arg query={{query}}",
           ),
         );
         consola.log(pc.dim(`Config: ${root}/.sdd/mcp.yaml`));
@@ -62,14 +54,10 @@ const sourcesList = defineCommand({
         if (s.description) consola.log(pc.dim(`     ${s.description}`));
         if (s.invoke) {
           consola.log(
-            pc.dim(
-              `     invoke: ${s.invoke.tool} ${JSON.stringify(s.invoke.args ?? {})}`,
-            ),
+            pc.dim(`     invoke: ${s.invoke.tool} ${JSON.stringify(s.invoke.args ?? {})}`),
           );
         } else {
-          consola.log(
-            pc.dim("     invoke: (none — set --tool on add, or sdd mcp fetch --tool …)"),
-          );
+          consola.log(pc.dim("     invoke: (none — set --tool on add, or sdd mcp fetch --tool …)"));
         }
         if (args.stage || args.workflow || args.query) {
           consola.log(pc.dim(`     ${explainMatch(s, matchCtx)}`));
@@ -79,9 +67,7 @@ const sourcesList = defineCommand({
       if (args.stage || args.workflow || args.query) {
         const matched = matchMcpSources(cfg.sources, matchCtx);
         consola.log(
-          pc.bold("Would call:") +
-            " " +
-            (matched.map((m) => m.id).join(", ") || "(none)"),
+          pc.bold("Would call:") + " " + (matched.map((m) => m.id).join(", ") || "(none)"),
         );
       }
     });
@@ -91,8 +77,7 @@ const sourcesList = defineCommand({
 const sourcesAdd = defineCommand({
   meta: {
     name: "add",
-    description:
-      "Register an external MCP source (design system, org lib, AST engine, …)",
+    description: "Register an external MCP source (design system, org lib, AST engine, …)",
   },
   args: {
     id: {
@@ -167,17 +152,11 @@ const sourcesAdd = defineCommand({
           intents: split(args.intents),
           keywords: split(args.keywords),
         },
-        invoke: args.tool
-          ? { tool: args.tool, args: toolArgs }
-          : undefined,
+        invoke: args.tool ? { tool: args.tool, args: toolArgs } : undefined,
       });
       consola.success(`Added MCP source ${pc.cyan(args.id)} → .sdd/mcp.yaml`);
       consola.log(pc.dim(`Test: sdd mcp sources test ${args.id}`));
-      consola.log(
-        pc.dim(
-          "Handoff auto-fetches when stage matches and invoke.tool is set.",
-        ),
-      );
+      consola.log(pc.dim("Handoff auto-fetches when stage matches and invoke.tool is set."));
     });
   },
 });
@@ -209,12 +188,8 @@ const sourcesTest = defineCommand({
   },
   async run({ args }) {
     await withProject(async ({ root }) => {
-      const {
-        loadMcpConfig,
-        listMcpSourceTools,
-        callMcpSourceTool,
-        interpolateArgs,
-      } = await import("@structured-vibe-coding/core");
+      const { loadMcpConfig, listMcpSourceTools, callMcpSourceTool, interpolateArgs } =
+        await import("@structured-vibe-coding/core");
       const cfg = await loadMcpConfig(root);
       const source = cfg.sources.find((s) => s.id === args.id);
       if (!source) {
@@ -257,9 +232,7 @@ const sourcesTest = defineCommand({
         consola.error(result.error ?? result.text);
         process.exit(1);
       }
-      process.stdout.write(
-        result.text.endsWith("\n") ? result.text : `${result.text}\n`,
-      );
+      process.stdout.write(result.text.endsWith("\n") ? result.text : `${result.text}\n`);
     });
   },
 });
@@ -267,8 +240,7 @@ const sourcesTest = defineCommand({
 const sources = defineCommand({
   meta: {
     name: "sources",
-    description:
-      "External MCP servers sdd calls (design systems, org libs, AST engines)",
+    description: "External MCP servers sdd calls (design systems, org libs, AST engines)",
   },
   subCommands: {
     list: sourcesList,
@@ -281,8 +253,7 @@ const sources = defineCommand({
 const fetch = defineCommand({
   meta: {
     name: "fetch",
-    description:
-      "Call matching MCP sources for the current stage (or --source / --tool)",
+    description: "Call matching MCP sources for the current stage (or --source / --tool)",
   },
   args: {
     source: { type: "string", description: "Only this source id (repeatable)" },
@@ -347,9 +318,7 @@ const fetch = defineCommand({
       });
 
       if (!results.length) {
-        consola.warn(
-          "No matching sources (or none configured). Try: sdd mcp sources list",
-        );
+        consola.warn("No matching sources (or none configured). Try: sdd mcp sources list");
         process.exitCode = 1;
         return;
       }
@@ -360,9 +329,7 @@ const fetch = defineCommand({
           await writeAgentHandoff(root, config, id);
           consola.info(pc.dim("Refreshed .sdd/handoff.md"));
         } catch (err) {
-          consola.warn(
-            err instanceof Error ? err.message : "Could not refresh handoff",
-          );
+          consola.warn(err instanceof Error ? err.message : "Could not refresh handoff");
         }
       }
     });
@@ -372,8 +339,7 @@ const fetch = defineCommand({
 export const mcpCmd = defineCommand({
   meta: {
     name: "mcp",
-    description:
-      "Configure external MCP sources sdd calls (org libs, AST, APIs) and fetch context",
+    description: "Configure external MCP sources sdd calls (org libs, AST, APIs) and fetch context",
   },
   subCommands: {
     sources,

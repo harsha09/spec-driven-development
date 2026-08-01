@@ -4,17 +4,11 @@
  */
 
 import { join } from "pathe";
-import type { Config } from "./schemas.js";
-import {
-  ensureDir,
-  listDirs,
-  pathExists,
-  readText,
-  writeText,
-} from "./fs.js";
-import { changePath, changesDir, memoryDir } from "./paths.js";
-import { createChange, type ChangeContext } from "./change.js";
 import { isSubstantiveArtifactContent } from "./artifacts.js";
+import { type ChangeContext, createChange } from "./change.js";
+import { ensureDir, listDirs, pathExists, readText, writeText } from "./fs.js";
+import { changePath, changesDir, memoryDir } from "./paths.js";
+import type { Config } from "./schemas.js";
 
 export interface GreenfieldFeature {
   id: string;
@@ -55,16 +49,15 @@ const FEATURE_HEADER = /^##\s+(F-\d+)\s*:\s*(.+?)\s*$/i;
  * Start a greenfield discovery change from a one-line product idea.
  * Seeds vision.md with the idea; agent fills the rest via stages.
  */
-export async function startGreenfield(
-  input: StartGreenfieldInput,
-): Promise<StartGreenfieldResult> {
+export async function startGreenfield(input: StartGreenfieldInput): Promise<StartGreenfieldResult> {
   const idea = input.idea.trim();
   if (!idea || idea.length < 3) {
-    throw new Error('Provide a one-line product idea, e.g. sdd greenfield "Team expense tracker for remote startups"');
+    throw new Error(
+      'Provide a one-line product idea, e.g. sdd greenfield "Team expense tracker for remote startups"',
+    );
   }
 
-  const title =
-    idea.length > 80 ? `Greenfield: ${idea.slice(0, 77)}…` : `Greenfield: ${idea}`;
+  const title = idea.length > 80 ? `Greenfield: ${idea.slice(0, 77)}…` : `Greenfield: ${idea}`;
 
   const ctx = await createChange({
     projectRoot: input.projectRoot,
@@ -82,10 +75,7 @@ export async function startGreenfield(
       body = body.replaceAll("{{idea}}", idea);
       await writeText(visionPath, body);
     } else if (!body.includes(idea)) {
-      body = body.replace(
-        /## One-liner\n+(\s*[-–—]\s*\n)?/,
-        `## One-liner\n\n${idea}\n\n`,
-      );
+      body = body.replace(/## One-liner\n+(\s*[-–—]\s*\n)?/, `## One-liner\n\n${idea}\n\n`);
       if (!body.includes(idea)) {
         body = `${body.trim()}\n\n## One-liner\n\n${idea}\n`;
       }
@@ -99,10 +89,7 @@ export async function startGreenfield(
 /**
  * Parse feature backlog markdown (F-001 blocks).
  */
-export function parseFeaturesBacklog(
-  markdown: string,
-  sourcePath: string,
-): GreenfieldFeature[] {
+export function parseFeaturesBacklog(markdown: string, sourcePath: string): GreenfieldFeature[] {
   const lines = markdown.split(/\r?\n/);
   const features: GreenfieldFeature[] = [];
   let current: GreenfieldFeature | null = null;
@@ -200,9 +187,7 @@ export async function listBacklogFeatures(
   }
   const features = parseFeaturesBacklog(await readText(path), path);
   if (!features.length) {
-    throw new Error(
-      `No F-NNN features parsed in ${path}. Use headings like: ## F-001: Short name`,
-    );
+    throw new Error(`No F-NNN features parsed in ${path}. Use headings like: ## F-001: Short name`);
   }
   return { path, features };
 }
@@ -218,24 +203,16 @@ export async function startFeatureFromBacklog(
     throw new Error(`Feature id must look like F-001 (got "${input.featureId}")`);
   }
 
-  const { path, features } = await listBacklogFeatures(
-    input.projectRoot,
-    input.config,
-  );
+  const { path, features } = await listBacklogFeatures(input.projectRoot, input.config);
   const feature = features.find((f) => f.id === id);
   if (!feature) {
     const known = features.map((f) => f.id).join(", ");
     throw new Error(`Feature ${id} not found in ${path}. Known: ${known}`);
   }
 
-  const workflowName =
-    input.workflowName?.trim() ||
-    feature.workflow?.trim() ||
-    "feature";
+  const workflowName = input.workflowName?.trim() || feature.workflow?.trim() || "feature";
 
-  const title = feature.name
-    ? `${feature.id}: ${feature.name}`
-    : feature.id;
+  const title = feature.name ? `${feature.id}: ${feature.name}` : feature.id;
 
   const ctx = await createChange({
     projectRoot: input.projectRoot,

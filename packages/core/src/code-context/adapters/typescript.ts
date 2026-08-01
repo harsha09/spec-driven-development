@@ -9,8 +9,8 @@
  *   full Program / typechecker.
  */
 
-import ts from "typescript";
 import { extname } from "pathe";
+import ts from "typescript";
 import type { SymbolInfo, SymbolKind } from "../types.js";
 import type { AdapterExtractResult, LanguageAdapter } from "./types.js";
 
@@ -98,12 +98,7 @@ function extractFromSource(
   const exports: { name: string; kind?: string }[] = [];
   const references: { name: string; line: number }[] = [];
 
-  const pushSymbol = (
-    name: string,
-    node: ts.Node,
-    kind: SymbolKind,
-    exported: boolean,
-  ) => {
+  const pushSymbol = (name: string, node: ts.Node, kind: SymbolKind, exported: boolean) => {
     if (!name) return;
     symbols.push({
       name,
@@ -138,7 +133,11 @@ function extractFromSource(
       }
     }
 
-    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+    if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       // re-export from
       imports.push({ from: node.moduleSpecifier.text, names: ["*"] });
     }
@@ -170,10 +169,7 @@ function extractFromSource(
         if (!ts.isIdentifier(decl.name)) continue;
         const name = decl.name.text;
         const init = decl.initializer;
-        const isFn =
-          init &&
-          (ts.isArrowFunction(init) ||
-            ts.isFunctionExpression(init));
+        const isFn = init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init));
         // Prefer exported or function-like bindings; skip local noise
         if (exported || isFn) {
           pushSymbol(name, decl, isFn ? "function" : "const", exported);

@@ -2,7 +2,7 @@
  * Integration: full happy path through core (init → change → stages → verify → complete).
  * No live LLM; filesystem + engine only.
  */
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";

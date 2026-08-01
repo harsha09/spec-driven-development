@@ -22,7 +22,9 @@
     "build": "pnpm -r run build",
     "dev": "pnpm -r --parallel run dev",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
+    "lint": "biome check packages/core/src packages/cli/src",
+    "lint:fix": "biome check packages/core/src packages/cli/src --write",
+    "format": "biome format packages/core/src packages/cli/src --write",
     "typecheck": "pnpm -r run typecheck",
     "sdd": "pnpm --filter @structured-vibe-coding/cli exec node ./dist/index.js",
     "publish:npm": "pnpm build && pnpm test && pnpm --filter @structured-vibe-coding/core publish --access public && pnpm --filter @structured-vibe-coding/cli publish --access public",
@@ -46,6 +48,7 @@
     "url": "git+https://github.com/harsha09/spec-driven-development.git"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "husky": "^9.1.7",
     "vite": "6.4.3",
     "vitepress": "^1.6.3"

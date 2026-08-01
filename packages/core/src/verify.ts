@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { join } from "pathe";
-import type { Config } from "./schemas.js";
 import { buildContext, saveChangeMeta } from "./change.js";
-import { getStage } from "./workflow.js";
-import { ensureDir, writeText, pathExists, readText } from "./fs.js";
+import { ensureDir, pathExists, readText, writeText } from "./fs.js";
+import type { Config } from "./schemas.js";
 import { nowIso } from "./slug.js";
+import { getStage } from "./workflow.js";
 
 export interface VerifyResult {
   stageId: string;
@@ -109,9 +109,7 @@ export async function runLocalVerify(
 
   const evidenceDirRaw = stage.verify?.evidence_dir?.trim();
   const evidenceDir =
-    evidenceDirRaw && evidenceDirRaw.length > 0
-      ? join(ctx.path, evidenceDirRaw)
-      : null;
+    evidenceDirRaw && evidenceDirRaw.length > 0 ? join(ctx.path, evidenceDirRaw) : null;
 
   if (evidenceDir) {
     await ensureDir(evidenceDir);
@@ -132,10 +130,7 @@ export async function runLocalVerify(
       });
       if (evidenceDir) {
         const logPath = join(evidenceDir, `${cmd.name.replace(/\s+/g, "-")}.log`);
-        await writeText(
-          logPath,
-          `# ${cmd.name}\n$ ${cmd.run}\nexit: ${exitCode}\n\n${output}`,
-        );
+        await writeText(logPath, `# ${cmd.name}\n$ ${cmd.run}\nexit: ${exitCode}\n\n${output}`);
       }
     }
   }
@@ -194,10 +189,7 @@ export async function runLocalVerify(
     // Opt-in evidence: also dump a dated run snapshot under evidence
     if (evidenceDir) {
       const stamp = nowIso();
-      await writeText(
-        join(evidenceDir, `run-${stamp.replace(/[:.]/g, "-")}.md`),
-        summaryBody,
-      );
+      await writeText(join(evidenceDir, `run-${stamp.replace(/[:.]/g, "-")}.md`), summaryBody);
     }
   } else {
     await writeText(summaryPath, summaryBody);

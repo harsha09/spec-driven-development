@@ -1,5 +1,12 @@
 import { join } from "pathe";
+import { type AgentTarget, installAgentIntegration } from "./agents.js";
 import { defaultConfig, saveConfig } from "./config.js";
+import {
+  defaultMcpYamlPath,
+  defaultMemoryDir,
+  defaultTemplatesDir,
+  defaultWorkflowsDir,
+} from "./defaults.js";
 import {
   copyDir,
   copyDirSkipExisting,
@@ -9,23 +16,9 @@ import {
   writeText,
   writeTextIfMissing,
 } from "./fs.js";
-import {
-  defaultMcpYamlPath,
-  defaultMemoryDir,
-  defaultTemplatesDir,
-  defaultWorkflowsDir,
-} from "./defaults.js";
 import { mcpConfigPath } from "./mcp/sources.js";
-import {
-  changesDir,
-  domainsDir,
-  memoryDir,
-  templatesDir,
-  workflowsDir,
-  sddRoot,
-} from "./paths.js";
+import { changesDir, domainsDir, memoryDir, sddRoot, templatesDir, workflowsDir } from "./paths.js";
 import type { Config } from "./schemas.js";
-import { installAgentIntegration, type AgentTarget } from "./agents.js";
 
 export interface InitOptions {
   projectRoot: string;
