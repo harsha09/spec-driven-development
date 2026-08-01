@@ -203,7 +203,7 @@ export default defineConfig({
           { text: "Change packs & memory", link: "/concepts/change-packs" },
           { text: "Agents vs editors", link: "/concepts/agents-vs-ides" },
           { text: "Improve notes (refine)", link: "/guides/refine" },
-          { text: "MCP sources & serve", link: "/guides/mcp" },
+          { text: "MCP sources (org/AST)", link: "/guides/mcp" },
           { text: "Code context (local AST)", link: "/guides/code-context" },
           { text: "Customize workflows", link: "/guides/customize" },
         ],

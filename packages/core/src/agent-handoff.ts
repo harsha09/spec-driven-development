@@ -120,7 +120,7 @@ export async function buildAgentPrompt(
       `2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`,
     );
     parts.push(
-      `3. Org libraries / remote AST: configure \`.sdd/mcp.yaml\` and \`sdd mcp fetch\` (see External MCP context below)`,
+      `3. Org libraries / remote AST: \`.sdd/mcp.yaml\` sources via \`sdd mcp sources\` / \`sdd mcp fetch\``,
     );
     parts.push(
       `Do not dump unbounded source into the prompt; prefer sliced / MCP output.`,

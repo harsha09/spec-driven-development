@@ -1,200 +1,115 @@
 ---
-title: MCP and sdd — sources vs serve
-description: Configure external MCP sources (design systems, org libraries, AST engines) that sdd calls at the right stage, and optionally expose sdd tools to agents.
+title: External MCP sources for sdd
+description: Configure design systems, org libraries, and AST engines as MCP sources that sdd calls at the right stage — sdd is the MCP client.
 ---
 
-# MCP and sdd
+# External MCP sources
 
-There are **two directions**. Mixing them up is the usual confusion.
+sdd is an **MCP client**. You register servers that know your **design system**, **org libraries**, or **AST/code search**. sdd calls them when the process needs that context.
 
 ```text
-┌─────────────────────┐         sdd mcp sources / fetch / handoff
-│  Design-system MCP  │◄────────────────────────────────┐
-│  Org library MCP    │                                 │
-│  AST search MCP     │                                 │
-└─────────────────────┘                                 │
-                                                        ▼
-                                              ┌──────────────────┐
-                                              │   sdd (client)   │
-                                              │  stages · packs  │
-                                              └────────┬─────────┘
-                                                       │
-                         sdd mcp serve / setup         │
-                       (optional)                      │
-                                                       ▼
-                                              ┌──────────────────┐
-                                              │ Cursor / Claude  │
-                                              │   (MCP client)   │
-                                              └──────────────────┘
+Design-system MCP  ──┐
+Org library MCP    ──┼──►  sdd (client)  ──► handoff / stage work
+AST search MCP     ──┘         │
+                               │ match: stage · workflow · intents · keywords
 ```
 
-| Direction | Who calls whom | Command |
-|-----------|----------------|---------|
-| **A. Sources (what you asked for)** | **sdd calls** your org/lib/AST MCPs | `sdd mcp sources …` · auto on handoff |
-| **B. Serve (optional)** | **Agents call** sdd tools | `sdd mcp serve` · `sdd mcp setup` |
+There is **no** “sdd MCP server for Cursor to drive `sdd next`” in this model. Process stays the **CLI** (`sdd new` / `next` / …). MCP is for **pulling external knowledge**.
 
 ---
 
-## A — Use case: expose a UI library / org package / AST engine
+## Use cases
 
-### Story
+| Use case | Example source | Typical stages |
+|----------|----------------|----------------|
+| UI/UX kit | `@acme/design-system-mcp` | design, implement, stories |
+| Org / internal library | custom MCP over your packages | design, implement |
+| AST / code search engine | org or third-party AST MCP | implement, code_research |
+| API catalog | internal API MCP | design, lld, implement |
 
-You maintain (or your org runs) an MCP server that can answer:
+---
 
-- “Which button variants exist?” (design system)  
-- “How do we call BillingService?” (internal API MCP)  
-- “Find symbol `createInvoice`” (AST / code-search MCP)  
-
-You want **sdd to pull that at the right time** (e.g. design or implement), not paste the whole monorepo, and not force every agent to know your private servers.
-
-### 1. Init project
+## Configure a source
 
 ```bash
 cd your-app
-sdd init --here --ai copilot
-# creates .sdd/mcp.yaml (empty sources)
-```
+sdd init --here --ai copilot   # creates empty .sdd/mcp.yaml
 
-### 2. Register sources (easy CLI)
-
-**Design system / UI kit:**
-
-```bash
+# Design system
 sdd mcp sources add \
   --id design-system \
   --description "Acme design system" \
   --command npx \
   --arg -y --arg @acme/design-system-mcp \
-  --stages design,implement,stories \
-  --intents ui,design,component \
-  --keywords button,token,theme,component \
+  --stages design,implement \
+  --intents ui,design \
+  --keywords button,component,token \
   --tool search_components \
   --tool-arg query={{query}} \
   --priority 20
-```
 
-**Custom AST / code search engine:**
-
-```bash
+# External AST / code search
 sdd mcp sources add \
   --id code-ast \
-  --description "Org AST code search" \
   --command npx \
   --arg -y --arg @acme/ast-search-mcp \
   --cwd '{{projectRoot}}' \
-  --stages implement,code_research,local_verify \
-  --intents code,implement \
+  --stages implement,code_research \
+  --intents code \
   --tool search \
   --tool-arg query={{query}} \
   --tool-arg root={{projectRoot}} \
   --priority 30
 ```
 
-**Org API catalog:**
-
-```bash
-sdd mcp sources add \
-  --id api-catalog \
-  --command node \
-  --arg /opt/acme/api-mcp/dist/index.js \
-  --stages design,lld,implement \
-  --intents api \
-  --tool lookup_api \
-  --tool-arg name={{query}}
-```
-
-### 3. See what would run
+List / match / test / fetch:
 
 ```bash
 sdd mcp sources list
 sdd mcp sources list --stage implement --query "primary button"
-# → MATCH design-system, maybe skip api-catalog
-```
-
-### 4. Test connectivity
-
-```bash
-sdd mcp sources test design-system
-# lists tools if no invoke yet
-
 sdd mcp sources test design-system --query "button"
-# calls invoke.tool with {{query}} filled
+sdd mcp fetch --query "primary button" --intents ui
 ```
 
-### 5. When does sdd call them?
+---
+
+## When sdd calls a source
 
 | Moment | Behavior |
 |--------|----------|
-| **`sdd agent` / handoff write** | If `auto_fetch_on_handoff: true`, sdd matches sources to **current stage + workflow + title**, calls each `invoke.tool`, embeds text under **External MCP context** in `.sdd/handoff.md` |
-| **`sdd mcp fetch`** | Explicit pull now (optional `--source`, `--tool`, `--query`, `--intents`) |
-| **Wrong stage** | Source skipped (e.g. design-system not called on pure `vision`) |
+| **Handoff** (`sdd agent`, process that writes handoff) | If `auto_fetch_on_handoff: true`, match sources to **stage + workflow + title**, call each `invoke.tool`, embed under **External MCP context** |
+| **`sdd mcp fetch`** | Explicit pull now |
+| Stage / keywords / intents don’t match | Source skipped |
 
-Routing uses `.sdd/mcp.yaml` → `when.stages` / `workflows` / `intents` / `keywords`.
+Config file: **`.sdd/mcp.yaml`**
 
-### 6. Config file (source of truth)
-
-`.sdd/mcp.yaml`:
-
-```yaml
-version: 1
-auto_fetch_on_handoff: true
-max_chars_per_source: 6000
-sources:
-  - id: design-system
-    description: Acme design system
-    command: npx
-    args: ["-y", "@acme/design-system-mcp"]
-    priority: 20
-    when:
-      stages: [design, implement]
-      intents: [ui, design]
-      keywords: [button, component]
-    invoke:
-      tool: search_components
-      args:
-        query: "{{query}}"
-```
-
-Templates: `{{query}}` `{{title}}` `{{stage}}` `{{workflow}}` `{{projectRoot}}`.
+Templates in args: `{{query}}` `{{title}}` `{{stage}}` `{{workflow}}` `{{projectRoot}}`
 
 ---
 
-## B — Optional: agents call sdd (inbound)
+## Commands
 
-If the **agent host** should drive `sdd_new` / `sdd_next` as tools:
+| Command | Purpose |
+|---------|---------|
+| `sdd mcp sources list` | Show sources |
+| `sdd mcp sources add …` | Register source + when + invoke |
+| `sdd mcp sources test <id>` | List tools or call invoke |
+| `sdd mcp sources remove <id>` | Drop source |
+| `sdd mcp fetch` | Pull matching sources now |
+
+---
+
+## Local AST (optional, not MCP)
+
+Built-in TypeScript slices (no external server):
 
 ```bash
-sdd mcp clients
-sdd mcp setup --client cursor --write
-# restart host
+sdd context --path src/app.ts --symbol main --stdout
 ```
 
-That is **sdd as MCP server**. Useful, but **not** how you attach a design-system library.
-
----
-
-## Mental model (one line)
-
-| You want… | Configure… |
-|-----------|------------|
-| sdd to **read** org UI lib / AST / API MCP | **`sdd mcp sources`** + `.sdd/mcp.yaml` |
-| Cursor/Claude to **drive** sdd process | **`sdd mcp setup`** + `sdd mcp serve` |
-
----
-
-## Commands cheat sheet
-
-| Command | Role |
-|---------|------|
-| `sdd mcp sources list` | Show configured external sources |
-| `sdd mcp sources add …` | Register a source + when + invoke |
-| `sdd mcp sources test <id>` | List tools or call invoke |
-| `sdd mcp sources remove <id>` | Drop a source |
-| `sdd mcp fetch` | Pull matching sources now |
-| `sdd mcp serve` | Expose sdd tools to agents |
-| `sdd mcp setup --client …` | Wire agent host to sdd serve |
+See [Code context](./code-context).
 
 ## Related
 
-- [Code context (local AST CLI)](./code-context)  
 - [CLI reference](../reference/cli)  
+- [Everyday loop](./everyday-loop)  

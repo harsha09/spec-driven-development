@@ -58,10 +58,8 @@ One command’s flags: `sdd <command> --help`.
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | Focused AST code slices | Implement |
-| `sdd mcp sources list/add/test` | External MCPs **sdd calls** (design system, AST, …) | Org libs / engines |
-| `sdd mcp fetch` | Pull matching sources for current stage | Before implement |
-| `sdd mcp clients` / `setup` | Wire agent **hosts** to call sdd | Optional inbound |
-| `sdd mcp serve` | Expose sdd tools over stdio | Agent hosts |
+| `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
+| `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List paths | Discover |
