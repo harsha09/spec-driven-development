@@ -21,6 +21,7 @@ const PACKAGE_JSONS = [
   "package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
+  "packages/mcp/package.json",
 ];
 
 function sh(cmd, opts = {}) {
