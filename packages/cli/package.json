@@ -1,6 +1,6 @@
 {
   "name": "@structured-vibe-coding/cli",
-  "version": "0.14.3",
+  "version": "0.15.0",
   "description": "sdd CLI — local Spec-Driven Development process coach for AI coding agents (Copilot, Grok, Claude, Ollama)",
   "type": "module",
   "bin": {

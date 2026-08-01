@@ -1,7 +1,7 @@
 {
   "name": "structured-vibe-coding",
   "private": true,
-  "version": "0.14.3",
+  "version": "0.15.0",
   "description": "sdd — local Spec-Driven Development CLI for AI coding agents (hotfix, greenfield, enterprise ARB)",
   "keywords": [
     "sdd",
