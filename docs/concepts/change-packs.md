@@ -1,8 +1,13 @@
+---
+title: Change packs and product memory
+description: How sdd separates PR-scoped change packs from durable product memory — discovery vs delivery packs, greenfield promote, and constitution.
+---
+
 # Change packs and memory
 
-> Two lifetimes of knowledge: stable product memory, and PR-scoped packs.
+Wiki pages grow forever. Chat disappears. PR reviews need something in between.
 
-Don’t dump every feature into one living wiki page. PR-scoped docs stay reviewable; memory stays short and agent-loadable.
+**`sdd` uses two lifetimes of knowledge:** short, reviewable **change packs** for this PR, and short **product memory** for what must stay true after the PR.
 
 After complete, promote a true non-negotiable into `memory/constitution.md`. Refine never auto-edits constitution.
 

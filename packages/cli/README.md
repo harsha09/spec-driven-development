@@ -1,6 +1,8 @@
 # `@structured-vibe-coding/cli`
 
-CLI for **Structured Vibe Coding** (`sdd`) — local Spec-Driven Development for solo through enterprise teams.
+**`sdd`** — local Spec-Driven Development process coach for you and your AI coding agent.
+
+Keep intent, design, and verify notes next to the code. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
 ## Install
 

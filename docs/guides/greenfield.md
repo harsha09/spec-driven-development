@@ -1,6 +1,17 @@
+---
+title: Greenfield — new product from a one-line idea
+description: Bootstrap a new product with sdd greenfield — vision, requirements, feature backlog, architecture — then implement each F-001 item as a normal change pack.
+---
+
 # Greenfield: new product from a one-line idea
 
-Use this when you are **starting a product**, not fixing an existing app. SDD walks vision → requirements → feature backlog → architecture, then you implement each backlog item as a normal change pack.
+You have a **one-line idea**. You do not have a backlog, an architecture doodle, or six half-started repos.
+
+Greenfield is the path that turns that sentence into a **product spine** — vision, testable requirements, PR-sized features, and a simple architecture — *before* you drown in implementation. Then each feature ships as its own change pack.
+
+> **Outcome:** `memory/product.md`, requirements, `features.md` (F-001…), architecture — plus a habit your agent can follow on day two.
+
+**Time:** discovery is a focused session (not ten minutes). Delivery packs after that use the normal feature loop.
 
 ## When to use
 
@@ -32,7 +43,7 @@ That creates a **greenfield** change pack and seeds `vision.md` with your idea. 
 4. **architecture** — simple MVP shape (not enterprise scale)
 
 ```bash
-# Fill vision.md with real sentences
+# Fill vision.md with real sentences (smallest useful product)
 sdd next
 # Fill requirements.md
 sdd next
@@ -60,7 +71,7 @@ sdd feature start F-001
 sdd feature start F-002
 ```
 
-`sdd feature start` creates a normal **feature** (or the workflow named in the backlog row), seeds the first artifact from the backlog summary, and sets that row’s **Status** to `in_progress`.
+`sdd feature start` creates a normal **feature** pack (or the workflow named in the backlog row), seeds the first artifact from the summary, and sets that row’s **Status** to `in_progress`.
 
 ## Feature block format
 
@@ -84,7 +95,7 @@ Headings must look like `## F-001: Short name` so the CLI can parse them.
 - After promote, agents read `memory/index.md` → product, requirements, features, architecture.  
 - Re-init with `sdd init --force` to pick up the greenfield workflow if an older project lacks it (memory files are preserved).  
 - Only **substantive** artifacts promote (empty templates are skipped).  
-- You can still run `sdd new "…" -w greenfield` if you prefer the generic entry; `sdd greenfield` is the clearer UX.
+- `sdd greenfield` is the clear UX; `sdd new "…" -w greenfield` also works.
 
 ## Limits (v1)
 

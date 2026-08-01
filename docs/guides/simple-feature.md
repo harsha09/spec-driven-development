@@ -1,14 +1,27 @@
+---
+title: Build a simple feature with sdd
+description: Step-by-step Spec-Driven Development for a normal product feature — intent, design, tasks, implement, verify — with sdd and your AI coding agent.
+---
+
 # Build a simple feature
 
-Step-by-step path for a normal product feature (not a one-line hotfix, not full enterprise ARB).
+You are about to ship a **real feature**, not a typo. You want scope, design, and success criteria next to the PR — without enterprise ARB ceremony.
 
-Starting a **new product** from a one-liner? Use [Greenfield](./greenfield) first, then `sdd feature start F-001` (that path seeds the first stage from the backlog).
+This path is the default product-team rhythm: one change pack, progressive stages, agent-friendly handoffs.
+
+> **Outcome:** A reviewable pack under `changes/` plus working code and a local verify bar.
+
+**Time:** usually one PR cycle. First loop on a small feature is often under an hour once you know the tool.
+
+Starting a **brand-new product** from a one-liner? Use [Greenfield](./greenfield) first, then `sdd feature start F-001`.
+
+Never used sdd? Do the [10-minute hotfix tutorial](../tutorials/first-change) once, then come back.
 
 ## 1. Init (once per app)
 
 ```bash
 cd your-app
-sdd init --here --ai copilot    # or grok | claude
+sdd init --here --ai copilot    # or grok | claude | ollama
 sdd doctor
 ```
 
@@ -70,15 +83,18 @@ Analysts who already can view the report in the app.
 Download completes for 10k rows without timeout; file opens in Excel.
 ```
 
+Empty templates block `sdd next` — write real sentences like the sample above.
+
 ## Tips
 
-- Empty templates block `sdd next` — write real sentences  
 - Mid-flight polish: `sdd refine` or `sdd refine design`  
 - Code focus for agents: `sdd context --path … --symbol …`  
-- See stage map: [Built-in workflows](../reference/workflows)  
+- Learn process first: `sdd next --no-agent`  
+- Stage map: [Built-in workflows](../reference/workflows)  
 
 ## Related
 
 - [First change tutorial](../tutorials/first-change) (hotfix-oriented)  
+- [Greenfield](./greenfield)  
 - [Everyday loop](./everyday-loop)  
 - [Enterprise path](./enterprise)  

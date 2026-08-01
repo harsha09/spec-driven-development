@@ -1,7 +1,14 @@
+---
+title: Your first change with sdd (10 minutes)
+description: Install the sdd Spec-Driven Development CLI, run a hotfix change pack with your AI coding agent, and complete your first local loop in about ten minutes.
+---
+
 # Tutorial: your first change
 
+You are ten minutes from a working habit: a **change pack** in git, stages that move when you say so, and a file your AI can fill next time.
+
 > **You need:** Node.js 20+ (24 recommended) and about **10 minutes**.  
-> You’ll install `sdd`, create a small hotfix pack, write a few sentences, advance stages, and complete.
+> You will install `sdd`, create a small hotfix pack, paste a few sentences, advance stages, and complete.
 
 ::: tip One path only
 This page is a single **hotfix** happy path so you learn the loop fast.  

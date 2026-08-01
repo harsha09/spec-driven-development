@@ -1,3 +1,8 @@
+---
+title: sdd CLI reference
+description: Full sdd command reference — init, new, greenfield, feature start, next, verify, complete, refine, context, agents, doctor.
+---
+
 # CLI reference
 
 > Look up commands and when to use them. To learn by doing, start with the [tutorial](../tutorials/first-change).

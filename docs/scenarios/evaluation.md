@@ -1,8 +1,18 @@
+---
+title: Scenario evaluation (maintainers)
+description: Internal scenario matrix for sdd — hotfix, greenfield, enterprise ARB, concurrent changes. Maintainer evidence, not the beginner getting-started path.
+---
+
 # Scenario evaluation
 
-How `sdd` behaves on real engineering scenarios — from hotfix to enterprise. Use this as proof the tool fits teams, not only a demo script. Skim the scenario that matches your team, then open a [guide](../guides/everyday-loop) to act.
+::: warning Maintainer lab notes
+This page is an **internal matrix** of how `sdd` behaves on engineering scenarios.  
+**New here?** Start with [Your first change](../tutorials/first-change) or [What is sdd](../concepts/what-is-sdd).
+:::
 
-Date: 2026-07-19 | Tool: sdd CLI
+How `sdd` behaves on real scenarios — from hotfix to enterprise. Skim the row that matches your team, then open a [guide](../guides/everyday-loop) to act.
+
+Date: 2026-07-19 (updated greenfield 2026-08) | Tool: sdd CLI
 
 ## S1 — Solo hotfix (typo)
 ```

@@ -2,7 +2,22 @@
   "name": "structured-vibe-coding",
   "private": true,
   "version": "0.13.0",
-  "description": "Structured vibe coding — flexible, local-first Spec-Driven Development",
+  "description": "sdd — local Spec-Driven Development CLI for AI coding agents (hotfix, greenfield, enterprise ARB)",
+  "keywords": [
+    "sdd",
+    "spec-driven-development",
+    "structured-vibe-coding",
+    "ai-coding",
+    "ai-coding-agent",
+    "local-sdd",
+    "greenfield",
+    "cli",
+    "copilot",
+    "claude-code",
+    "grok",
+    "ollama"
+  ],
+  "homepage": "https://harsha09.github.io/spec-driven-development/",
   "scripts": {
     "build": "pnpm -r run build",
     "dev": "pnpm -r --parallel run dev",
