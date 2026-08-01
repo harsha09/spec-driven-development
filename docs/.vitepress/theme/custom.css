@@ -26,3 +26,26 @@
   display: table;
   width: 100%;
 }
+
+/* Friendlier reading rhythm on long guides */
+.vp-doc h2 {
+  margin-top: 2rem;
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 1.25rem;
+}
+
+.vp-doc h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.vp-doc blockquote {
+  border-left-color: var(--vp-c-brand-1);
+  background: var(--vp-c-bg-soft);
+  padding: 0.75rem 1rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.VPHomeHero .tagline {
+  max-width: 36rem;
+}

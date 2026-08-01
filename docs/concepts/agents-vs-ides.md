@@ -1,16 +1,19 @@
-# Agents vs IDEs
+# Agents vs editors
 
-> `sdd init` installs an **AI coding agent** host — not a VS Code or IntelliJ extension.
+Easy mix-up: **your editor** and **your AI** are not the same thing.
 
-IDEs edit files. Agents generate and reason. Spec Kit–style tools target agent files (`.github/agents`, `.claude/agents`, `.grok/rules`).
+| | Examples | What sdd installs |
+|--|----------|-------------------|
+| **Editor (IDE)** | VS Code, Cursor, IntelliJ | Nothing — just open the project |
+| **AI coding agent** | Copilot, Grok, Claude, Ollama | Small guide files for that AI |
 
 ```bash
 sdd init --here --ai grok
-# writes .grok/rules/sdd.md + AGENTS.md — no marketplace extension
+# writes .grok/rules/sdd.md + AGENTS.md — not a marketplace extension
 ```
 
-Use any editor. Process is the CLI. Thin agent stubs plus `.sdd/protocol.md` keep one source of process truth.
+Use any editor. Run `sdd` in the terminal. The AI reads a short playbook in the repo.
 
 ## Related
 
-- [Agents setup guide](../guides/agents)  
+- [Set up your AI](../guides/agents)  

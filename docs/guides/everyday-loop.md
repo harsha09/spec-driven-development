@@ -1,60 +1,81 @@
 ---
 title: Everyday sdd loop
-description: The daily Spec-Driven Development loop with sdd — new, next, refine, verify, complete — plus greenfield discovery and multi-PR checkout.
+description: Daily commands for sdd — start work, check status, move stages, verify, and finish. Simple cheat sheet.
 ---
 
 # Everyday loop
 
-You already know the tool. You do not want to re-open the whole docs site every Monday.
+A one-page cheat sheet. Same commands every day.
 
-This page is the **fixed rhythm**: same commands, same handoff to the agent, every change.
-
-::: tip First time?
-Use the [first change tutorial](../tutorials/first-change) once (includes a paste-ready intent sample), or the [simple feature](./simple-feature) / [enterprise](./enterprise) guides for larger work. **New product?** → [Greenfield](./greenfield).
+::: tip First time here?
+Do the [10-minute tutorial](../tutorials/first-change) once first. It includes a paste-ready example.
 :::
 
-## The loop (delivery change)
+---
+
+## Normal work (a fix or a feature)
 
 ```bash
-sdd doctor               # optional: check setup
-sdd new "…"              # start pack + handoff to agent
-# or: sdd feature start F-001   # from greenfield backlog
-sdd status               # where am I? (never launches agent)
-# fill stage artifacts (human or agent) — use the path printed after new
-sdd next                 # advance when stage is done
-sdd refine               # optional: improve current stage + prior impact
-# … repeat next until implement / verify …
-sdd verify
-sdd complete
+sdd doctor                    # optional: is my setup ok?
+sdd new "Short title of the work" -y
+sdd status                    # where am I? (never opens the AI)
+
+# Open the file path sdd printed. Write a few real sentences.
+# Or let the AI draft them if it opened.
+
+sdd next                      # move to the next step when ready
+# … repeat sdd next as stages complete …
+
+sdd verify                    # when you’re on the verify step
+sdd complete                  # mark this work done
 ```
 
-## New product (discovery once)
+From a product backlog after greenfield:
 
 ```bash
-sdd greenfield "one-line idea"
-# fill vision → sdd next → requirements → features → architecture
-sdd complete             # promotes into memory/
 sdd feature list
-sdd feature start F-001  # then use the delivery loop above
+sdd feature start F-001
+# then the same next → verify → complete loop
 ```
 
-### Multiple PRs
+---
+
+## New product (once)
 
 ```bash
-sdd status --list
-sdd checkout <change-id>
+sdd greenfield "One sentence product idea"
+# fill vision → sdd next → requirements → features → architecture
+sdd complete
+sdd feature list
+sdd feature start F-001
 ```
 
-### Escape hatches
+Details: [Greenfield guide](./greenfield).
+
+---
+
+## Several things at once
 
 ```bash
-sdd skip design -r "not needed for copy tweak"
-sdd use feature -r "scope grew"
-sdd next --force   # sparingly
+sdd status --list             # see open work
+sdd checkout <change-id>      # switch which one is active
 ```
+
+---
+
+## Escape hatches
+
+```bash
+sdd skip design -r "not needed for this small change"
+sdd use feature -r "this grew bigger than a hotfix"
+sdd next --force              # rare: skip checks (use carefully)
+sdd next --no-agent           # move stages without launching AI
+```
+
+---
 
 ## Related
 
+- [Simple feature](./simple-feature)  
 - [Greenfield](./greenfield)  
-- [Refine mid-stage](./refine)  
 - [CLI reference](../reference/cli)  

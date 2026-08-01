@@ -1,23 +1,23 @@
 ---
 title: Build a simple feature with sdd
-description: Step-by-step Spec-Driven Development for a normal product feature — intent, design, tasks, implement, verify — with sdd and your AI coding agent.
+description: Friendly step-by-step for shipping a normal product feature with sdd — short notes, clear stages, then code and verify.
 ---
 
 # Build a simple feature
 
-You are about to ship a **real feature**, not a typo. You want scope, design, and success criteria next to the PR — without enterprise ARB ceremony.
+You’re shipping a **real feature**, not a one-line typo. You want a short plan next to the PR — without a heavy enterprise process.
 
-This path is the default product-team rhythm: one change pack, progressive stages, agent-friendly handoffs.
+| | |
+|--|--|
+| **Best for** | Normal product work on an existing app |
+| **You’ll get** | A folder under `changes/` + code + a local check |
+| **First time with sdd?** | Do the [10-minute tutorial](../tutorials/first-change) first |
 
-> **Outcome:** A reviewable pack under `changes/` plus working code and a local verify bar.
+Brand-new product from a one-liner? → [Greenfield](./greenfield), then come back (or use `sdd feature start F-001`).
 
-**Time:** usually one PR cycle. First loop on a small feature is often under an hour once you know the tool.
+---
 
-Starting a **brand-new product** from a one-liner? Use [Greenfield](./greenfield) first, then `sdd feature start F-001`.
-
-Never used sdd? Do the [10-minute hotfix tutorial](../tutorials/first-change) once, then come back.
-
-## 1. Init (once per app)
+## 1. One-time setup
 
 ```bash
 cd your-app
@@ -25,43 +25,47 @@ sdd init --here --ai copilot    # or grok | claude | ollama
 sdd doctor
 ```
 
-## 2. Start a feature pack
+---
+
+## 2. Start the feature
 
 ```bash
 sdd new "Add CSV export for reports" -w feature -y
 ```
 
-Or omit `-w feature` and accept the recommendation if the title already sounds like a feature.
+The title can also recommend a workflow if you omit `-w feature`.
 
-## 3. Work the stages
+---
 
-Typical flow (optional clarify/brainstorm stages can be skipped):
+## 3. Walk the stages
+
+Rough flow (you can skip optional steps):
 
 ```bash
-# Stage: intent — fill changes/<id>/feature.md
-# Paste real scope, users, non-goals, success criteria
+# 1) Open feature.md — write who it's for, scope, non-goals, success
 sdd next
 
-# Optional: sdd skip clarify_intent -r "clear"
-# Optional: sdd skip brainstorm -r "one approach"
+# optional skips if a step doesn't apply:
+# sdd skip clarify_intent -r "clear enough"
+# sdd skip brainstorm -r "one clear approach"
 
-# Stage: design — fill design.md
+# 2) design.md — how you'll build it
 sdd next
 
-# Optional clarify_design skip if needed
-
-# Stage: tasks — fill tasks.md
+# 3) tasks.md — checklist
 sdd next
 
-# Stage: implement — write product code (agent or you)
+# 4) implement — write the code (you or the AI)
 sdd next
 
-# Stage: local_verify
+# 5) check it works
 sdd verify
 sdd complete
 ```
 
-## Sample `feature.md` body
+---
+
+## Example `feature.md` (paste and edit)
 
 ```markdown
 # Feature
@@ -83,18 +87,25 @@ Analysts who already can view the report in the app.
 Download completes for 10k rows without timeout; file opens in Excel.
 ```
 
-Empty templates block `sdd next` — write real sentences like the sample above.
+::: warning Empty templates block you
+`sdd next` wants real sentences (like above), not blank bullets. That’s intentional.
+:::
 
-## Tips
+---
 
-- Mid-flight polish: `sdd refine` or `sdd refine design`  
-- Code focus for agents: `sdd context --path … --symbol …`  
-- Learn process first: `sdd next --no-agent`  
-- Stage map: [Built-in workflows](../reference/workflows)  
+## Handy extras
+
+```bash
+sdd refine                 # improve the current notes
+sdd context --path … --symbol …   # focused code slices for the AI
+sdd next --no-agent        # move stages without launching AI
+```
+
+---
 
 ## Related
 
-- [First change tutorial](../tutorials/first-change) (hotfix-oriented)  
-- [Greenfield](./greenfield)  
 - [Everyday loop](./everyday-loop)  
+- [Greenfield](./greenfield)  
 - [Enterprise path](./enterprise)  
+- [Workflows](../reference/workflows)  

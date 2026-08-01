@@ -1,63 +1,89 @@
 ---
 title: sdd CLI reference
-description: Full sdd command reference — init, new, greenfield, feature start, next, verify, complete, refine, context, agents, doctor.
+description: Friendly sdd command list — what each command does and when to use it. For learning by doing, start with the 10-minute tutorial.
 ---
 
 # CLI reference
 
-> Look up commands and when to use them. To learn by doing, start with the [tutorial](../tutorials/first-change).
+Binary name: **`sdd`**.  
+Learn by doing: [Start in 10 minutes](../tutorials/first-change).  
+One command’s flags: `sdd <command> --help`.
 
-Binary: **`sdd`**. For flags on one command: `sdd <command> --help`.
+---
 
-## Commands
+## I want to…
+
+| Goal | Command |
+|------|---------|
+| Set up this project | `sdd init --here --ai copilot` |
+| Check setup | `sdd doctor` |
+| Start small work | `sdd new "Title" -w hotfix -y` |
+| Start a feature | `sdd new "Title" -w feature -y` |
+| Start a new product | `sdd greenfield "One-line idea"` |
+| See my feature list | `sdd feature list` |
+| Build backlog item | `sdd feature start F-001` |
+| See where I am | `sdd status` |
+| Move to next step | `sdd next` |
+| Finish work | `sdd complete` |
+| Check the change works | `sdd verify` |
+| Improve current notes | `sdd refine` |
+| Get help from AI now | `sdd agent` |
+| Don’t open AI this time | add `--no-agent` |
+
+---
+
+## All commands
 
 | Command | What it does | When |
 |---------|--------------|------|
-| `sdd init` | Scaffold `.sdd`, memory, workflows; install **one** AI host | Once per app |
-| `sdd init --force` | Re-copy defaults (memory files skip if present) | Upgrades |
-| `sdd new "title"` | Create change pack; optional recommend | Start work |
-| `sdd new … -w <pack>` | Force workflow | You know the pack |
-| `sdd new … -y` | Non-interactive accept | Scripts / CI smoke |
-| `sdd greenfield "idea"` | New product pack (vision → … → architecture) | Empty / MVP product |
-| `sdd feature list` | Show F-NNN backlog | After greenfield / memory |
-| `sdd feature start F-001` | Start change from backlog row | Implement product features |
-| `sdd status` | Stage progress | Anytime (**no** agent) |
-| `sdd status --list` | Open changes | Multi-PR |
-| `sdd next` | Advance stage | Stage done |
-| `sdd next --force` | Bypass checks | Emergency |
-| `sdd skip <stage> -r "…"` | Skip stage this change | Optional / unneeded |
-| `sdd use <workflow>` | Switch pack mid-flight | Scope change |
-| `sdd gate approve\|waive\|fail` | Gate actions | Hard/soft gates |
-| `sdd verify` | Local verify stage | Before complete |
-| `sdd verify --no-run` | Checklist only | Manual verify |
-| `sdd complete` | Mark completed in place; greenfield also promotes → `memory/` | Done |
-| `sdd refine [stage]` | Stage refine + prior impact | Spec quality |
+| `sdd init` | Create sdd files + one AI setup | Once per app |
+| `sdd init --force` | Refresh defaults (keeps your memory files) | Upgrades |
+| `sdd new "title"` | Start a change pack | Start work |
+| `sdd new … -w <pack>` | Choose path (hotfix, feature, …) | You know the path |
+| `sdd new … -y` | Skip confirm prompts | Scripts / CI |
+| `sdd greenfield "idea"` | New product plan path | Empty / MVP product |
+| `sdd feature list` | Show F-001… backlog | After greenfield |
+| `sdd feature start F-001` | Start work from backlog | Build product items |
+| `sdd status` | Progress (**no** AI) | Anytime |
+| `sdd status --list` | All open changes | Several PRs |
+| `sdd next` | Advance one stage | Step done |
+| `sdd next --force` | Bypass checks | Emergency only |
+| `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
+| `sdd use <workflow>` | Switch path mid-flight | Scope changed |
+| `sdd gate approve\|waive\|fail` | Approve / waive / fail a gate | Enterprise gates |
+| `sdd verify` | Local check step | Before complete |
+| `sdd verify --no-run` | Checklist only | Manual testing |
+| `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
+| `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
-| `sdd context` | AST code slices | Implement focus |
-| `sdd agent` | Handoff + launch agent | Anytime |
-| `sdd checkout <id>` | Set active change | Switch PR |
-| `sdd workflows` | List packs | Discover |
-| `sdd help` | Overview | First run |
-| `sdd doctor` | Check Node, init, AI host, active change | Setup / stuck |
+| `sdd context` | Focused code slices | Implement |
+| `sdd agent` | Refresh brief + open AI | Anytime |
+| `sdd checkout <id>` | Switch active change | Multi-PR |
+| `sdd workflows` | List paths | Discover |
+| `sdd help` | Short overview | First run |
+| `sdd doctor` | Health check | Stuck / setup |
 
-### Greenfield / backlog flags
+### Greenfield / backlog
 
-| Command | Flags |
+| Command | Notes |
 |---------|--------|
-| `sdd greenfield ["idea"]` | `--no-agent` — prompts for idea if omitted |
-| `sdd feature start <F-NNN>` | `-w <workflow>` override backlog workflow; `--no-agent` |
-| `sdd feature list` | (none) — **does not** launch the agent |
+| `sdd greenfield ["idea"]` | Asks for idea if you omit it; supports `--no-agent` |
+| `sdd feature start F-001` | `-w` can override the backlog workflow; supports `--no-agent` |
+| `sdd feature list` | Never opens the AI |
 
-## Agent launch
+---
 
-Most process commands refresh handoff and launch the init-configured agent.  
-**No agent:** `status`, `init`, `workflows`, `context`, `feature list`, `help`, `doctor`.
+## About the AI opening
 
-Skip launch elsewhere: `--no-agent` or `SDD_NO_AGENT=1`.
+Most process commands refresh a short handoff and may open your AI.  
+**Never open AI:** `status`, `init`, `workflows`, `context`, `feature list`, `help`, `doctor`.
+
+Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
+
+---
 
 ## Related
 
-- [Greenfield guide](../guides/greenfield)  
 - [Everyday loop](../guides/everyday-loop)  
-- [Refine](../guides/refine)  
-- [Code context](../guides/code-context)  
+- [Greenfield](../guides/greenfield)  
+- [AI setup](../guides/agents)  

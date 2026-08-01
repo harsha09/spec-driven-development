@@ -1,37 +1,42 @@
-# Project layout
+---
+title: Project folders after sdd init
+description: What folders sdd creates in your app — .sdd, memory, changes, and optional AI host files — explained simply.
+---
 
-> Directories after `sdd init` in an **app** repo.
+# Project folders
+
+After `sdd init`, your app looks roughly like this:
 
 ```text
-.sdd/
+.sdd/                 ← sdd settings and the short playbook
   config.yaml
-  protocol.md
-  active-context.md
-  handoff.md
-  workflows/             # includes greenfield.yaml after init
+  protocol.md         ← rules for you + the AI
+  active-context.md   ← what you’re doing right now
+  handoff.md          ← brief the AI just saw
+  workflows/          ← paths like hotfix, feature, greenfield
   templates/
-memory/
-  index.md               # documentation map
-  constitution.md
-  conventions.md
-  product.md             # after greenfield complete (from vision)
-  requirements.md        # after greenfield
-  features.md            # F-NNN backlog; sdd feature start
-  architecture.md
-changes/
+memory/               ← longer-lived product notes (keep short)
+  index.md
+  constitution.md     ← non-negotiables
+  …
+changes/              ← one folder per piece of work
   <id>/
-    meta.yaml
-    *.md artifacts       # e.g. vision.md, feature.md, intent.md
-domains/                 # optional
-AGENTS.md                # if an agent was installed
-.github/agents/          # copilot only
-.claude/agents/          # claude only
-.grok/rules/             # grok only
-# ollama: same AGENTS.md + protocol pattern
+    meta.yaml         ← stage + status
+    *.md              ← short notes for this work
+domains/              ← optional extra docs by area
+AGENTS.md             ← tiny pointer for AIs
+# only for the AI you picked:
+# .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/
 ```
+
+After a **new product** path finishes, you may also see:
+
+- `memory/product.md`
+- `memory/requirements.md`
+- `memory/features.md`
+- `memory/architecture.md`
 
 ## Related
 
-- [Change packs concept](../concepts/change-packs)  
-- [Greenfield guide](../guides/greenfield)  
-- [Agents guide](../guides/agents)  
+- [Change packs & memory](../concepts/change-packs)  
+- [Set up your AI](../guides/agents)  

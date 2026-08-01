@@ -1,67 +1,85 @@
 ---
 title: What is sdd?
-description: sdd is a local Spec-Driven Development CLI — a process coach for you and your AI coding agent. Stages, change packs, and memory in git. No cloud product, no IDE extension.
+description: sdd is a simple CLI that keeps short plans and notes next to your code so you and your AI coding agent stay aligned. No cloud product, no IDE extension.
 ---
 
 # What is sdd?
 
-Your AI can write a feature before lunch. By Friday the PR is merged and the *decision trail* is gone — buried in chat, half-remembered standups, or a wiki nobody opened.
+Your AI can ship a feature before lunch. By Friday, nobody remembers *why* that edge case was “fine,” what “done” meant, or what was out of scope.
 
-**`sdd` (Structured Vibe Coding)** is a **local Spec-Driven Development CLI**. It is a process coach that lives in your app repo. It does not replace React, Python, or your stack. It adds a thin spine so you and the agent share the same stages, files, and definition of done.
+**`sdd`** is a small program you run in the terminal. It lives in your project and helps you and your AI work in **short, clear steps** — with notes saved in the repo, not only in a chat window.
 
-> **One line:** the agent is the writer; `sdd` is the spine.
+It does **not** replace your stack (React, Python, …). It sits **next to** your code.
 
-## Picture the loop
+> **In one sentence:** the AI writes; `sdd` keeps the plan and progress.
+
+---
+
+## The idea in 30 seconds
+
+1. You start a piece of work (`sdd new` or `sdd greenfield`).  
+2. You (or the AI) fill a short markdown file.  
+3. You run `sdd next` when that step is done.  
+4. You write code, check it, and run `sdd complete`.
+
+Everything for that work sits in a folder under `changes/`. Longer-lived product notes can live under `memory/`.
 
 ```text
-  You decide scope          sdd owns stages           AI writes specs & code
-        │                         │                            │
-        ▼                         ▼                            ▼
-  sdd new / greenfield  →  fill markdown  →  sdd next  →  implement  →  verify  →  complete
-                                │
-                                ▼
-                     changes/<id>/  +  memory/  (in git)
+You decide what to build     sdd tracks the steps      AI helps write notes & code
+           │                          │                           │
+           ▼                          ▼                           ▼
+     sdd new "…"  →  edit a short file  →  sdd next  →  code  →  done
 ```
 
-| Piece | Job |
-|-------|-----|
-| **You** | Scope, quality bar, when to advance |
-| **`sdd` CLI** | Stages, gates, handoff files, status |
-| **AI coding agent** | Drafts and implements (Copilot, Grok, Claude, or Ollama) |
-| **Your editor** | Edit files — **no** special IDE extension |
+---
 
-## What it adds to a repo
+## Words you’ll see (plain English)
 
-1. **Workflows** — ordered stages. A typo stays short; a feature or ARB goes deeper.  
-2. **Change packs** — one folder per unit of work under `changes/<id>/` (markdown + `meta.yaml`).  
-3. **Product memory** — durable truths under `memory/` (constitution; after greenfield: product, backlog, architecture).  
-4. **One AI host** — thin stubs + a single playbook (`.sdd/protocol.md`).  
-5. **Local verify & complete** — done on your machine; pack stays under `changes/` by default.
+| Word | Meaning |
+|------|---------|
+| **Change pack** | One folder for *this* task or PR (`changes/…`) |
+| **Stage** | One step on the path (e.g. “describe the fix”, then “code”, then “check”) |
+| **Workflow** | Which path of stages you use (short fix vs feature vs new product) |
+| **Memory** | Stable notes about the product (`memory/`) that last beyond one PR |
+| **Agent** | Your AI coding tool (Copilot, Grok, Claude, Ollama) — not your editor |
 
-## Three ways in
+---
 
-| Situation | Command | You walk away with |
-|-----------|---------|-------------------|
-| Small fix | `sdd new "…" -w hotfix` | Intent → code → smoke, in minutes |
-| Existing product feature | `sdd new "…" -w feature` | Spec → design → tasks → code → verify |
-| **Brand-new product** | `sdd greenfield "one-line idea"` | Vision → backlog → architecture → then `sdd feature start F-001` |
+## Who does what
 
-## What it is not
+| Who | Job |
+|-----|-----|
+| **You** | Decide scope, quality, and when to move on |
+| **`sdd`** | Remember the step, create files, show status |
+| **AI** | Draft notes and write code when you want help |
+| **Your editor** | Edit files (no special plugin required) |
 
-- Not a required VS Code / IntelliJ extension  
-- Not a hosted multi-tenant SaaS  
-- Not a replacement for Jira or Git as company systems of record  
-- Not “install every AI host at once” — you pick **one** at `sdd init`
+---
 
-## Feel it before you theorize
+## Pick a path by situation
 
-If you have ten minutes, skip the rest of the concepts and run the happy path:
+| Situation | Start with |
+|-----------|------------|
+| Small bug or typo | `sdd new "…" -w hotfix` |
+| Normal feature | `sdd new "…" -w feature` |
+| Brand-new product | `sdd greenfield "one-line idea"` |
+| Big / multi-team change | `sdd new "…" -w enterprise-feature` |
 
-**→ [Your first change (tutorial)](../tutorials/first-change)**
+---
 
-## Related
+## What it is *not*
 
-- [Why sdd exists](./why-sdd) — the pain and the bet  
-- [What you can achieve](./what-you-can-achieve)  
-- [Change packs & memory](./change-packs)  
-- [Greenfield](../guides/greenfield) · [Workflows](../reference/workflows) · [Agents](../reference/agents)  
+- Not a required VS Code or IntelliJ extension  
+- Not a cloud “process product” you must log into  
+- Not a replacement for Jira or Git  
+- Not “install every AI at once” — you pick **one** when you run `sdd init`
+
+---
+
+## Best next step
+
+Don’t over-read. Run one tiny loop:
+
+**→ [Start in 10 minutes](../tutorials/first-change)**
+
+Want the “why”? → [Why sdd exists](./why-sdd)

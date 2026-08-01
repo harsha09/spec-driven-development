@@ -1174,44 +1174,45 @@ const doctor = defineCommand({
 });
 
 const help = defineCommand({
-  meta: { name: "help", description: "Show help overview" },
+  meta: { name: "help", description: "Show a friendly overview of common commands" },
   async run() {
     const root = projectRoot();
-    consola.log(pc.bold("sdd") + " — process coach for you + your AI coding agent");
-    consola.log(pc.dim("  Needs: Node 20+ (24 recommended) · ~10 minutes for first loop"));
+    consola.log(pc.bold("sdd") + " — keep short plans next to your code (with your AI)");
+    consola.log(pc.dim("  Needs: Node 20+ · about 10 minutes for your first loop"));
     consola.log("");
-    consola.log(pc.bold("First time (in your app repo):"));
+    consola.log(pc.bold("First time (learn without the AI popping up):"));
     consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama`);
-    consola.log(`  ${pc.cyan('sdd new "Fix empty list crash" -w hotfix -y')}`);
-    consola.log(`  ${pc.cyan("sdd doctor")}                    # check setup`);
-    consola.log(`  # edit the intent/feature file it prints`);
-    consola.log(`  ${pc.cyan("sdd next")}`);
-    consola.log("");
-    consola.log(pc.bold("New product (greenfield):"));
-    consola.log(`  ${pc.cyan('sdd greenfield "Team expense tracker for remote startups"')}`);
-    consola.log(`  ${pc.cyan("sdd next")} … ${pc.cyan("sdd complete")}   # promotes to memory/`);
-    consola.log(`  ${pc.cyan("sdd feature list")} · ${pc.cyan("sdd feature start F-001")}`);
+    consola.log(`  ${pc.cyan("sdd doctor")}`);
+    consola.log(`  ${pc.cyan('sdd new "Fix empty list crash" -w hotfix -y --no-agent')}`);
+    consola.log(`  # open the intent.md path it prints → write a few real sentences`);
+    consola.log(`  ${pc.cyan("sdd next --no-agent")}`);
+    consola.log(`  ${pc.cyan("sdd complete --no-agent")}`);
     consola.log("");
     consola.log(pc.bold("Everyday:"));
-    consola.log(`  ${pc.cyan("sdd status")}            where am I? (no agent)`);
-    consola.log(`  ${pc.cyan("sdd next")}              next stage + agent`);
-    consola.log(`  ${pc.cyan("sdd refine")}            improve current stage docs`);
-    consola.log(`  ${pc.cyan("sdd verify")}            local verify + agent`);
+    consola.log(`  ${pc.cyan("sdd status")}            where am I?`);
+    consola.log(`  ${pc.cyan("sdd next")}              next step (often opens your AI)`);
+    consola.log(`  ${pc.cyan("sdd verify")}            check the work`);
     consola.log(`  ${pc.cyan("sdd complete")}          mark done`);
-    consola.log(`  ${pc.cyan("sdd agent")}             handoff + agent`);
-    consola.log(`  ${pc.cyan("sdd context")}           AST code slices for agents`);
+    consola.log("");
+    consola.log(pc.bold("New product:"));
+    consola.log(`  ${pc.cyan('sdd greenfield "One-line product idea"')}`);
+    consola.log(`  ${pc.cyan("sdd feature list")} · ${pc.cyan("sdd feature start F-001")}`);
     consola.log("");
     consola.log(pc.bold("Tips:"));
-    consola.log(`  ${pc.cyan("sdd next --no-agent")}   process only (learn the loop first)`);
-    consola.log(pc.dim("  If next fails: open the file named in the error and write real sentences."));
+    consola.log(`  ${pc.cyan("--no-agent")}            learn the process first, AI later`);
+    consola.log(pc.dim("  If next fails: open the file in the error and write real sentences (not empty template)."));
     consola.log("");
-    consola.log(pc.dim("Docs: https://harsha09.github.io/spec-driven-development/  ·  sdd <cmd> --help"));
+    consola.log(
+      pc.dim(
+        "Docs: https://harsha09.github.io/spec-driven-development/tutorials/first-change/  ·  sdd <cmd> --help",
+      ),
+    );
     if (await isInitialized(root)) {
       const config = await loadConfig(root);
       const active = await getActiveChangeId(root, config);
       if (active) consola.log(pc.dim(`Active change: ${active}`));
     } else {
-      consola.log(pc.dim("Not initialized here. Run: sdd init --here --ai copilot"));
+      consola.log(pc.dim("Not set up here yet. Run: sdd init --here --ai copilot"));
     }
   },
 });
@@ -1220,8 +1221,8 @@ const main = defineCommand({
   meta: {
     name: "sdd",
     description:
-      "Local SDD: process + launch your init-configured AI agent after each command",
-    version: "0.6.1",
+      "Keep short plans next to your code. Process coach for you + your AI coding agent.",
+    version: "0.13.0",
   },
   subCommands: {
     init,

@@ -5,13 +5,16 @@ description: How sdd separates PR-scoped change packs from durable product memor
 
 # Change packs and memory
 
-Wiki pages grow forever. Chat disappears. PR reviews need something in between.
+Long wikis get ignored. Chat disappears. Reviews need something in the middle.
 
-**`sdd` uses two lifetimes of knowledge:** short, reviewable **change packs** for this PR, and short **product memory** for what must stay true after the PR.
+**`sdd` keeps two kinds of notes:**
 
-After complete, promote a true non-negotiable into `memory/constitution.md`. Refine never auto-edits constitution.
+1. **Change pack** — for *this* task or PR (short-lived, easy to review)  
+2. **Memory** — for product truths that should last (keep it short)
 
-**Packs are the unit of work. Memory is the unit of product law.**
+After work finishes, copy lasting rules into `memory/constitution.md` when they truly matter. The refine command never rewrites constitution for you.
+
+**Pack = this work. Memory = product law.**
 
 ## Layout
 

@@ -1,123 +1,95 @@
 ---
 title: AI agents setup for sdd
-description: Install one AI coding agent with sdd init — GitHub Copilot, Grok Build, Claude Code, or Ollama — and run the Spec-Driven Development agent loop.
+description: Connect sdd to GitHub Copilot, Grok, Claude Code, or Ollama in one command. Simple setup first; details later.
 ---
 
-# AI agents (init + hosts)
+# Set up your AI
 
-Pick **one** AI host. Run the process CLI. The agent does the writing.
+You only need **one** AI coding tool. `sdd` installs a few small files for that tool and keeps the real rules in one place.
 
-People often confuse IDEs with AI agents, or install every host at once. `sdd` follows a Spec Kit–style single host: `--ai grok | copilot | claude | ollama` — clean stubs, one protocol, no extension required.
-
-Agent files, `.sdd/protocol.md`, and live `active-context.md` are set up once at init. Switch later with `sdd agents install`.
-
-**No skills packs.** One playbook, thin role agents, live context.
-
-**IDEs ≠ AI agents.** VS Code, Cursor, and IntelliJ are editors. `sdd init` asks which **AI coding agent** to install files for, not which IDE you use.
-
-| Layer | Path | Size |
-|-------|------|------|
-| **Protocol** (only full playbook) | `.sdd/protocol.md` | ~1 page |
-| **Live task** | `.sdd/active-context.md` | generated |
-| **Claude Code agents** | `.claude/agents/*.md` | ~10 lines each |
-| **GitHub Copilot agents** | `.github/agents/*.agent.md` | **same text** as Claude agents |
-| **Grok Build** | `.grok/rules/sdd.md` + `AGENTS.md` | router rule + pointer |
-| **Ollama** | `.ollama/sdd.md` + `AGENTS.md` | local models via CLI |
-| **Optional pointer** | `AGENTS.md` | tiny index (all hosts) |
+> Your **editor** (VS Code, Cursor, …) is not the AI.  
+> Your **AI** (Copilot, Grok, Claude, Ollama) is what writes with you.
 
 ---
 
-## AI agents vs IDEs
-
-| Kind | Examples | What SDD installs |
-|------|----------|-------------------|
-| **AI coding agent** | GitHub Copilot, Claude Code, Grok Build, **Ollama** | Thin stubs/rules + protocol |
-| **IDE** | VS Code, Cursor, IntelliJ, etc. | Nothing — edit files + run `sdd` in a terminal (no extension required) |
-
-| Surface | Integration |
-|---------|-------------|
-| **CLI** | `sdd` (process owner; Spec Kit–style) |
-| **GitHub Copilot** (AI agent) | `.github/agents/*.agent.md` |
-| **Claude Code** (AI agent) | `.claude/agents/*.md` |
-| **Grok Build** (AI agent) | `.grok/rules/sdd.md` + `AGENTS.md` (Grok auto-loads both) |
-| **Ollama** (local AI) | `.ollama/sdd.md` + `AGENTS.md`; launch via `ollama run` |
-
----
-
-## Roles
-
-| Agent id | Role | Hosts |
-|----------|------|--------|
-| `sdd` | Router — plan or implement from current stage | Copilot, Claude, Grok, Ollama |
-| `sdd-planner` | Specs / design / tasks only | Copilot, Claude |
-| `sdd-implementer` | Code for active change | Copilot, Claude |
-| `sdd-reviewer` | Check against acceptance before verify | Copilot, Claude |
-
-Bodies are **stubs**: role + “read `active-context.md` then `protocol.md`”.  
-All real rules live in **`.sdd/protocol.md` once**.
-
-**Grok / Ollama note:** These hosts use a **single** router brief (not four role files). Pick stage behavior from `active-context.md`. For Ollama set `SDD_OLLAMA_MODEL` (default `llama3.2`) and `ollama pull` that model first.
-
----
-
-## Setup is one command
-
-**You only need `sdd init`.** It installs SDD **and** the chosen AI agent.  
-`sdd agents install` is only for **later** (switch host or reinstall).
+## Just set it up (this is enough)
 
 ```bash
-# First-time (pick ONE AI — not all hosts)
-sdd init --here --ai grok      # only .grok/rules + shared SDD dirs
-sdd init --here --ai copilot   # only .github/agents + shared SDD dirs
-sdd init --here --ai claude    # only .claude/agents + shared SDD dirs
-sdd init --here --ai ollama    # only .ollama/sdd.md + shared SDD dirs (local models)
+# In your app folder — pick ONE:
+sdd init --here --ai copilot    # GitHub Copilot
+# sdd init --here --ai grok
+# sdd init --here --ai claude
+# sdd init --here --ai ollama   # then: ollama pull llama3.2
 
-# Interactive pick (still one agent)
-sdd init --here
+sdd doctor
+sdd new "My first change" -w hotfix -y
 ```
 
-### What gets created
+That’s it for day one. The AI often opens after process commands so it can help with the current step.
 
-| Always (shared SDD) | Only for selected `--ai` |
-|---------------------|---------------------------|
-| `.sdd/`, `memory/`, `changes/`, `domains/` | **grok** → `.grok/rules/sdd.md` |
-| `AGENTS.md` when an agent is installed | **copilot** → `.github/agents/*.agent.md` |
-| | **claude** → `.claude/agents/*.md` |
-| | **ollama** → `.ollama/sdd.md` |
+**Learn without the AI opening?** Add `--no-agent` (see [tutorial](../tutorials/first-change)).
 
-Installing one host **removes** other hosts’ agent directories.
+**Switch AI later:**
 
 ```bash
-# Later only
-sdd agents install --ai copilot --force   # switch away from grok
-sdd agents refresh                        # update active-context.md after stages
+sdd agents install --ai claude --force
 ```
 
 ---
 
-## Engineer workflow (agent after process commands)
+## Which AI should I pick?
 
-**Model:** SDD owns process state; the **AI coding agent from init** does the work.
+| You already use… | Choose |
+|------------------|--------|
+| Copilot in VS Code / Cursor | `copilot` |
+| Grok Build CLI | `grok` |
+| Claude Code CLI | `claude` |
+| Local models only | `ollama` |
 
-| After this command… | Agent behavior |
-|---------------------|----------------|
-| `sdd new` / `next` / `skip` / `use` / `gate` / `verify` / `complete` / `checkout` / `agent` / `agents refresh` / `refine` | Writes `.sdd/handoff.md` + refreshes active-context, then **launches** agent |
-| `sdd status` / `doctor` / `context` / `workflows` / `init` | **No** agent launch |
+Full host details: [Available agents](../reference/agents).
 
-| Configured agent | How it runs |
-|------------------|-------------|
-| **grok** | CLI spawns `grok -p "…"` (or interactive `grok`) |
-| **claude** | CLI spawns `claude -p "…"` |
-| **ollama** | CLI spawns `ollama run $SDD_OLLAMA_MODEL "…"` (default model `llama3.2`) |
-| **copilot** | Host UI: open Copilot Chat → agent `sdd` (handoff refreshed at `.sdd/handoff.md`) |
+---
 
-Skip launch for one command: `--no-agent` or `SDD_NO_AGENT=1`.
+## What happens when I run commands?
 
-```bash
-sdd init --here --ai grok
-sdd new "Add feature"
-sdd next
-sdd verify
-```
+| After this… | Does the AI open? |
+|-------------|-------------------|
+| `sdd new`, `next`, `verify`, `complete`, `agent`, … | **Yes** (unless `--no-agent`) |
+| `sdd status`, `doctor`, `workflows`, `feature list` | **No** |
 
-Stage polish: [Refine a stage](./refine). Full host list: [Available agents](../reference/agents).
+| AI | How it runs |
+|----|-------------|
+| **grok** / **claude** / **ollama** | Terminal launches the CLI |
+| **copilot** | Open Copilot Chat → agent `sdd` (handoff file is refreshed) |
+
+Skip the AI once: `--no-agent` or `SDD_NO_AGENT=1`.
+
+---
+
+## Where do the rules live?
+
+You don’t need to memorize this on day one.
+
+| File | Role |
+|------|------|
+| `.sdd/protocol.md` | The one short playbook |
+| `.sdd/active-context.md` | What you’re doing *right now* |
+| `.sdd/handoff.md` | Brief the AI just saw |
+| Host folder (`.github/agents`, `.grok/rules`, …) | Tiny pointers to the playbook |
+
+**One host at a time.** Installing a new AI removes the other hosts’ agent folders so you don’t get a mess of stubs.
+
+---
+
+## Optional: roles (Copilot / Claude)
+
+Some hosts get small role files (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`).  
+They only say “read the live context, then the playbook.” Grok and Ollama use a single short brief instead.
+
+---
+
+## Related
+
+- [Start in 10 minutes](../tutorials/first-change)  
+- [Everyday loop](./everyday-loop)  
+- [Available agents](../reference/agents)  

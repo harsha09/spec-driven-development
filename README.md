@@ -1,34 +1,19 @@
-# sdd — Structured Vibe Coding
+# sdd — keep the “why” next to your code
 
-**Local Spec-Driven Development** for AI coding agents.
+Your AI writes fast. The reasons disappear into chat.
 
-Your agent ships code in minutes. The *decisions* still vanish into chat. **`sdd`** is a CLI process coach that keeps intent, design, and verify notes **next to the code** — from a one-line hotfix to a new product or enterprise ARB.
+**`sdd`** is a small CLI that walks you through short steps and saves notes **in your repo** — so you, your team, and the agent stay aligned.
 
-No cloud SDD product. No required IDE extension. One AI host at init (Copilot, Grok, Claude Code, or **Ollama**).
+- No cloud process product  
+- No required IDE extension  
+- One AI at setup: Copilot, Grok, Claude Code, or Ollama  
 
 | | |
 |---|---|
-| **What** | Stages, workflows, change packs, agent handoff |
-| **Who** | Solo hotfixes → multi-team ARB |
-| **Needs** | Node 20+ (24 recommended) · one AI host at init |
-| **Docs** | https://harsha09.github.io/spec-driven-development/ |
+| **Docs (start here)** | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
+| **Site** | https://harsha09.github.io/spec-driven-development/ |
 | **npm** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
-
----
-
-## Documentation
-
-| Question | Page |
-|----------|------|
-| **Start in 10 minutes** | [First change tutorial](./docs/tutorials/first-change.md) |
-| What is sdd? | [docs/concepts/what-is-sdd.md](./docs/concepts/what-is-sdd.md) |
-| Why this exists | [docs/concepts/why-sdd.md](./docs/concepts/why-sdd.md) |
-| New product (greenfield) | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
-| Simple feature | [docs/guides/simple-feature.md](./docs/guides/simple-feature.md) |
-| Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
-| Workflows · Agents · CLI | [docs site](https://harsha09.github.io/spec-driven-development/) |
-
-Local docs: `pnpm docs:dev`
+| **Needs** | Node 20+ · about 10 minutes for the first loop |
 
 ---
 
@@ -36,48 +21,46 @@ Local docs: `pnpm docs:dev`
 
 ```bash
 npm install -g @structured-vibe-coding/cli
-# or: npx @structured-vibe-coding/cli --help
-```
-
-From this monorepo:
-
-```bash
-pnpm install && pnpm build
-pnpm --filter @structured-vibe-coding/cli link --global
 ```
 
 ---
 
-## Quick start
+## First loop (about 10 minutes)
 
 ```bash
 cd your-app
-sdd init --here --ai copilot     # or grok | claude | ollama (required)
+sdd init --here --ai copilot     # or grok | claude | ollama
 sdd doctor
-sdd new "Fix empty list crash" -w hotfix -y
-# fill intent.md with real sentences, then:
-sdd next
-# … implement → verify …
-sdd complete
+sdd new "Fix empty list crash" -w hotfix -y --no-agent
+# open the intent.md path it prints → write a few real sentences
+sdd next --no-agent
+sdd complete --no-agent
 ```
 
-**New product from a one-liner:**
+Use `--no-agent` while learning so nothing launches an AI window. Drop the flag later when you want help.
+
+Full walkthrough: [docs/tutorials/first-change.md](./docs/tutorials/first-change.md)
+
+---
+
+## Common paths
 
 ```bash
+# Normal feature
+sdd new "Add CSV export" -w feature -y
+
+# New product from one sentence
 sdd greenfield "Team expense tracker for remote startups"
-# vision → requirements → features → architecture → sdd complete
 sdd feature list
 sdd feature start F-001
 ```
 
-Hotfix: `-w hotfix`. Feature: `-w feature`. Enterprise ARB: `-w enterprise-feature`.  
-Guides: [first change](./docs/tutorials/first-change.md) · [greenfield](./docs/guides/greenfield.md) · [enterprise](./docs/guides/enterprise.md).
-
----
-
-## Keywords
-
-`sdd` · spec-driven development · structured vibe coding · AI coding agent · local SDD · greenfield · Copilot · Claude Code · Grok · Ollama
+| Guide | Link |
+|-------|------|
+| What is sdd? | [docs/concepts/what-is-sdd.md](./docs/concepts/what-is-sdd.md) |
+| Everyday commands | [docs/guides/everyday-loop.md](./docs/guides/everyday-loop.md) |
+| New product | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
+| Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
 
 ---
 

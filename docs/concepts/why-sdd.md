@@ -5,50 +5,47 @@ description: Why local Spec-Driven Development beats pure vibe coding and heavy 
 
 # Why sdd exists
 
-> Agents need a process spine. Humans need it light enough to keep.
+> AI needs a little structure. People need that structure to stay light.
 
-## Two failures you already know
+## Two problems you’ve probably felt
 
-**Unstructured vibe coding** ships. Then the *why* evaporates — chat threads, lost context windows, PRs that only show the diff.
+**Chat-only coding** ships fast. Then the *why* is gone — buried in threads, lost context windows, or a PR that only shows the diff.
 
-**Heavy enterprise SDD** keeps the trail — and often blocks solos, weekend projects, and anyone who just needed a three-line fix.
+**Heavy process tools** keep the trail — and often feel like a second job for a three-line fix.
 
-Teams bounce between “move fast and forget” and “process theater.” Neither is good enough when the agent can generate a thousand lines before you finish a ticket title.
+You bounce between “move fast and forget” and “process theater.” Neither fits a world where the AI can draft a thousand lines before you finish naming the ticket.
 
-## The bet
+## The simple bet
 
-**`sdd` is the spine. The agent is the writer.**
+**The AI writes. `sdd` keeps the plan and progress.**
 
-- Process lives in the **repo** (YAML workflows, markdown packs, optional gates) — not in a cloud SDD product you cannot take home.  
-- Ceremony **scales with risk**: hotfix stays three stages; feature can deepen; enterprise can require ARB.  
-- **One playbook** (`.sdd/protocol.md`) and live context — not a zoo of skills packs and IDE plugins.  
-- **Spec Kit–style** init: pick **one** AI host (`--ai grok|copilot|claude|ollama`). Use any editor.
+- Notes live **in your repo**, next to the code — not only in a cloud product.  
+- Small work stays short; bigger work can go deeper.  
+- **One** short playbook, not a pile of plugins.  
+- Pick **one** AI at setup. Use any editor.
 
-## What we refuse
+## What we won’t force on you
 
-- Required IDE extensions  
-- Hosted collaboration suite as the source of process truth  
-- Skills packs replacing a single readable playbook  
-- Mandatory archive or evidence folders (opt-in only)
+- A required IDE extension  
+- A hosted suite as the only source of truth  
+- Mandatory archive folders  
 
-## Who this is for
+## Who it’s for
 
-| You | Why you care |
+| You | Why it helps |
 |-----|----------------|
-| Solo / small team | Structure without ceremony tax |
-| Product team | Same trail in every PR; agents share `memory/` |
-| Enterprise | Hard gates and reviewable packs **next to the code** |
+| Solo / small team | A bit of structure without ceremony |
+| Product team | Same trail in every PR |
+| Enterprise | Reviewable steps next to the code |
 
-## Prove it in ten minutes
+## Try before you buy the idea
 
-Do not take the manifesto on faith. Run one loop:
+**→ [Start in 10 minutes](../tutorials/first-change)**
 
-**→ [Your first change](../tutorials/first-change)**  
-Then the daily rhythm: [Everyday loop](../guides/everyday-loop)  
-Or a full product spine: [Greenfield](../guides/greenfield)
+Then: [Everyday loop](../guides/everyday-loop) · [New product](../guides/greenfield)
 
 ## Related
 
 - [What is sdd](./what-is-sdd)  
 - [Change packs & memory](./change-packs)  
-- [Agents vs IDEs](./agents-vs-ides)  
+

@@ -1,48 +1,44 @@
 ---
 title: What you can achieve with sdd
-description: Outcomes with local Spec-Driven Development — paper trail per PR, greenfield product spine, AI handoffs in git, hotfix to enterprise ARB on one CLI.
+description: Practical outcomes with sdd — paper trail per change, new product plan, AI handoffs in git, light or heavy process on one CLI.
 ---
 
 # What you can achieve with sdd
 
-Not features of a tool — **outcomes you can point at in the repo** after a week of use.
+Not a feature list — **things you’ll notice in the repo** after a week.
 
-## For any team size
+## Outcomes
 
 | Goal | How sdd helps |
 |------|----------------|
-| **Ship with a paper trail** | Each PR/task gets a change pack: intent, design, tasks, verify notes |
-| **Bootstrap a new product** | `sdd greenfield` → vision/requirements/features/architecture, then promote into `memory/` |
-| **Use AI without losing decisions** | Agents read live context + protocol; specs stay in git |
-| **Match ceremony to risk** | Hotfix in 3 stages; full feature or enterprise ARB when needed |
-| **Stay local** | No cloud account for the process tool itself |
-| **Standardize process in the repo** | Workflows are YAML your org can fork and version |
+| **Leave a paper trail** | Each task gets a short folder: intent, design, tasks, verify notes |
+| **Start a new product** | One idea → vision, requirements, feature list, architecture in `memory/` |
+| **Use AI without losing decisions** | The AI reads the same notes you commit |
+| **Match process to risk** | Tiny fix stays short; big work can go deeper |
+| **Stay local** | No cloud account for the process tool |
+| **Share process with the team** | Workflows are files in git you can change |
 
-## Concrete outcomes
+## Day-to-day moves
 
-- **New product:** `sdd greenfield "…"` → stages → `sdd complete` (promotes into `memory/`) → `sdd feature start F-001`  
-- Start a change: `sdd new "…"` → recommended or chosen workflow  
-- Move through stages: fill markdown → `sdd next`  
-- Improve specs anytime: `sdd refine` (stage-scoped; constitution read-only)  
-- Give agents focused code: `sdd context` (AST slices for TS/JS)  
-- Verify on the laptop: `sdd verify`  
-- Close work: `sdd complete` (pack stays under `changes/` by default)  
-- Switch concurrent work: `sdd checkout <id>`  
+- Start work: `sdd new "…"` or `sdd greenfield "…"`  
+- Move on: fill a short file → `sdd next`  
 - Check setup: `sdd doctor`  
+- Finish: `sdd verify` → `sdd complete`  
+- Switch work: `sdd checkout <id>`  
 
-## Solo vs product team vs enterprise
+## By team size
 
 | Context | Typical use |
 |---------|-------------|
-| **Solo / small team** | `hotfix` or `feature`; optional `greenfield` for a personal MVP |
-| **Product team** | Greenfield once for the product spine; then shared `feature` / `patch` packs + `memory/` |
-| **Enterprise** | `enterprise-feature` (ARB, LLD, DB, research, stories), hard gates, skip flags for N/A stages |
+| **Solo / small** | Hotfix and features; optional greenfield for a personal MVP |
+| **Product team** | Greenfield once for the product spine; then shared feature packs |
+| **Enterprise** | Longer path with hard gates when you need them |
 
-Same CLI — different **workflow packs** and policy in YAML.
+Same CLI — different paths.
 
 ## Related
 
-- [Greenfield (new product)](../guides/greenfield)  
+- [Start in 10 minutes](../tutorials/first-change)  
+- [New product](../guides/greenfield)  
 - [Simple feature](../guides/simple-feature)  
-- [Enterprise path](../guides/enterprise)  
-- [Built-in workflows](../reference/workflows)  
+- [Enterprise](../guides/enterprise)  
