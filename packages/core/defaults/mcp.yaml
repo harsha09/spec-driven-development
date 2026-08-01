@@ -1,0 +1,53 @@
+# External MCP *sources* that sdd will *call* (sdd = client).
+# Not the same as `sdd mcp serve` (that exposes sdd tools *to* agents).
+#
+# Use cases:
+#   - Org UI/UX / design-system MCP
+#   - Internal API catalog MCP
+#   - Third-party or custom AST / code-search MCP
+#
+# sdd matches sources by stage / workflow / keywords / intents, then invokes
+# the configured tool and can embed results in agent handoff.
+#
+# Add via CLI:
+#   sdd mcp sources add --id design-system --command npx --arg -y --arg @acme/ds-mcp \
+#     --stages design,implement --intents ui,design --tool search_components \
+#     --tool-arg query={{query}}
+#
+version: 1
+auto_fetch_on_handoff: true
+max_chars_per_source: 6000
+sources: []
+
+# Example (uncomment and edit):
+#
+# sources:
+#   - id: design-system
+#     description: Acme design system components and tokens
+#     command: npx
+#     args: ["-y", "@acme/design-system-mcp"]
+#     priority: 20
+#     when:
+#       stages: [design, implement, stories]
+#       workflows: [feature, enterprise-feature]
+#       intents: [ui, design, component]
+#       keywords: [button, token, theme, component]
+#     invoke:
+#       tool: search_components
+#       args:
+#         query: "{{query}}"
+#
+#   - id: code-ast
+#     description: AST / symbol search for this monorepo (external engine)
+#     command: npx
+#     args: ["-y", "@example/ast-search-mcp"]
+#     cwd: "{{projectRoot}}"
+#     priority: 30
+#     when:
+#       stages: [implement, code_research, local_verify]
+#       intents: [code, implement]
+#     invoke:
+#       tool: search
+#       args:
+#         query: "{{query}}"
+#         root: "{{projectRoot}}"

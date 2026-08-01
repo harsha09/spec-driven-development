@@ -63,4 +63,5 @@ export type {
   StartGreenfieldResult,
   StartFeatureInput,
 } from "./greenfield.js";
+export * from "./mcp/index.js";
 

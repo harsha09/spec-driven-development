@@ -5,14 +5,17 @@ import {
   copyDirSkipExisting,
   ensureDir,
   pathExists,
+  readText,
   writeText,
   writeTextIfMissing,
 } from "./fs.js";
 import {
+  defaultMcpYamlPath,
   defaultMemoryDir,
   defaultTemplatesDir,
   defaultWorkflowsDir,
 } from "./defaults.js";
+import { mcpConfigPath } from "./mcp/sources.js";
 import {
   changesDir,
   domainsDir,
@@ -73,6 +76,14 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
   if (await pathExists(tSrc)) {
     await copyDir(tSrc, tDest);
     created.push(tDest);
+  }
+
+  // external MCP sources config (sdd as client — org libs, AST engines, …)
+  const mcpSrc = defaultMcpYamlPath();
+  const mcpDest = mcpConfigPath(projectRoot);
+  if (await pathExists(mcpSrc)) {
+    const wrote = await writeTextIfMissing(mcpDest, await readText(mcpSrc));
+    if (wrote) created.push(mcpDest);
   }
 
   // memory — stable team docs; never overwrite on --force (constitution, product, …)
