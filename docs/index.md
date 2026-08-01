@@ -18,6 +18,9 @@ hero:
     - theme: alt
       text: What is sdd?
       link: /concepts/what-is-sdd
+    - theme: alt
+      text: npm package
+      link: https://www.npmjs.com/package/@structured-vibe-coding/cli
 features:
   - title: Simple commands
     details: "new → fill a short file → next → code → complete. You always know where you are with sdd status."
@@ -28,6 +31,8 @@ features:
 ---
 
 ## Try it in three steps
+
+Install from npm: **[@structured-vibe-coding/cli](https://www.npmjs.com/package/@structured-vibe-coding/cli)**
 
 ```bash
 npm install -g @structured-vibe-coding/cli
@@ -65,6 +70,7 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | Need | Detail |
 |------|--------|
 | **Node.js** | 20 or newer (24 is nice) |
+| **CLI package** | [@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
 | **An AI tool** | One of: GitHub Copilot, Grok, Claude Code, or Ollama |
 | **Time** | About 10 minutes for the first loop |
 | **Editor** | Whatever you already use |

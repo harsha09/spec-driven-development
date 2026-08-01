@@ -12,7 +12,7 @@ Your AI writes fast. The reasons disappear into chat.
 |---|---|
 | **Docs (start here)** | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
 | **Site** | https://harsha09.github.io/spec-driven-development/ |
-| **npm** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
+| **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
 | **Needs** | Node 20+ · about 10 minutes for the first loop |
 
 ---

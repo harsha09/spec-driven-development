@@ -26,6 +26,8 @@ Bigger feature? → [Simple feature](../guides/simple-feature) after this tutori
 
 ## Step 1 — Install
 
+Package on npm: **[@structured-vibe-coding/cli](https://www.npmjs.com/package/@structured-vibe-coding/cli)**
+
 **Easiest (recommended):**
 
 ```bash

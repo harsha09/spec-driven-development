@@ -4,6 +4,8 @@
 
 Keep intent, design, and verify notes next to the code. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
+**npm:** https://www.npmjs.com/package/@structured-vibe-coding/cli
+
 ## Install
 
 ```bash
