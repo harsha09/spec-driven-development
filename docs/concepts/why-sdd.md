@@ -17,7 +17,9 @@ You bounce between “move fast and forget” and “process theater.” Neither
 
 ## The simple bet
 
-**The AI writes. `sdd` keeps the plan and progress.**
+**The AI writes. `sdd` keeps the plan and progress in git.**
+
+Longer problem write-up: [Keep AI coding decisions in git](./keep-ai-coding-in-git).
 
 - Notes live **in your repo**, next to the code — not only in a cloud product.  
 - Small work stays short; bigger work can go deeper.  

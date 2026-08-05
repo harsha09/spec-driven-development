@@ -1,17 +1,20 @@
 ---
-title: Start with sdd in 10 minutes
-description: Install sdd, create a small change, write a few sentences, and finish your first loop — step by step for beginners.
+title: Spec-Driven Development CLI tutorial (10 minutes)
+description: Install the sdd Spec-Driven Development CLI, run your first AI-friendly change pack, and finish a local loop—intent in git, not only in chat. Beginner tutorial.
 ---
 
-# Start in 10 minutes
+# Spec-Driven Development CLI: start in 10 minutes
 
-This is the friendliest way to learn **sdd**. You’ll make a tiny “change,” write a few sentences, and finish. No enterprise process. No long theory.
+This tutorial is the fastest way to learn **sdd**, a **local Spec-Driven Development CLI** for **AI coding agents**. You’ll make a tiny change pack, write a few sentences **in the repo**, and finish. No enterprise process. No long theory.
+
+By the end, intent and progress live as **markdown in git**—the same trail you and Copilot, Claude Code, Grok, or Ollama can share.
 
 | | |
 |--|--|
 | **Time** | About 10 minutes |
 | **You need** | Node.js 20+ and a folder for an app (or an empty folder) |
 | **Goal** | Feel the loop: start → write a note → next → finish |
+| **Install** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) on npm |
 
 ::: tip Stay calm
 We’ll use `--no-agent` so nothing launches an AI window while you learn. You can turn the agent on later.

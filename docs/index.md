@@ -1,16 +1,16 @@
 ---
 layout: home
-title: Local Spec-Driven Development for AI coding
+title: Spec-Driven Development CLI for AI Coding Agents
 titleTemplate: sdd
-description: sdd keeps your AI coding decisions in git. A simple CLI process coach for hotfixes, features, new products, and enterprise work. No IDE extension.
+description: sdd is a local Spec-Driven Development CLI for AI coding agents. Keep intent, design, and verify notes in git—not only in chat. Works with Copilot, Claude Code, Grok, and Ollama.
 head:
   - - meta
     - name: description
-      content: sdd keeps your AI coding decisions in git. A simple CLI process coach for hotfixes, features, new products, and enterprise work. No IDE extension.
+      content: sdd is a local Spec-Driven Development CLI for AI coding agents. Keep intent, design, and verify notes in git—not only in chat. Works with Copilot, Claude Code, Grok, and Ollama.
 hero:
   name: sdd
-  text: Stop losing the “why”
-  tagline: Your AI writes code fast. The reasons disappear into chat. sdd is a small CLI that keeps short notes next to your code — so you, your team, and the agent stay aligned.
+  text: Spec-Driven Development for AI coding agents
+  tagline: Your AI writes code fast. The reasons disappear into chat. sdd is a local CLI that keeps short plans and notes next to your code—so you, your team, and the agent stay aligned.
   actions:
     - theme: brand
       text: Start in 10 minutes
@@ -30,9 +30,15 @@ features:
     details: Pick Copilot, Grok, Claude, or Ollama once. Use any editor. No marketplace extension required.
 ---
 
+## Local Spec-Driven Development in your repo
+
+**sdd** (Structured Vibe Coding) is a **Spec-Driven Development CLI** for people who use **AI coding agents**. It does not host process in the cloud and does not require an IDE extension. Plans, stage progress, and handoffs live as **markdown in git**—next to the code your agent changes.
+
+If chat history is where your “why” dies, this tool is for you.
+
 ## Try it in three steps
 
-Install from npm: **[@structured-vibe-coding/cli](https://www.npmjs.com/package/@structured-vibe-coding/cli)**
+Install from npm: **[@structured-vibe-coding/cli](https://www.npmjs.com/package/@structured-vibe-coding/cli)** (binary: `sdd`)
 
 ```bash
 npm install -g @structured-vibe-coding/cli
@@ -56,6 +62,7 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | I want to… | Open this |
 |------------|-----------|
 | **Learn sdd right now** | [Start in 10 minutes](./tutorials/first-change) |
+| **Understand the problem it solves** | [Keep AI coding decisions in git](./concepts/keep-ai-coding-in-git) |
 | **Understand what it is** | [What is sdd?](./concepts/what-is-sdd) |
 | **Build a new product from an idea** | [New product (greenfield)](./guides/greenfield) |
 | **Add a feature to my app** | [Simple feature](./guides/simple-feature) |

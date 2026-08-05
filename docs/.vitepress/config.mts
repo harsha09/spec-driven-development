@@ -10,9 +10,10 @@ import { defineConfig } from "vitepress";
 const base = process.env.DOCS_BASE || "/spec-driven-development/";
 const siteOrigin = "https://harsha09.github.io";
 const siteUrl = `${siteOrigin}/spec-driven-development`;
-const siteName = "sdd — Structured Vibe Coding";
+const siteName = "sdd — Spec-Driven Development CLI";
 const defaultDescription =
-  "Local Spec-Driven Development CLI for AI coding agents. Keep decisions in git — from a one-line hotfix to a new product or enterprise ARB. No IDE extension required.";
+  "sdd is a local Spec-Driven Development CLI for AI coding agents. Keep intent, design, and progress in git—not only in chat. Copilot, Claude Code, Grok, Ollama. No IDE extension required.";
+const ogImage = `${siteUrl}/og.jpg`;
 
 /** Keep JSON-LD softwareVersion aligned with the published CLI package. */
 const docsDir = dirname(fileURLToPath(import.meta.url));
@@ -71,7 +72,7 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "sdd, spec-driven development, structured vibe coding, AI coding agent, local SDD, CLI, greenfield, MCP sources, code context, Copilot, Claude Code, Grok, Ollama",
+          "sdd, spec-driven development, Spec-Driven Development CLI, AI coding agent, keep AI decisions in git, structured vibe coding, local SDD, greenfield, MCP sources, Copilot, Claude Code, Grok, Ollama",
       },
     ],
     ["meta", { name: "robots", content: "index, follow" }],
@@ -84,11 +85,14 @@ export default defineConfig({
     ["meta", { property: "og:url", content: `${siteUrl}/` }],
     ["meta", { property: "og:title", content: siteName }],
     ["meta", { property: "og:description", content: defaultDescription }],
+    ["meta", { property: "og:image", content: ogImage }],
+    ["meta", { property: "og:image:alt", content: "sdd — Spec-Driven Development for AI coding agents" }],
 
     // Twitter
     ["meta", { name: "twitter:card", content: "summary_large_image" }],
     ["meta", { name: "twitter:title", content: siteName }],
     ["meta", { name: "twitter:description", content: defaultDescription }],
+    ["meta", { name: "twitter:image", content: ogImage }],
 
     // JSON-LD: SoftwareApplication + WebSite
     [
@@ -107,12 +111,17 @@ export default defineConfig({
           {
             "@type": "SoftwareApplication",
             name: "sdd",
-            alternateName: ["Structured Vibe Coding", "spec-driven-development"],
+            alternateName: [
+              "Structured Vibe Coding",
+              "spec-driven-development",
+              "Spec-Driven Development CLI",
+            ],
             applicationCategory: "DeveloperApplication",
             operatingSystem: "macOS, Linux, Windows",
             description: defaultDescription,
             url: siteUrl,
             downloadUrl: "https://www.npmjs.com/package/@structured-vibe-coding/cli",
+            image: ogImage,
             softwareVersion,
             license: "https://opensource.org/licenses/MIT",
             offers: {
@@ -146,8 +155,10 @@ export default defineConfig({
       ["meta", { property: "og:title", content: title }],
       ["meta", { property: "og:description", content: description }],
       ["meta", { property: "og:url", content: pageUrl }],
+      ["meta", { property: "og:image", content: ogImage }],
       ["meta", { name: "twitter:title", content: title }],
       ["meta", { name: "twitter:description", content: description }],
+      ["meta", { name: "twitter:image", content: ogImage }],
       ["link", { rel: "canonical", href: pageUrl }],
     );
   },
@@ -157,6 +168,7 @@ export default defineConfig({
     nav: [
       { text: "Start (10 min)", link: "/tutorials/first-change" },
       { text: "What is sdd", link: "/concepts/what-is-sdd" },
+      { text: "Why (problem)", link: "/concepts/keep-ai-coding-in-git" },
       {
         text: "Guides",
         items: [
@@ -194,6 +206,7 @@ export default defineConfig({
         items: [
           { text: "Home", link: "/" },
           { text: "Start in 10 minutes", link: "/tutorials/first-change" },
+          { text: "Keep AI decisions in git", link: "/concepts/keep-ai-coding-in-git" },
           { text: "What is sdd?", link: "/concepts/what-is-sdd" },
           { text: "Why sdd exists", link: "/concepts/why-sdd" },
           { text: "What you can achieve", link: "/concepts/what-you-can-achieve" },

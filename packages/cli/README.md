@@ -1,8 +1,8 @@
 # `@structured-vibe-coding/cli`
 
-**`sdd`** — local Spec-Driven Development process coach for you and your AI coding agent.
+**`sdd`** — local **Spec-Driven Development CLI** for you and your **AI coding agent**.
 
-Keep intent, design, and verify notes next to the code. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
+Keep intent, design, and verify notes **in git**, not only in chat. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
 **npm:** https://www.npmjs.com/package/@structured-vibe-coding/cli  
 **Docs:** https://harsha09.github.io/spec-driven-development/  

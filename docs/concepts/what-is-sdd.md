@@ -1,17 +1,19 @@
 ---
-title: What is sdd?
-description: sdd is a simple CLI that keeps short plans and notes next to your code so you and your AI coding agent stay aligned. No cloud product, no IDE extension.
+title: What is sdd? Spec-Driven Development CLI for AI agents
+description: sdd is a local Spec-Driven Development CLI for AI coding agents. Short plans and notes live in git so you and Copilot, Claude Code, Grok, or Ollama stay aligned—no cloud process product.
 ---
 
 # What is sdd?
 
 Your AI can ship a feature before lunch. By Friday, nobody remembers *why* that edge case was “fine,” what “done” meant, or what was out of scope.
 
-**`sdd`** is a small program you run in the terminal. It lives in your project and helps you and your AI work in **short, clear steps** — with notes saved in the repo, not only in a chat window.
+**`sdd`** is a **Spec-Driven Development CLI** you run in the terminal. It lives in your project and helps you and your **AI coding agent** work in **short, clear steps**—with notes saved **in the repo**, not only in a chat window.
 
-It does **not** replace your stack (React, Python, …). It sits **next to** your code.
+It does **not** replace your stack (React, Python, …). It sits **next to** your code. Package: [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli).
 
-> **In one sentence:** the AI writes; `sdd` keeps the plan and progress.
+> **In one sentence:** the AI writes; `sdd` keeps the plan and progress in git.
+
+For the problem story: [Keep AI coding decisions in git](./keep-ai-coding-in-git).
 
 ---
 
