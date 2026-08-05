@@ -52,8 +52,8 @@ sdd new "Add CSV export" -w feature -y
 
 # New product from one sentence
 sdd greenfield "Team expense tracker for remote startups"
-sdd feature list
-sdd feature start F-001
+sdd backlog list
+sdd backlog start F-001
 ```
 
 | Guide | Link |

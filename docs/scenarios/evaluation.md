@@ -23,7 +23,7 @@ workflow: hotfix
 ## S1b — Greenfield product bootstrap
 ```
 sdd greenfield "…" → vision/requirements/features/architecture → complete → memory/*
-sdd feature list / sdd feature start F-001
+sdd backlog list / sdd backlog start F-001
 ```
 **PASS** (engine + CLI tests) — discovery pack promotes product spine; delivery packs start from backlog.
 

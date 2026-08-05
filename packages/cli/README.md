@@ -32,7 +32,7 @@ sdd new "Add expense CSV export" -w feature -y
 
 ```bash
 sdd greenfield "Team expense tracker for remote startups"
-sdd feature list && sdd feature start F-001
+sdd backlog list && sdd backlog start F-001
 ```
 
 ## External MCP sources (sdd as client)

@@ -508,7 +508,7 @@ const complete = defineCommand({
       if (promoted?.length) {
         consola.success(`Promoted greenfield → memory: ${promoted.join(", ")}`);
         consola.log(
-          pc.dim("Next: sdd feature list · sdd feature start F-001  (implement backlog items)"),
+          pc.dim("Next: sdd backlog list · sdd backlog start F-001  (implement backlog items)"),
         );
       }
       if (ctx.workflow.on_complete?.domain_sync === "recommend") {
@@ -577,7 +577,7 @@ const greenfield = defineCommand({
       consola.log(
         `  3. ${pc.cyan("sdd complete")} promotes vision/requirements/features/architecture → memory/`,
       );
-      consola.log(`  4. ${pc.cyan("sdd feature start F-001")} implements each backlog item`);
+      consola.log(`  4. ${pc.cyan("sdd backlog start F-001")} implements each backlog item`);
       consola.log("");
 
       const launch = await launchConfiguredAgent({
@@ -592,15 +592,19 @@ const greenfield = defineCommand({
   },
 });
 
-const featureList = defineCommand({
+/**
+ * Product backlog (memory/features.md after greenfield).
+ * Prefer `sdd backlog …`. `sdd feature …` remains as a compatibility alias.
+ */
+const backlogList = defineCommand({
   meta: {
     name: "list",
-    description: "List product feature backlog (memory/features.md or greenfield pack)",
+    description: "List product backlog (memory/features.md or greenfield pack)",
   },
   async run() {
     await withProject(async ({ root, config }) => {
       const { path, features } = await listBacklogFeatures(root, config);
-      consola.log(pc.bold("Feature backlog") + pc.dim(`  ${path}`));
+      consola.log(pc.bold("Product backlog") + pc.dim(`  ${path}`));
       consola.log("");
       for (const f of features) {
         const st =
@@ -615,12 +619,13 @@ const featureList = defineCommand({
         if (f.summary) consola.log(pc.dim(`       ${f.summary}`));
       }
       consola.log("");
-      consola.log(pc.dim("Start one: sdd feature start F-001"));
+      consola.log(pc.dim("Start one: sdd backlog start F-001"));
+      consola.log(pc.dim('Everyday ad-hoc work uses sdd new "…" (not backlog).'));
     });
   },
 });
 
-const featureStart = defineCommand({
+const backlogStart = defineCommand({
   meta: {
     name: "start",
     description: "Start a change pack from backlog id (e.g. F-001)",
@@ -628,12 +633,12 @@ const featureStart = defineCommand({
   args: {
     id: {
       type: "positional",
-      description: "Feature id, e.g. F-001",
+      description: "Backlog id, e.g. F-001",
       required: true,
     },
     workflow: {
       type: "string",
-      description: "Override workflow (default: from backlog or feature)",
+      description: "Override workflow (default: from backlog row or feature pack)",
       alias: "w",
     },
     "no-agent": noAgentArg,
@@ -665,22 +670,35 @@ const featureStart = defineCommand({
         config,
         ctx,
         noAgent: args["no-agent"],
-        event: `feature ${feature.id} start · stage ${ctx.meta.stage}`,
+        event: `backlog ${feature.id} start · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
     });
   },
 });
 
+const backlogSubCommands = {
+  list: backlogList,
+  start: backlogStart,
+};
+
+const backlog = defineCommand({
+  meta: {
+    name: "backlog",
+    description:
+      "Product backlog after greenfield (list / start F-001…). Prefer this over sdd feature.",
+  },
+  subCommands: backlogSubCommands,
+});
+
+/** @deprecated Prefer `sdd backlog`. Same behavior; kept for scripts. */
 const feature = defineCommand({
   meta: {
     name: "feature",
-    description: "Product backlog helpers (list / start from greenfield features.md)",
+    description:
+      "Alias for sdd backlog (list / start). Prefer: sdd backlog list · sdd backlog start F-001",
   },
-  subCommands: {
-    list: featureList,
-    start: featureStart,
-  },
+  subCommands: backlogSubCommands,
 });
 
 const workflows = defineCommand({
@@ -1171,7 +1189,8 @@ const help = defineCommand({
     consola.log("");
     consola.log(pc.bold("New product:"));
     consola.log(`  ${pc.cyan('sdd greenfield "One-line product idea"')}`);
-    consola.log(`  ${pc.cyan("sdd feature list")} · ${pc.cyan("sdd feature start F-001")}`);
+    consola.log(`  ${pc.cyan("sdd backlog list")} · ${pc.cyan("sdd backlog start F-001")}`);
+    consola.log(pc.dim("  (sdd new starts free-form work; backlog start uses F-001 from memory/)"));
     consola.log("");
     consola.log(pc.bold("Tips:"));
     consola.log(`  ${pc.cyan("--no-agent")}            learn the process first, AI later`);
@@ -1209,6 +1228,7 @@ export const commands = {
   init,
   new: newCmd,
   greenfield,
+  backlog,
   feature,
   status,
   next,

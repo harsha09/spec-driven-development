@@ -33,10 +33,12 @@ sdd complete                  # mark this work done
 From a product backlog after greenfield:
 
 ```bash
-sdd feature list
-sdd feature start F-001
+sdd backlog list
+sdd backlog start F-001
 # then the same next → verify → complete loop
 ```
+
+(`sdd new "…"` is for free-form titles; `sdd backlog start` is only for `F-001` rows in `memory/features.md`.)
 
 ---
 
@@ -46,8 +48,8 @@ sdd feature start F-001
 sdd greenfield "One sentence product idea"
 # fill vision → sdd next → requirements → features → architecture
 sdd complete
-sdd feature list
-sdd feature start F-001
+sdd backlog list
+sdd backlog start F-001
 ```
 
 Details: [Greenfield guide](./greenfield).

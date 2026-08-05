@@ -55,7 +55,7 @@ Full host details: [Available agents](../reference/agents).
 | After this… | Does the AI open? |
 |-------------|-------------------|
 | `sdd new`, `next`, `verify`, `complete`, `agent`, … | **Yes** (unless `--no-agent`) |
-| `sdd status`, `doctor`, `workflows`, `feature list` | **No** |
+| `sdd status`, `doctor`, `workflows`, `backlog list` | **No** |
 
 | AI | How it runs |
 |----|-------------|

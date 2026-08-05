@@ -2,7 +2,7 @@
 
 > **{{title}}** · `{{id}}`  
 > Each feature should fit **one PR**. Start implementation with:  
-> `sdd feature start F-001`
+> `sdd backlog start F-001`
 
 ## How to write a feature
 
