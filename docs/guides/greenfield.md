@@ -21,8 +21,9 @@ You have a **sentence**, not a backlog. Greenfield helps you write a small produ
 
 | Situation | Command |
 |-----------|---------|
-| New product | `sdd greenfield "…"` |
-| Feature on existing app | [Simple feature](./simple-feature) |
+| New product discovery | `sdd greenfield "…"` then `sdd complete` |
+| Next item from product backlog | `sdd backlog start F-001` |
+| Feature on existing app (no backlog) | [Simple feature](./simple-feature) → `sdd new "…"` |
 | Tiny fix | `sdd new "…" -w hotfix -y` |
 
 ---
@@ -71,13 +72,14 @@ When you complete, good content is copied into **`memory/`** so later work can r
 ## 3. Build features one by one
 
 ```bash
-sdd feature list
-sdd feature start F-001
+sdd backlog list
+sdd backlog start F-001
 # normal loop: notes → sdd next → code → sdd verify → sdd complete
-sdd feature start F-002
+sdd backlog start F-002
 ```
 
-Each start creates a normal change folder and marks that backlog row **in progress**.
+Each start creates a normal change folder and marks that backlog row **in progress**.  
+(Ad-hoc work that is *not* on the backlog still uses `sdd new "…"`.)
 
 ---
 

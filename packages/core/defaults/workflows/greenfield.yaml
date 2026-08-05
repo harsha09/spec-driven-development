@@ -50,7 +50,7 @@ stages:
 
   - id: features
     title: Feature backlog
-    summary: PR-sized features with ids F-001… for later sdd feature start
+    summary: PR-sized features with ids F-001… for later sdd backlog start
     skippable: false
     artifacts:
       - id: features

@@ -13,7 +13,7 @@ You’re shipping a **real feature**, not a one-line typo. You want a short plan
 | **You’ll get** | A folder under `changes/` + code + a local check |
 | **First time with sdd?** | Do the [10-minute tutorial](../tutorials/first-change) first |
 
-Brand-new product from a one-liner? → [Greenfield](./greenfield), then come back (or use `sdd feature start F-001`).
+Brand-new product from a one-liner? → [Greenfield](./greenfield), then come back (or use `sdd backlog start F-001`).
 
 ---
 

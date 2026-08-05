@@ -12,6 +12,19 @@ One command’s flags: `sdd <command> --help`.
 
 ---
 
+## Start work: which command?
+
+| Situation | Command |
+|-----------|---------|
+| Everyday / ad-hoc title (bug, small feature, spike) | **`sdd new "Title"`** (optional `-w hotfix\|feature\|…`) |
+| Item from product backlog after greenfield (`F-001`) | **`sdd backlog start F-001`** |
+| New product discovery (vision → backlog) | **`sdd greenfield "One-line idea"`** |
+
+`sdd new` and `sdd backlog start` both open a **change pack**. The difference is the **source**: free-form title vs backlog id.  
+`-w feature` is a **workflow pack name**, not the same as `sdd backlog` / the old `sdd feature` alias.
+
+---
+
 ## I want to…
 
 | Goal | Command |
@@ -19,10 +32,10 @@ One command’s flags: `sdd <command> --help`.
 | Set up this project | `sdd init --here --ai copilot` |
 | Check setup | `sdd doctor` |
 | Start small work | `sdd new "Title" -w hotfix -y` |
-| Start a feature | `sdd new "Title" -w feature -y` |
+| Start mid-size work (workflow pack) | `sdd new "Title" -w feature -y` |
 | Start a new product | `sdd greenfield "One-line idea"` |
-| See my feature list | `sdd feature list` |
-| Build backlog item | `sdd feature start F-001` |
+| See product backlog | `sdd backlog list` |
+| Build backlog item | `sdd backlog start F-001` |
 | See where I am | `sdd status` |
 | Move to next step | `sdd next` |
 | Finish work | `sdd complete` |
@@ -39,12 +52,13 @@ One command’s flags: `sdd <command> --help`.
 |---------|--------------|------|
 | `sdd init` | Create sdd files + one AI setup | Once per app |
 | `sdd init --force` | Refresh defaults (keeps your memory files) | Upgrades |
-| `sdd new "title"` | Start a change pack | Start work |
+| `sdd new "title"` | Start a change pack from a free-form title | Everyday work |
 | `sdd new … -w <pack>` | Choose path (hotfix, feature, …) | You know the path |
 | `sdd new … -y` | Skip confirm prompts | Scripts / CI |
 | `sdd greenfield "idea"` | New product plan path | Empty / MVP product |
-| `sdd feature list` | Show F-001… backlog | After greenfield |
-| `sdd feature start F-001` | Start work from backlog | Build product items |
+| `sdd backlog list` | Show F-001… product backlog | After greenfield |
+| `sdd backlog start F-001` | Start work from backlog id | Build product items |
+| `sdd feature list\|start` | **Alias** for `sdd backlog …` (compat) | Old scripts |
 | `sdd status` | Progress (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
 | `sdd next` | Advance one stage | Step done |
@@ -71,15 +85,16 @@ One command’s flags: `sdd <command> --help`.
 | Command | Notes |
 |---------|--------|
 | `sdd greenfield ["idea"]` | Asks for idea if you omit it; supports `--no-agent` |
-| `sdd feature start F-001` | `-w` can override the backlog workflow; supports `--no-agent` |
-| `sdd feature list` | Never opens the AI |
+| `sdd backlog start F-001` | `-w` can override the backlog workflow; supports `--no-agent` |
+| `sdd backlog list` | Never opens the AI |
+| `sdd feature …` | Same as `sdd backlog …`; prefer **backlog** in new docs and scripts |
 
 ---
 
 ## About the AI opening
 
 Most process commands refresh a short handoff and may open your AI.  
-**Never open AI:** `status`, `init`, `workflows`, `context`, `feature list`, `help`, `doctor`.
+**Never open AI:** `status`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 
@@ -92,4 +107,3 @@ Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 - [AI setup](../guides/agents)  
 - [MCP sources](../guides/mcp)  
 - [Code context](../guides/code-context)  
-

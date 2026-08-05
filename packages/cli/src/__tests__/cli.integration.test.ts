@@ -205,7 +205,7 @@ describe("CLI integration", () => {
     expect(r.stderr + r.stdout).toMatch(/IDE/i);
   });
 
-  it("sdd greenfield seeds vision and feature list/start from backlog", async () => {
+  it("sdd greenfield + backlog list/start (feature alias still works)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-gf-"));
     temps.push(root);
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
@@ -213,6 +213,7 @@ describe("CLI integration", () => {
     const gf = runSdd(root, ["greenfield", "Shared shopping list for roommates", "--no-agent"]);
     expect(gf.status, gf.stderr + gf.stdout).toBe(0);
     expect(gf.stdout + gf.stderr).toMatch(/greenfield|vision/i);
+    expect(gf.stdout + gf.stderr).toMatch(/backlog start/i);
     expect(await exists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(true);
 
     const { readdir, writeFile } = await import("node:fs/promises");
@@ -225,7 +226,7 @@ describe("CLI integration", () => {
     expect(vision).toContain("Shared shopping list for roommates");
     expect(vision).not.toContain("{{idea}}");
 
-    // Promote a backlog into memory and start F-001
+    // Promote a backlog into memory and start F-001 via preferred command
     await writeFile(
       join(root, "memory/features.md"),
       [
@@ -244,15 +245,21 @@ describe("CLI integration", () => {
       "utf8",
     );
 
-    const list = runSdd(root, ["feature", "list"]);
+    const list = runSdd(root, ["backlog", "list"]);
     expect(list.status, list.stderr + list.stdout).toBe(0);
     expect(list.stdout + list.stderr).toMatch(/F-001/);
+    expect(list.stdout + list.stderr).toMatch(/sdd new/i);
 
-    const start = runSdd(root, ["feature", "start", "F-001", "--no-agent"]);
+    const start = runSdd(root, ["backlog", "start", "F-001", "--no-agent"]);
     expect(start.status, start.stderr + start.stdout).toBe(0);
     expect(start.stdout + start.stderr).toMatch(/F-001|Started/i);
 
-    const backlog = await readFile(join(root, "memory/features.md"), "utf8");
-    expect(backlog).toMatch(/\*\*Status:\*\*\s*in_progress/i);
+    const backlogFile = await readFile(join(root, "memory/features.md"), "utf8");
+    expect(backlogFile).toMatch(/\*\*Status:\*\*\s*in_progress/i);
+
+    // Compatibility: sdd feature list still works
+    const aliasList = runSdd(root, ["feature", "list"]);
+    expect(aliasList.status, aliasList.stderr + aliasList.stdout).toBe(0);
+    expect(aliasList.stdout + aliasList.stderr).toMatch(/F-001/);
   });
 });

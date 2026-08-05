@@ -15,7 +15,7 @@ Parent page for **stable** project docs. Humans and coding agents: start here, t
 |-------|------|
 | Product / vision | [product.md](product.md) |
 | Requirements | [requirements.md](requirements.md) (after greenfield) |
-| Feature backlog | [features.md](features.md) (after greenfield; `sdd feature start F-001`) |
+| Feature backlog | [features.md](features.md) (after greenfield; `sdd backlog start F-001`) |
 | Constitution (non-negotiables) | [constitution.md](constitution.md) |
 | Architecture | [architecture.md](architecture.md) |
 | Coding & process conventions | [conventions.md](conventions.md) |

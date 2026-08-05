@@ -20,7 +20,8 @@ Not a feature list — **things you’ll notice in the repo** after a week.
 
 ## Day-to-day moves
 
-- Start work: `sdd new "…"` or `sdd greenfield "…"`  
+- Start work: `sdd new "…"` (free-form) or `sdd backlog start F-001` (after greenfield)  
+- New product: `sdd greenfield "…"` → complete → backlog  
 - Move on: fill a short file → `sdd next`  
 - Check setup: `sdd doctor`  
 - Finish: `sdd verify` → `sdd complete`  

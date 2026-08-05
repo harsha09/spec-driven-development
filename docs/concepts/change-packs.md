@@ -34,7 +34,7 @@ memory/index.md            ← map (stable)
 memory/constitution.md
 memory/product.md          ← after greenfield (from vision)
 memory/requirements.md     ← after greenfield
-memory/features.md         ← backlog; sdd feature start F-001
+memory/features.md         ← product backlog; sdd backlog start F-001
 memory/architecture.md
 changes/<id>/              ← this PR’s specs + meta.yaml
 .sdd/protocol.md           ← process rules for agents
@@ -43,7 +43,7 @@ changes/<id>/              ← this PR’s specs + meta.yaml
 
 | | |
 |--|--|
-| **Packs** | Every change via `sdd new` or `sdd greenfield` / `sdd feature start` |
+| **Packs** | Every change via `sdd new` or `sdd greenfield` / `sdd backlog start` |
 | **Memory** | Durable truths only — promote after complete (greenfield auto-promotes product spine) |
 | **Shared trail** | Agents and humans read the same files for *this* change |
 
@@ -52,7 +52,7 @@ changes/<id>/              ← this PR’s specs + meta.yaml
 | Kind | How it starts | What it produces |
 |------|---------------|------------------|
 | **Discovery (greenfield)** | `sdd greenfield "idea"` | Vision, requirements, `F-NNN` backlog, architecture → promoted into `memory/` on complete |
-| **Delivery (feature / hotfix / …)** | `sdd new "…"` or `sdd feature start F-001` | Specs + code for one PR-sized slice |
+| **Delivery (feature / hotfix / …)** | `sdd new "…"` or `sdd backlog start F-001` | Specs + code for one PR-sized slice |
 
 Greenfield does **not** implement the whole product in one pack. It writes the product spine; each backlog row becomes its own delivery pack.
 
