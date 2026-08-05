@@ -1,11 +1,13 @@
 ---
-title: New product from a one-line idea
-description: Turn a one-line product idea into vision, requirements, a feature list, and architecture with sdd greenfield — then build each feature one at a time.
+title: Greenfield product planning with an AI coding agent
+description: Use sdd greenfield for Spec-Driven Development of a new product—vision, requirements, feature backlog, and architecture in git—then implement F-001 with your AI coding agent.
 ---
 
-# New product from a one-line idea
+# Greenfield product planning with an AI coding agent
 
-You have a **sentence**, not a backlog. Greenfield helps you write a small product plan *before* you drown in code — then you build **one feature at a time**.
+You have a **sentence**, not a backlog. **`sdd greenfield`** is Spec-Driven Development for a **new product**: a small plan *before* you and your AI drown in code—then you build **one backlog item at a time**.
+
+Plans land in the repo (`changes/` then `memory/` on complete), so the agent’s next session still has product context.
 
 | | |
 |--|--|
@@ -13,7 +15,7 @@ You have a **sentence**, not a backlog. Greenfield helps you write a small produ
 | **You’ll get** | Notes in `memory/` + a list of features like F-001 |
 | **Not for** | A single bug on an existing app → use [simple feature](./simple-feature) or a hotfix |
 
-> **Picture it:** idea → short plan → list of features → simple architecture → implement F-001, F-002, …
+> **Picture it:** idea → short plan → list of features → simple architecture → `sdd backlog start F-001`, F-002, …
 
 ---
 

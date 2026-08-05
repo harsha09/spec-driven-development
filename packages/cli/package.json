@@ -1,7 +1,7 @@
 {
   "name": "@structured-vibe-coding/cli",
   "version": "0.16.2",
-  "description": "sdd CLI — local Spec-Driven Development process coach for AI coding agents (Copilot, Grok, Claude, Ollama)",
+  "description": "sdd — local Spec-Driven Development CLI for AI coding agents. Keep intent and progress in git (Copilot, Claude Code, Grok, Ollama).",
   "type": "module",
   "bin": {
     "sdd": "./dist/index.js"
@@ -52,15 +52,20 @@
     "sdd",
     "cli",
     "spec-driven-development",
+    "spec-driven-development-cli",
     "structured-vibe-coding",
     "ai-coding",
     "ai-coding-agent",
+    "ai-agent-workflow",
+    "agent-handoff",
+    "change-pack",
     "local-sdd",
     "greenfield",
     "mcp",
     "copilot",
     "claude-code",
     "grok",
-    "ollama"
+    "ollama",
+    "github-copilot"
   ]
 }

@@ -1,8 +1,8 @@
-# sdd — keep the “why” next to your code
+# sdd — Spec-Driven Development CLI for AI coding agents
 
 Your AI writes fast. The reasons disappear into chat.
 
-**`sdd`** is a small CLI that walks you through short steps and saves notes **in your repo** — so you, your team, and the agent stay aligned.
+**`sdd`** is a **local Spec-Driven Development CLI**: short steps, notes **in your repo**, so you, your team, and Copilot / Claude Code / Grok / Ollama stay aligned.
 
 - No cloud process product  
 - No required IDE extension  
