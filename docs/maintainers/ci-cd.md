@@ -172,3 +172,5 @@ sdd --help
 
 - [`scripts/bump-version.mjs`](../scripts/bump-version.mjs) — shared bump logic  
 - Classic manual release workflow still available if you prefer tags-only releases  
+- **[Product roadmap](../../ROADMAP.md)** — P0–P3 priorities, meaning/non-goals for implementers (not CI-specific)  
+
