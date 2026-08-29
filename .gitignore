@@ -8,6 +8,10 @@ coverage/
 tmp/
 .npmrc
 
+# Private local planning (do not publish)
+ENTERPRISE-GRADE-PLAN.local.md
+*.local.md
+
 # VitePress
 docs/.vitepress/dist
 docs/.vitepress/cache

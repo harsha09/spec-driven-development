@@ -27,20 +27,31 @@ describe("init installs agents without separate agents install", () => {
     {
       target: "copilot" as AgentTarget,
       present: ".github/agents/sdd.agent.md",
-      absent: [".claude/agents/sdd.md", ".grok/rules/sdd.md"],
+      absent: [".claude/agents/sdd.md", ".grok/rules/sdd.md", ".kilo/sdd.md"],
       aiKey: "copilot",
     },
     {
       target: "claude-code" as AgentTarget,
       present: ".claude/agents/sdd.md",
-      absent: [".github/agents/sdd.agent.md", ".grok/rules/sdd.md"],
+      absent: [".github/agents/sdd.agent.md", ".grok/rules/sdd.md", ".kilo/sdd.md"],
       aiKey: "claude",
     },
     {
       target: "grok" as AgentTarget,
       present: ".grok/rules/sdd.md",
-      absent: [".github/agents/sdd.agent.md", ".claude/agents/sdd.md"],
+      absent: [".github/agents/sdd.agent.md", ".claude/agents/sdd.md", ".kilo/sdd.md"],
       aiKey: "grok",
+    },
+    {
+      target: "kilo" as AgentTarget,
+      present: ".kilo/sdd.md",
+      absent: [
+        ".github/agents/sdd.agent.md",
+        ".claude/agents/sdd.md",
+        ".grok/rules/sdd.md",
+        ".ollama/sdd.md",
+      ],
+      aiKey: "kilo",
     },
   ])(
     "init with agents=$target installs only that host",
@@ -77,8 +88,8 @@ describe("init installs agents without separate agents install", () => {
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(true);
   });
 
-  it("registry covers public keys including ollama", () => {
+  it("registry covers public keys including ollama and kilo", () => {
     const keys = AGENT_INTEGRATIONS.map((i) => i.key).sort();
-    expect(keys).toEqual(["claude", "copilot", "grok", "ollama"]);
+    expect(keys).toEqual(["claude", "copilot", "grok", "kilo", "ollama"]);
   });
 });

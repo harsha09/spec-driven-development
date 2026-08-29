@@ -15,8 +15,9 @@ At **`sdd init`** you install **exactly one** AI coding agent host. Switch later
 | `--ai grok` | **Grok Build** | `.grok/rules/sdd.md`, `AGENTS.md`, `.sdd/protocol.md` | `grok` CLI / Grok Build |
 | `--ai claude` | **Claude Code** | `.claude/agents/*.md`, `AGENTS.md`, `.sdd/protocol.md` | `claude` CLI |
 | `--ai ollama` | **Ollama (local)** | `.ollama/sdd.md`, `AGENTS.md`, `.sdd/protocol.md` | `ollama run <model>` (local LLM) |
+| `--ai kilo` | **Kilo Code** | `.kilo/sdd.md`, `AGENTS.md`, `.sdd/protocol.md` | `kilo` CLI |
 
-Interactive init (no `--ai`) prompts you to pick one of these.
+Interactive init (no `--ai`) prompts you to pick one of these (including `kilo`).
 
 ## Ollama setup
 

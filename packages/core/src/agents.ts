@@ -8,9 +8,9 @@ import type { Config } from "./schemas.js";
 
 /**
  * AI coding agents (not IDEs).
- * Speckit-style: one integration at a time; public keys: `copilot` | `claude` | `grok` | `ollama`.
+ * Speckit-style: one integration at a time; public keys: `copilot` | `claude` | `grok` | `ollama` | `kilo`.
  */
-export type AgentTarget = "copilot" | "claude-code" | "grok" | "ollama";
+export type AgentTarget = "copilot" | "claude-code" | "grok" | "ollama" | "kilo";
 
 /** Registry entry — add a new AI agent by appending here only. */
 export interface AgentIntegration {
@@ -92,6 +92,21 @@ export const AGENT_INTEGRATIONS: AgentIntegration[] = [
     agentsMdRow:
       "| Ollama (local) | `.ollama/sdd.md` + `AGENTS.md` + handoff; launch: `ollama run $SDD_OLLAMA_MODEL` |",
   },
+  {
+    id: "kilo",
+    key: "kilo",
+    aliases: ["kilocode", "kilo-code", "kilo-ai"],
+    label: "Kilo Code",
+    hint: ".kilo/sdd.md + AGENTS.md (terminal CLI from kilo.ai)",
+    requiresCli: true,
+    cliBinary: "kilo",
+    installUrl: "https://kilo.ai/docs/code-with-ai/platforms/cli",
+    // Single project brief — Kilo loads AGENTS.md and supports instruction files
+    rolePath: () => `.kilo/sdd.md`,
+    rolesToInstall: ["sdd"],
+    agentsMdRow:
+      "| Kilo Code | `.kilo/sdd.md` + `AGENTS.md` (reads protocol + active-context; run `kilo` or `sdd` in shell) |",
+  },
 ];
 
 export const ALL_AGENT_TARGETS: AgentTarget[] = AGENT_INTEGRATIONS.map((i) => i.id);
@@ -146,6 +161,8 @@ export function agentHostPaths(target: AgentTarget): string[] {
       return [".grok/rules"];
     case "ollama":
       return [".ollama"];
+    case "kilo":
+      return [".kilo"];
     default:
       return [];
   }
@@ -181,9 +198,10 @@ export async function removeOtherAgentHosts(
     }
   }
   // Prune empty host parents if we emptied them
-  for (const parent of [".claude", ".idea", ".grok", ".ollama"]) {
+  for (const parent of [".claude", ".idea", ".grok", ".ollama", ".kilo"]) {
     if (keep === "grok" && parent === ".grok") continue;
     if (keep === "ollama" && parent === ".ollama") continue;
+    if (keep === "kilo" && parent === ".kilo") continue;
     const full = join(projectRoot, parent);
     if (!(await pathExists(full))) continue;
     try {
@@ -443,7 +461,7 @@ Do not claim the change is complete without local verification when the workflow
 }
 
 export interface InstalledAgentSnapshot {
-  /** Public key: copilot | claude | grok | ollama */
+  /** Public key: copilot | claude | grok | ollama | kilo */
   ai: string;
   target: AgentTarget;
   integration: AgentIntegration;

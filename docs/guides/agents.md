@@ -20,6 +20,7 @@ sdd init --here --ai copilot    # GitHub Copilot
 # sdd init --here --ai grok
 # sdd init --here --ai claude
 # sdd init --here --ai ollama   # then: ollama pull llama3.2
+# sdd init --here --ai kilo     # Kilo Code CLI
 
 sdd doctor
 sdd new "My first change" -w hotfix -y
@@ -45,6 +46,7 @@ sdd agents install --ai claude --force
 | Grok Build CLI | `grok` |
 | Claude Code CLI | `claude` |
 | Local models only | `ollama` |
+| Kilo Code CLI | `kilo` |
 
 Full host details: [Available agents](../reference/agents).
 
