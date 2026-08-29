@@ -93,8 +93,22 @@ describe("agent integrations (registry)", () => {
     expect(await pathExists(join(root, ".idea/sdd-agent-notes.md"))).toBe(false);
   });
 
+  it("switching to kilo removes other agent host dirs", async () => {
+    const root = await tempProject();
+    await installAgentIntegration({ projectRoot: root, target: "copilot", force: true });
+    await installAgentIntegration({ projectRoot: root, target: "grok", force: true });
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(true);
+
+    await installAgentIntegration({ projectRoot: root, target: "kilo", force: true });
+    expect(await pathExists(join(root, ".kilo/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".github/agents"))).toBe(false);
+    expect(await pathExists(join(root, ".grok/rules"))).toBe(false);
+    expect(await pathExists(join(root, ".claude/agents"))).toBe(false);
+    expect(await pathExists(join(root, ".ollama"))).toBe(false);
+  });
+
   it("registry drives role paths and public keys", () => {
-    expect(AGENT_INTEGRATIONS.length).toBeGreaterThanOrEqual(3);
+    expect(AGENT_INTEGRATIONS.length).toBeGreaterThanOrEqual(4);
     const copilot = getIntegration("copilot");
     expect(copilot.rolePath("sdd")).toBe(".github/agents/sdd.agent.md");
     expect(copilot.key).toBe("copilot");
@@ -106,6 +120,15 @@ describe("agent integrations (registry)", () => {
     expect(grok.key).toBe("grok");
     expect(grok.rolePath("sdd")).toBe(".grok/rules/sdd.md");
     expect(grok.rolesToInstall).toEqual(["sdd"]);
+    const kilo = getIntegration("kilo");
+    expect(kilo.key).toBe("kilo");
+    expect(kilo.label).toBe("Kilo Code");
+    expect(kilo.cliBinary).toBe("kilo");
+    expect(kilo.requiresCli).toBe(true);
+    expect(kilo.rolePath("sdd")).toBe(".kilo/sdd.md");
+    expect(kilo.rolesToInstall).toEqual(["sdd"]);
+    expect(parseIntegration("kilo")).toBe("kilo");
+    expect(AGENT_INTEGRATIONS.some((i) => i.id === "kilo")).toBe(true);
   });
 
   it("installs Grok Build rules (single .grok/rules/sdd.md)", async () => {
@@ -136,13 +159,16 @@ describe("agent integrations (registry)", () => {
     expect(() => parseIntegration("cursor")).toThrow(/IDE/i);
   });
 
-  it("accepts Speckit-style keys (claude → claude-code, grok, ollama, default copilot)", () => {
+  it("accepts Speckit-style keys (claude → claude-code, grok, ollama, kilo, default copilot)", () => {
     expect(parseIntegration("claude")).toBe("claude-code");
     expect(parseIntegration("copilot")).toBe("copilot");
     expect(parseIntegration("grok")).toBe("grok");
     expect(parseIntegration("grok-build")).toBe("grok");
     expect(parseIntegration("ollama")).toBe("ollama");
     expect(parseIntegration("llama")).toBe("ollama");
+    expect(parseIntegration("kilo")).toBe("kilo");
+    expect(parseIntegration("kilo-code")).toBe("kilo");
+    expect(parseIntegration("kilocode")).toBe("kilo");
     expect(DEFAULT_INIT_INTEGRATION).toBe("copilot");
     expect(parseAgentTargets("claude")).toEqual(["claude-code"]);
   });
@@ -161,6 +187,24 @@ describe("agent integrations (registry)", () => {
     expect(brief).toMatch(/protocol\.md/);
     const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
     expect(snap.ai).toBe("ollama");
+  });
+
+  it("installs kilo host with single router brief", async () => {
+    const root = await tempProject();
+    await installAgentIntegration({
+      projectRoot: root,
+      target: "kilo",
+      force: true,
+    });
+    expect(await pathExists(join(root, ".kilo/sdd.md"))).toBe(true);
+    expect(await pathExists(join(root, ".claude/agents/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, ".grok/rules/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, ".ollama/sdd.md"))).toBe(false);
+    expect(await pathExists(join(root, "AGENTS.md"))).toBe(true);
+    const brief = await readFile(join(root, ".kilo/sdd.md"), "utf8");
+    expect(brief).toMatch(/protocol\.md/);
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.ai).toBe("kilo");
   });
 
   it("init does not install agents unless AI agent is specified", async () => {

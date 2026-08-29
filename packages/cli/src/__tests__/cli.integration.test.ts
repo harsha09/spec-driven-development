@@ -93,6 +93,32 @@ describe("CLI integration", () => {
     expect(snap.ai).toBe("grok");
   });
 
+  it("sdd init --here --ai kilo --ignore-agent-tools sets up kilo host only", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-kilo-"));
+    temps.push(root);
+
+    // Seed stale other hosts to ensure clean switch
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    await mkdir(join(root, ".github/agents"), { recursive: true });
+    await writeFile(join(root, ".github/agents/sdd.agent.md"), "stale\n");
+    await mkdir(join(root, ".grok/rules"), { recursive: true });
+    await writeFile(join(root, ".grok/rules/sdd.md"), "stale\n");
+
+    const r = runSdd(root, ["init", "--here", "--ai", "kilo", "--ignore-agent-tools"]);
+    expect(r.status, r.stderr + r.stdout).toBe(0);
+    expect(await exists(join(root, ".sdd/config.yaml"))).toBe(true);
+    expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
+    expect(await exists(join(root, ".kilo/sdd.md"))).toBe(true);
+    expect(await exists(join(root, "AGENTS.md"))).toBe(true);
+    expect(await exists(join(root, ".sdd/agents.json"))).toBe(true);
+    // Other hosts removed
+    expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
+    expect(await exists(join(root, ".grok/rules/sdd.md"))).toBe(false);
+
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.ai).toBe("kilo");
+  });
+
   it("sdd init --here --ai copilot then new/status/next/refresh", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-flow-"));
     temps.push(root);
@@ -195,6 +221,29 @@ describe("CLI integration", () => {
     expect(install.status, install.stderr + install.stdout).toBe(0);
     expect(await exists(join(root, ".claude/agents/sdd.md"))).toBe(true);
     expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
+  });
+
+  it("sdd init --ai copilot then sdd agents install --ai kilo --force switches to kilo", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-kilo-switch-"));
+    temps.push(root);
+
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+    expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
+
+    const install = runSdd(root, [
+      "agents",
+      "install",
+      "--ai",
+      "kilo",
+      "--force",
+      "--ignore-agent-tools",
+    ]);
+    expect(install.status, install.stderr + install.stdout).toBe(0);
+    expect(await exists(join(root, ".kilo/sdd.md"))).toBe(true);
+    expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
+    expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(false);
+    const snap = JSON.parse(await readFile(join(root, ".sdd/agents.json"), "utf8"));
+    expect(snap.ai).toBe("kilo");
   });
 
   it("rejects IDE names for --ai", async () => {

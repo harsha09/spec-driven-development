@@ -128,7 +128,7 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
       handoffPath,
       target: null,
       launched: false,
-      reason: "No AI agent configured (run sdd init --ai grok|copilot|claude)",
+      reason: "No AI agent configured (run sdd init --ai grok|copilot|claude|ollama|kilo)",
     };
   }
 
@@ -197,6 +197,18 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
       cwd,
       handoffPath,
       target,
+    });
+  }
+
+  if (target === "kilo") {
+    return spawnCliAgent({
+      label: installed.integration.label,
+      bin: installed.integration.cliBinary ?? "kilo",
+      kickoff,
+      cwd,
+      handoffPath,
+      target,
+      preferPrintFlag: true,
     });
   }
 

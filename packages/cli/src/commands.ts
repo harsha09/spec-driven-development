@@ -68,7 +68,7 @@ const init = defineCommand({
     ai: {
       type: "string",
       description:
-        "Install only this AI agent: grok | copilot | claude | ollama. Does NOT create other hosts' folders.",
+        "Install only this AI agent: grok | copilot | claude | ollama | kilo. Does NOT create other hosts' folders.",
       alias: "a",
     },
     integration: {
@@ -763,12 +763,12 @@ const agentsInstall = defineCommand({
   args: {
     target: {
       type: "string",
-      description: "Alias of --ai: grok | copilot | claude | ollama",
+      description: "Alias of --ai: grok | copilot | claude | ollama | kilo",
       alias: "t",
     },
     ai: {
       type: "string",
-      description: "AI agent to install: grok | copilot | claude | ollama (only this host)",
+      description: "AI agent to install: grok | copilot | claude | ollama | kilo (only this host)",
       alias: "a",
     },
     integration: {
@@ -825,7 +825,7 @@ const agentsRefresh = defineCommand({
 const agents = defineCommand({
   meta: {
     name: "agents",
-    description: "Manage AI coding-agent integrations (copilot | claude | grok | ollama)",
+    description: "Manage AI coding-agent integrations (copilot | claude | grok | ollama | kilo)",
   },
   subCommands: {
     install: agentsInstall,
@@ -1174,7 +1174,9 @@ const help = defineCommand({
     consola.log(pc.dim("  Needs: Node 20+ · about 10 minutes for your first loop"));
     consola.log("");
     consola.log(pc.bold("First time (learn without the AI popping up):"));
-    consola.log(`  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama`);
+    consola.log(
+      `  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama | kilo`,
+    );
     consola.log(`  ${pc.cyan("sdd doctor")}`);
     consola.log(`  ${pc.cyan('sdd new "Fix empty list crash" -w hotfix -y --no-agent')}`);
     consola.log(`  # open the intent.md path it prints → write a few real sentences`);
