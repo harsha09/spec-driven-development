@@ -21,10 +21,13 @@ echo "========================================"
 echo "Publishing version ${VERSION} (tag=${TAG})"
 echo "========================================"
 
+# Quick auth diagnostic (helps when publish fails with 404/403)
+echo "npm whoami (auth check):"
+npm whoami 2>&1 || echo "(npm whoami failed — token may be invalid or lack scope access)"
+
 # Ensure .npmrc exists for this shell (CI also writes one)
 if [ ! -f .npmrc ]; then
   echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
-  echo "always-auth=true" >> .npmrc
 fi
 # Package dirs need auth too when publishing from subdirectory
 cp .npmrc packages/core/.npmrc
@@ -51,6 +54,29 @@ publish_pkg() {
 
   if [ "$code" -ne 0 ]; then
     echo "::error::pnpm publish failed for ${name} (exit ${code})"
+    if grep -qiE "(404|not found|permission|access|403|unauthorized|E404)" "$log"; then
+      cat <<'EOM' >&2
+::error::Publish failed with a 404/403-style error from npm.
+This usually means the NPM_TOKEN secret lacks permission to publish to the @structured-vibe-coding scope.
+
+Common causes (2026+):
+- Using a classic token that bypasses 2FA (npm is restricting these for direct publishing).
+- The token does not have "Read and write" for Packages on the scoped packages.
+- The token belongs to an account that is not an owner/maintainer of @structured-vibe-coding/*.
+
+Fix:
+1. On npmjs.com, create a new **Granular Access Token** (not a classic token).
+   - Go to: https://www.npmjs.com/settings/<your-username>/tokens
+   - Choose "Granular Access Token"
+   - Packages → Read and Write
+   - Limit to the @structured-vibe-coding packages you maintain, or "All packages you maintain".
+2. Copy the token.
+3. In GitHub: Settings → Secrets and variables → Actions → update the NPM_TOKEN secret.
+4. Re-run the workflow.
+
+See also: https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/
+EOM
+    fi
     rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
     exit "$code"
   fi
