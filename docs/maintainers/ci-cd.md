@@ -117,7 +117,9 @@ node scripts/bump-version.mjs --set 1.0.0
    Packages are `@structured-vibe-coding/core` and `@structured-vibe-coding/cli`. Own that org/scope on npm, or rename packages.
 
 2. **Secret `NPM_TOKEN`** (you already added this)  
-   - Automation or granular token with **publish** + **bypass 2FA**  
+   - Use a **Granular Access Token** (recommended in 2026+) with **Read and write** permission for Packages.  
+   - Limit it to the `@structured-vibe-coding` packages you maintain (or "All packages you maintain").  
+   - Classic tokens that bypass 2FA are being restricted for direct publishing.  
    - Repo → Settings → Secrets and variables → Actions → `NPM_TOKEN`
 
 3. **Workflow permissions**  
@@ -162,7 +164,7 @@ sdd --help
 |-------|-----|
 | No auto release on push | Path must include `packages/**`; message must not be `chore(release):` or `[skip release]` |
 | Cannot push release commit | Enable **Read and write** workflow permissions |
-| `403` npm publish | Token needs publish + bypass 2FA; confirm `@structured-vibe-coding` ownership |
+| `403` or `E404` npm publish | Token lacks write permission for the `@structured-vibe-coding` scope **or** you are using a classic npm token that bypasses 2FA (npm is restricting these for publishing). Create a **Granular Access Token** with "Read and write" for Packages (scoped to packages you maintain), store it as the `NPM_TOKEN` secret, and re-run. See the script output for the exact npm guidance link. |
 | Version already on npm | Bump already published; wait for next commit or `workflow_dispatch` with higher bump |
 | Loop of releases | Release commits include `[skip release]` / `chore(release):` and are ignored |
 
@@ -170,7 +172,7 @@ sdd --help
 
 ## Related
 
-- [`scripts/bump-version.mjs`](../scripts/bump-version.mjs) — shared bump logic  
+- [`scripts/bump-version.mjs`](https://github.com/harsha09/spec-driven-development/blob/main/scripts/bump-version.mjs) — shared bump logic  
 - Classic manual release workflow still available if you prefer tags-only releases  
-- **[Product roadmap](../../ROADMAP.md)** — P0–P3 priorities, meaning/non-goals for implementers (not CI-specific)  
+- [Product roadmap](https://github.com/harsha09/spec-driven-development/blob/main/ROADMAP.md) — P0–P3 priorities, meaning/non-goals for implementers (not CI-specific)  
 
