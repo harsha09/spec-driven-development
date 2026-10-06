@@ -45,6 +45,20 @@ Ollama does **not** auto-load multi-role agent trees like Claude. Project guidan
 
 Set the model with **`SDD_OLLAMA_MODEL`** or **`OLLAMA_MODEL`** (default `llama3.2`).
 
+## Existing files are safe
+
+Every markdown file sdd generates (`AGENTS.md`, host stubs, `.sdd/protocol.md`, `.sdd/README.md`) carries a marker line with a hash of its content:
+
+```text
+<!-- sdd:generated sha256=… (sdd regenerates this file only while it is unchanged; edit freely) -->
+```
+
+- Without `--force`, `sdd init` and `sdd agents install` never replace a file that already exists.
+- With `--force`, sdd regenerates a file only if its marker is present and the content still matches the hash.
+- Files with no marker (your own `AGENTS.md`, other tools' files in `.claude/`, `.kilo/`, …) and sdd files you edited are **never overwritten or deleted**, with or without `--force`. sdd prints them as *kept*.
+- If you already have an `AGENTS.md`, sdd leaves it alone and prints a short section you can paste into it.
+- Files from sdd versions older than this marker count as unmarked. To regenerate one, delete it and re-run.
+
 ## Agent roles (stubs)
 
 | Role id | Purpose | Copilot / Claude | Grok / Ollama |

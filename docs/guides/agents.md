@@ -79,7 +79,7 @@ You don’t need to memorize this on day one.
 | `.sdd/handoff.md` | Brief the AI just saw |
 | Host folder (`.github/agents`, `.grok/rules`, …) | Tiny pointers to the playbook |
 
-**One host at a time.** Installing a new AI removes the other hosts’ agent folders so you don’t get a mess of stubs.
+**One host at a time.** Installing a new AI removes the other hosts’ sdd-generated stubs so you don’t get a mess of them. Files you wrote yourself, other tools’ files, and sdd files you edited are never overwritten or deleted. sdd lists them as kept.
 
 ---
 

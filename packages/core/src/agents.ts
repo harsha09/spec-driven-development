@@ -1,8 +1,10 @@
+import { readdir, stat } from "node:fs/promises";
 import { join } from "pathe";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
 import { buildContext, getActiveChangeId } from "./change-context.js";
 import { loadConfig } from "./config.js";
 import { pathExists, readText, removePath, writeText } from "./fs.js";
+import { type KeptFile, generatedState, markGenerated } from "./generated.js";
 import { sddRoot } from "./paths.js";
 import type { Config } from "./schemas.js";
 
@@ -171,51 +173,105 @@ export function agentHostPaths(target: AgentTarget): string[] {
 /** Legacy paths from older SDD versions that installed IntelliJ notes as an "agent". */
 const LEGACY_AGENT_PATHS = [".idea/sdd-agent-notes.md"];
 
+/** Host parents that may be pruned once sdd has emptied them (never `.github`). */
+const PRUNABLE_PARENTS = [".claude", ".idea", ".grok", ".ollama", ".kilo"];
+
+export interface RemoveAgentHostsResult {
+  /** Project-relative files and directories sdd removed */
+  removed: string[];
+  /** Files left in place because sdd did not generate them, or they were edited */
+  kept: KeptFile[];
+}
+
+async function listFilesRecursive(full: string, rel: string): Promise<string[]> {
+  const st = await stat(full);
+  if (!st.isDirectory()) return [rel];
+  const out: string[] = [];
+  for (const name of (await readdir(full)).sort()) {
+    out.push(...(await listFilesRecursive(join(full, name), join(rel, name))));
+  }
+  return out;
+}
+
+/** Remove now-empty directories under `rel` (bottom-up), then `rel` itself if empty. */
+async function pruneEmptyDirs(projectRoot: string, rel: string, removed: string[]): Promise<void> {
+  const full = join(projectRoot, rel);
+  if (!(await pathExists(full))) return;
+  if (!(await stat(full)).isDirectory()) return;
+  for (const name of await readdir(full)) {
+    await pruneEmptyDirs(projectRoot, join(rel, name), removed);
+  }
+  if ((await readdir(full)).length === 0) {
+    await removePath(full);
+    removed.push(rel);
+  }
+}
+
 /**
- * Remove agent files for hosts other than `keep` (and legacy IntelliJ notes).
+ * Remove agent files for hosts other than `keep`, but only files sdd generated
+ * and nobody edited since (marker + content hash). User files, edited files and
+ * other tools' files in those folders are kept and reported.
  * Does not touch .sdd/, memory/, changes/, or non-agent .github content.
+ */
+export async function removeOtherAgentHostsDetailed(
+  projectRoot: string,
+  keep: AgentTarget,
+): Promise<RemoveAgentHostsResult> {
+  const removed: string[] = [];
+  const kept: KeptFile[] = [];
+  const candidates: string[] = [];
+  for (const integ of AGENT_INTEGRATIONS) {
+    if (integ.id === keep) continue;
+    candidates.push(...agentHostPaths(integ.id));
+  }
+  candidates.push(...LEGACY_AGENT_PATHS);
+
+  const touchedRoots = new Set<string>();
+  for (const rel of candidates) {
+    const full = join(projectRoot, rel);
+    if (!(await pathExists(full))) continue;
+    for (const fileRel of await listFilesRecursive(full, rel)) {
+      const fileFull = join(projectRoot, fileRel);
+      let state: ReturnType<typeof generatedState>;
+      try {
+        state = generatedState(await readText(fileFull));
+      } catch {
+        state = "not-generated";
+      }
+      if (state === "unmodified") {
+        await removePath(fileFull);
+        removed.push(fileRel);
+        touchedRoots.add(rel);
+      } else {
+        kept.push({ path: fileRel, reason: state });
+      }
+    }
+  }
+
+  // Prune only directories that sdd emptied by removing its own files.
+  for (const rel of touchedRoots) {
+    await pruneEmptyDirs(projectRoot, rel, removed);
+    const parent = rel.split("/")[0]!;
+    if (parent !== rel && PRUNABLE_PARENTS.includes(parent)) {
+      const parentFull = join(projectRoot, parent);
+      if ((await pathExists(parentFull)) && (await readdir(parentFull)).length === 0) {
+        await removePath(parentFull);
+        removed.push(parent);
+      }
+    }
+  }
+  return { removed, kept };
+}
+
+/**
+ * Remove sdd-generated, unedited agent files for hosts other than `keep`.
+ * Returns the removed paths. See {@link removeOtherAgentHostsDetailed} for kept files.
  */
 export async function removeOtherAgentHosts(
   projectRoot: string,
   keep: AgentTarget,
 ): Promise<string[]> {
-  const removed: string[] = [];
-  for (const integ of AGENT_INTEGRATIONS) {
-    if (integ.id === keep) continue;
-    for (const rel of agentHostPaths(integ.id)) {
-      const full = join(projectRoot, rel);
-      if (await pathExists(full)) {
-        await removePath(full);
-        removed.push(rel);
-      }
-    }
-  }
-  for (const rel of LEGACY_AGENT_PATHS) {
-    const full = join(projectRoot, rel);
-    if (await pathExists(full)) {
-      await removePath(full);
-      removed.push(rel);
-    }
-  }
-  // Prune empty host parents if we emptied them
-  for (const parent of [".claude", ".idea", ".grok", ".ollama", ".kilo"]) {
-    if (keep === "grok" && parent === ".grok") continue;
-    if (keep === "ollama" && parent === ".ollama") continue;
-    if (keep === "kilo" && parent === ".kilo") continue;
-    const full = join(projectRoot, parent);
-    if (!(await pathExists(full))) continue;
-    try {
-      const { readdir } = await import("node:fs/promises");
-      const kids = await readdir(full);
-      if (kids.length === 0) {
-        await removePath(full);
-        removed.push(parent);
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return removed;
+  return (await removeOtherAgentHostsDetailed(projectRoot, keep)).removed;
 }
 
 /** Parse one Speckit-style integration key. */
@@ -324,7 +380,12 @@ export interface InstallAgentOptions {
 
 export interface InstallAgentResult {
   created: string[];
+  /** sdd-generated, unedited files that already existed (re-run with force to regenerate) */
   skipped: string[];
+  /** Files never overwritten or deleted: not generated by sdd, or edited since */
+  kept: KeptFile[];
+  /** Other hosts' sdd-generated files that were removed */
+  removed: string[];
   target: AgentTarget;
 }
 
@@ -355,16 +416,28 @@ export async function installAgentIntegration(
   const root = opts.projectRoot;
   const force = opts.force ?? false;
 
-  // Single-agent product rule: never leave other hosts' agent trees around
-  await removeOtherAgentHosts(root, opts.target);
+  // Single-agent product rule: remove other hosts' sdd-generated files (never user files)
+  const other = await removeOtherAgentHostsDetailed(root, opts.target);
+  const kept: KeptFile[] = [...other.kept];
 
+  /**
+   * Write a generated markdown file with a marker + content hash.
+   * Existing files are only replaced with `force`, and only while still unchanged.
+   */
   const write = async (rel: string, content: string) => {
     const full = join(root, rel);
-    if ((await pathExists(full)) && !force) {
-      skipped.push(rel);
-      return;
+    if (await pathExists(full)) {
+      const state = generatedState(await readText(full));
+      if (state !== "unmodified") {
+        kept.push({ path: rel, reason: state });
+        return;
+      }
+      if (!force) {
+        skipped.push(rel);
+        return;
+      }
     }
-    await writeText(full, content);
+    await writeText(full, markGenerated(content));
     created.push(rel);
   };
 
@@ -380,28 +453,34 @@ export async function installAgentIntegration(
 
   await write("AGENTS.md", renderAgentsMd(integ));
 
-  // Single snapshot (no separate init-options.json)
-  await write(
-    join(".sdd", "agents.json"),
-    JSON.stringify(
-      {
-        version: 3,
-        mode: "agents-only",
-        protocol: ".sdd/protocol.md",
-        activeContext: ".sdd/active-context.md",
-        roles: SDD_AGENT_ROLES.map((r) => r.id),
-        /** Speckit-style public key */
-        ai: integ.key,
-        integration: integ.key,
-        installed: [integ.id],
-        updated: new Date().toISOString(),
-      },
-      null,
-      2,
-    ) + "\n",
-  );
+  // Single snapshot (no separate init-options.json) — sdd's own state file under .sdd/
+  const snapshotRel = join(".sdd", "agents.json");
+  if ((await pathExists(join(root, snapshotRel))) && !force) {
+    skipped.push(snapshotRel);
+  } else {
+    await writeText(
+      join(root, snapshotRel),
+      JSON.stringify(
+        {
+          version: 3,
+          mode: "agents-only",
+          protocol: ".sdd/protocol.md",
+          activeContext: ".sdd/active-context.md",
+          roles: SDD_AGENT_ROLES.map((r) => r.id),
+          /** Speckit-style public key */
+          ai: integ.key,
+          integration: integ.key,
+          installed: [integ.id],
+          updated: new Date().toISOString(),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    created.push(snapshotRel);
+  }
 
-  return { created, skipped, target: opts.target };
+  return { created, skipped, kept, removed: other.removed, target: opts.target };
 }
 
 /**
@@ -557,7 +636,7 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
 
   const protocolPath = join(markerDir, "protocol.md");
   if (!(await pathExists(protocolPath))) {
-    await writeText(protocolPath, PROTOCOL_MD);
+    await writeText(protocolPath, markGenerated(PROTOCOL_MD));
   }
 
   const config = await loadConfig(projectRoot);
