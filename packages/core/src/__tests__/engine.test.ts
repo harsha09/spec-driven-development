@@ -255,7 +255,9 @@ on_complete:
     expect(await pathExists(join(ctx.path, "evidence"))).toBe(false);
     expect(await pathExists(join(ctx.path, "local-test-results.md"))).toBe(true);
     const after = await buildContext(root, config, ctx.id);
-    expect(after.meta.verify_results.local_verify?.ok).toBe(true);
+    // Nothing ran (--no-run, and hotfix has no commands): recorded as NOT RUN, never PASS
+    expect(after.meta.verify_results.local_verify?.ok).toBe(false);
+    expect(after.meta.verify_results.local_verify?.status).toBe("not_run");
   });
 
   it("verify with evidence_dir creates evidence tree", async () => {
