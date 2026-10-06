@@ -8,7 +8,6 @@ import {
   defaultWorkflowsDir,
 } from "./defaults.js";
 import {
-  copyDir,
   copyDirSkipExisting,
   ensureDir,
   pathExists,
@@ -16,6 +15,13 @@ import {
   writeText,
   writeTextIfMissing,
 } from "./fs.js";
+import {
+  type KeptStateFile,
+  copyDefaultsManaged,
+  loadManifest,
+  mergeConfigFile,
+  saveManifest,
+} from "./manifest.js";
 import { mcpConfigPath } from "./mcp/sources.js";
 import { changesDir, domainsDir, memoryDir, sddRoot, templatesDir, workflowsDir } from "./paths.js";
 import type { Config } from "./schemas.js";
@@ -35,6 +41,12 @@ export interface InitResult {
   created: string[];
   config: Config;
   agents?: { created: string[]; skipped: string[] };
+  /** .sdd/ workflows/templates left alone: edited since sdd wrote them, or never written by sdd */
+  stateKept: KeptStateFile[];
+  /** Unedited .sdd/ workflows/templates not refreshed because --force was not given */
+  stateSkipped: string[];
+  /** config.yaml keys added from the current defaults (existing values are never changed) */
+  configAdded: string[];
 }
 
 export async function initProject(opts: InitOptions): Promise<InitResult> {
@@ -44,32 +56,43 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
 
   if ((await pathExists(join(root, "config.yaml"))) && !force) {
     throw new Error(
-      `Already initialized (${join(root, "config.yaml")}). Use --force to re-copy defaults.`,
+      `Already initialized (${join(root, "config.yaml")}). Use --force to refresh defaults (your config values and edited workflows/templates are kept).`,
     );
   }
 
-  const config = defaultConfig();
   await ensureDir(root);
-  await saveConfig(projectRoot, config);
-  created.push(join(root, "config.yaml"));
 
-  // workflows
-  const wfDest = workflowsDir(projectRoot);
-  await ensureDir(wfDest);
-  const wfSrc = defaultWorkflowsDir();
-  if (await pathExists(wfSrc)) {
-    await copyDir(wfSrc, wfDest);
-    created.push(wfDest);
+  // config.yaml: keep the user's values (#15). Only missing keys are added from defaults.
+  const cfgPath = join(root, "config.yaml");
+  let config: Config;
+  let configAdded: string[] = [];
+  if (await pathExists(cfgPath)) {
+    const merged = await mergeConfigFile(cfgPath, defaultConfig());
+    config = merged.config;
+    configAdded = merged.added;
+    if (merged.written) created.push(cfgPath);
+  } else {
+    config = defaultConfig();
+    await saveConfig(projectRoot, config);
+    created.push(cfgPath);
   }
 
-  // templates
-  const tDest = templatesDir(projectRoot);
-  await ensureDir(tDest);
-  const tSrc = defaultTemplatesDir();
-  if (await pathExists(tSrc)) {
-    await copyDir(tSrc, tDest);
-    created.push(tDest);
+  // workflows + templates: refreshed only while unchanged since sdd wrote them (manifest)
+  const manifest = await loadManifest(projectRoot);
+  const stateKept: KeptStateFile[] = [];
+  const stateSkipped: string[] = [];
+  for (const [src, dest] of [
+    [defaultWorkflowsDir(), workflowsDir(projectRoot)],
+    [defaultTemplatesDir(), templatesDir(projectRoot)],
+  ] as const) {
+    await ensureDir(dest);
+    if (!(await pathExists(src))) continue;
+    const r = await copyDefaultsManaged(projectRoot, src, dest, manifest, { force });
+    stateKept.push(...r.kept);
+    stateSkipped.push(...r.skipped);
+    if (r.written.length) created.push(dest);
   }
+  await saveManifest(projectRoot, manifest);
 
   // external MCP sources config (sdd as client — org libs, AST engines, …)
   const mcpSrc = defaultMcpYamlPath();
@@ -234,5 +257,5 @@ sdd complete
     agentsResult = { created: ag.created, skipped: ag.skipped };
   }
 
-  return { created, config, agents: agentsResult };
+  return { created, config, agents: agentsResult, stateKept, stateSkipped, configAdded };
 }

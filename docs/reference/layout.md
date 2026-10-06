@@ -16,6 +16,7 @@ After `sdd init`, your app looks roughly like this:
   mcp.yaml            ← external MCP sources sdd calls (optional)
   workflows/          ← paths like hotfix, feature, greenfield
   templates/
+  .generated.json     ← hashes of the workflows/templates sdd wrote (commit it)
 memory/               ← longer-lived product notes (keep short)
   index.md
   constitution.md     ← non-negotiables
@@ -29,6 +30,16 @@ AGENTS.md             ← tiny pointer for AIs
 # only for the AI you picked:
 # .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/
 ```
+
+### Re-running `sdd init --force`
+
+Your edits under `.sdd/` survive an upgrade:
+
+- **`config.yaml`:** your values always win. Only keys added in a newer sdd version are filled in, and comments are kept. When nothing is missing, the file is not touched.
+- **`workflows/` and `templates/`:** a file is refreshed to the new default only while it still matches the hash in `.sdd/.generated.json`, meaning nobody has changed it since sdd wrote it. Edited files, and files sdd has no record of writing, are kept and listed. Without `--force`, existing files are never replaced.
+- To take the new default for a file you edited, delete it and re-run `sdd init --force`.
+- **`active-context.md` and `handoff.md`:** these are generated briefs. sdd rewrites them on every stage change, so don't keep notes there.
+- **`agents.json`:** sdd updates its own keys and keeps any others.
 
 ### Optional: external MCP sources
 

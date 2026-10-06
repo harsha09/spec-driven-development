@@ -9,6 +9,8 @@ import {
   AGENT_TARGET_OPTIONS,
   type AgentTarget,
   DEFAULT_INIT_INTEGRATION,
+  type KeptStateFile,
+  describeKeptState,
   getIntegration,
   initProject,
   installAgentIntegration,
@@ -257,7 +259,12 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
 
   const workflows = await listWorkflowNames(projectRoot);
   p.log.step(`Workflows: ${workflows.join(", ")}`);
-  p.log.step(`Config: .sdd/config.yaml`);
+  p.log.step(
+    result.configAdded.length
+      ? `Config: .sdd/config.yaml (your values kept; added new keys: ${result.configAdded.join(", ")})`
+      : "Config: .sdd/config.yaml",
+  );
+  reportSddStateFiles(result.stateKept, result.stateSkipped);
   if (result.agents?.created.length) {
     p.log.step(
       `Agent files (${agentDetail}): ${result.agents.created.slice(0, 8).join(", ")}${result.agents.created.length > 8 ? "…" : ""}`,
@@ -298,4 +305,22 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
       pc.dim("Next:\n") +
       next.map((l) => `  ${l}`).join("\n"),
   );
+}
+
+/** Report `.sdd/` workflows/templates init left alone (#15). */
+function reportSddStateFiles(kept: KeptStateFile[], skipped: string[]): void {
+  if (kept.length) {
+    p.log.warn(
+      [
+        "Kept your .sdd/ workflows and templates (sdd refreshes them only while unchanged since it wrote them):",
+        ...kept.map((k) => `  = ${describeKeptState(k)}`),
+        "To take the new default for one of these, delete it and re-run sdd init --force.",
+      ].join("\n"),
+    );
+  }
+  if (skipped.length) {
+    p.log.message(
+      `${skipped.length} unedited .sdd/ workflow/template file(s) have newer defaults; re-run with --force to refresh them.`,
+    );
+  }
 }

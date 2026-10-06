@@ -51,7 +51,7 @@ One command’s flags: `sdd <command> --help`.
 | Command | What it does | When |
 |---------|--------------|------|
 | `sdd init` | Create sdd files + one AI setup | Once per app |
-| `sdd init --force` | Refresh defaults (keeps your memory files) | Upgrades |
+| `sdd init --force` | Refresh defaults: keeps your memory files and your `.sdd/config.yaml` values (only new keys are added), and refreshes `.sdd/workflows/` and `.sdd/templates/` files only while unchanged since sdd wrote them (edited ones are kept and listed) | Upgrades |
 | `sdd new "title"` | Start a change pack from a free-form title | Everyday work |
 | `sdd new … -w <pack>` | Choose path (hotfix, feature, …) | You know the path |
 | `sdd new … -y` | Skip confirm prompts | Scripts / CI |

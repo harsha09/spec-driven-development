@@ -343,6 +343,26 @@ export type InstallAgentsResult = {
 };
 
 /**
+ * Merge sdd's snapshot keys over an existing `.sdd/agents.json`, keeping unknown keys.
+ * An unreadable or invalid file is replaced by the snapshot alone.
+ */
+async function mergeSnapshot(
+  path: string,
+  snapshot: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!(await pathExists(path))) return snapshot;
+  try {
+    const existing = JSON.parse(await readText(path)) as unknown;
+    if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
+      return { ...(existing as Record<string, unknown>), ...snapshot };
+    }
+  } catch {
+    // fall through
+  }
+  return snapshot;
+}
+
+/**
  * Install thin agents for **one** AI integration (registry-driven).
  * Writes protocol + active-context + role stubs + single `.sdd/agents.json` snapshot.
  */
@@ -380,25 +400,24 @@ export async function installAgentIntegration(
 
   await write("AGENTS.md", renderAgentsMd(integ));
 
-  // Single snapshot (no separate init-options.json)
+  // Single snapshot (no separate init-options.json). sdd owns its own keys; any other
+  // keys a user or tool added are kept (#15).
+  const snapshotRel = join(".sdd", "agents.json");
+  const snapshot = {
+    version: 3,
+    mode: "agents-only",
+    protocol: ".sdd/protocol.md",
+    activeContext: ".sdd/active-context.md",
+    roles: SDD_AGENT_ROLES.map((r) => r.id),
+    /** Speckit-style public key */
+    ai: integ.key,
+    integration: integ.key,
+    installed: [integ.id],
+    updated: new Date().toISOString(),
+  };
   await write(
-    join(".sdd", "agents.json"),
-    JSON.stringify(
-      {
-        version: 3,
-        mode: "agents-only",
-        protocol: ".sdd/protocol.md",
-        activeContext: ".sdd/active-context.md",
-        roles: SDD_AGENT_ROLES.map((r) => r.id),
-        /** Speckit-style public key */
-        ai: integ.key,
-        integration: integ.key,
-        installed: [integ.id],
-        updated: new Date().toISOString(),
-      },
-      null,
-      2,
-    ) + "\n",
+    snapshotRel,
+    `${JSON.stringify(await mergeSnapshot(join(root, snapshotRel), snapshot), null, 2)}\n`,
   );
 
   return { created, skipped, target: opts.target };

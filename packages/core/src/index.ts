@@ -12,6 +12,7 @@ export * from "./errors.js";
 export * from "./env.js";
 export * from "./version.js";
 export * from "./agents.js";
+export * from "./manifest.js";
 export {
   generateCodeContext,
   DEFAULT_CODE_CONTEXT_CAPS,

@@ -196,6 +196,29 @@ describe("CLI integration", () => {
     expect(handoff.length).toBeGreaterThan(50);
   });
 
+  it("sdd init --force keeps edited .sdd/ workflows, templates and config values (#15)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-force-state-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+    const { writeFile } = await import("node:fs/promises");
+    const cfgPath = join(root, ".sdd/config.yaml");
+    const cfg = (await readFile(cfgPath, "utf8")).replace(
+      "changes_path: changes",
+      "changes_path: .sdd/changes",
+    );
+    await writeFile(cfgPath, cfg);
+    const wfPath = join(root, ".sdd/workflows/patch.yaml");
+    const wf = `${await readFile(wfPath, "utf8")}# team note\n`;
+    await writeFile(wfPath, wf);
+
+    const r = runSdd(root, ["init", "--here", "--force", "--ai", "copilot"]);
+    expect(r.status, r.stderr + r.stdout).toBe(0);
+    expect(await readFile(cfgPath, "utf8")).toBe(cfg);
+    expect(await readFile(wfPath, "utf8")).toBe(wf);
+    expect(r.stdout).toContain("Kept your .sdd/ workflows and templates");
+    expect(r.stdout).toContain(".sdd/workflows/patch.yaml (edited since sdd wrote it");
+  });
+
   it("sdd status --help does not claim agent launch", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-status-help-"));
     temps.push(root);
