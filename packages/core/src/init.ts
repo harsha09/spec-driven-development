@@ -1,5 +1,6 @@
+import { lstat } from "node:fs/promises";
 import { join } from "pathe";
-import { type AgentTarget, installAgentIntegration } from "./agents.js";
+import { type AgentTarget, assertAgentInstallable, installAgentIntegration } from "./agents.js";
 import { defaultConfig, saveConfig } from "./config.js";
 import {
   defaultMcpYamlPath,
@@ -7,6 +8,7 @@ import {
   defaultTemplatesDir,
   defaultWorkflowsDir,
 } from "./defaults.js";
+import { SddError } from "./errors.js";
 import {
   copyDir,
   copyDirSkipExisting,
@@ -50,6 +52,19 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
     throw new Error(
       `Already initialized (${join(root, "config.yaml")}). Use --force to re-copy defaults.`,
     );
+  }
+
+  // Check before writing anything, so a bad path cannot leave .sdd/ half-written.
+  try {
+    const st = await lstat(root);
+    if (!st.isDirectory() && !st.isSymbolicLink()) {
+      throw new SddError(`Cannot initialize: ${root} exists and is not a directory. Move it away.`);
+    }
+  } catch (err) {
+    if (err instanceof SddError) throw err;
+  }
+  if (opts.agents) {
+    await assertAgentInstallable({ projectRoot, target: opts.agents, force });
   }
 
   const config = defaultConfig();

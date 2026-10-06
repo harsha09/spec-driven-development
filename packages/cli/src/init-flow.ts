@@ -10,6 +10,7 @@ import {
   type AgentTarget,
   DEFAULT_INIT_INTEGRATION,
   type KeptFile,
+  assertAgentInstallable,
   describeKept,
   getIntegration,
   initProject,
@@ -214,6 +215,17 @@ export const AGENTS_MD_SDD_SNIPPET = [
   "then `.sdd/protocol.md` (process rules). Run `sdd status` to see where you are.",
 ].join("\n");
 
+/** Tell the user which files init removed (other hosts' unedited sdd files, folders it emptied). */
+export function reportRemovedFiles(removed: string[]): void {
+  if (!removed.length) return;
+  p.log.info(
+    [
+      "Removed (other AI hosts' sdd-generated files nobody edited, and folders sdd emptied):",
+      ...removed.map((r) => `  - ${r}`),
+    ].join("\n"),
+  );
+}
+
 /** Tell the user which existing files init left alone, and how to wire up AGENTS.md. */
 export function reportKeptFiles(kept: KeptFile[]): void {
   const unique = [...new Map(kept.map((k) => [k.path, k])).values()];
@@ -265,8 +277,12 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
 
   const s = p.spinner();
 
-  s.start("Install shared infrastructure (.sdd, workflows, templates, memory)");
   const already = await isInitialized(projectRoot);
+  // Check every agent path first (directories where files go, unreadable or read-only
+  // files, non-writable folders) so a failure cannot leave .sdd/ half-written.
+  await assertAgentInstallable({ projectRoot, target: selected, force: force || already });
+
+  s.start("Install shared infrastructure (.sdd, workflows, templates, memory)");
   const result = await initProject({
     projectRoot,
     force: force || already,
@@ -287,6 +303,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   );
   const agentDetail = optionForTarget(selected)?.key ?? selected;
   result.agents = { created: ag.created, skipped: ag.skipped, kept: ag.kept, removed: ag.removed };
+  reportRemovedFiles(ag.removed);
   reportKeptFiles([...result.kept, ...ag.kept]);
 
   const workflows = await listWorkflowNames(projectRoot);
