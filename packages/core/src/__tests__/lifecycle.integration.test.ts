@@ -82,7 +82,10 @@ describe("lifecycle integration", () => {
       runCommands: false,
     });
     expect(verify.stageId).toBe("local_verify");
-    expect(verify.ok).toBe(true);
+    // No commands configured and --no-run: NOT RUN (no silent PASS), but
+    // with no required commands the stage can still be completed.
+    expect(verify.ok).toBe(false);
+    expect(verify.status).toBe("not_run");
     expect(verify.evidencePath).toBeNull();
     expect(await pathExists(join(created.path, "evidence"))).toBe(false);
     expect(await pathExists(join(created.path, "local-test-results.md"))).toBe(true);

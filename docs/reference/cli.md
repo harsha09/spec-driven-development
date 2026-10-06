@@ -66,8 +66,8 @@ One command’s flags: `sdd <command> --help`.
 | `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
 | `sdd use <workflow>` | Switch path mid-flight | Scope changed |
 | `sdd gate approve\|waive\|fail` | Approve / waive / fail a gate | Enterprise gates |
-| `sdd verify` | Local check step | Before complete |
-| `sdd verify --no-run` | Checklist only | Manual testing |
+| `sdd verify` | Run the stage's `verify.commands`; PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
+| `sdd verify --no-run` | Checklist only — records NOT RUN, exits 1 | Manual testing |
 | `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
