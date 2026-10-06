@@ -280,6 +280,20 @@ describe("CLI integration", () => {
     expect(await exists(join(root, "AGENTS.md"))).toBe(false);
   });
 
+  it("re-running init --no-agent warns exactly what --force would reset (#15)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-reinit-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const again = runSdd(root, ["init", "--here", "--no-agent"]);
+    expect(again.status).toBe(1);
+    const out = again.stderr + again.stdout;
+    expect(out).toContain("already initialized");
+    expect(out).toContain("resets .sdd/config.yaml to defaults");
+    expect(out).toContain("re-copies .sdd/workflows/ and .sdd/templates/ over local edits");
+    expect(out).toContain("issue #15");
+    expect(out).toContain("back them up first");
+  });
+
   it("sdd init --no-agent with --ai is rejected (#5)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-ai-"));
     temps.push(root);
