@@ -7,6 +7,7 @@ import {
   changePath,
   completeChange,
   createChange,
+  describeKept,
   formatJsonSummary,
   formatStatus,
   generateCodeContext,
@@ -795,6 +796,8 @@ const agentsInstall = defineCommand({
       consola.success(`Installed AI integration: ${result.target}`);
       for (const f of result.created) consola.log(`  + ${f}`);
       for (const f of result.skipped) consola.log(pc.dim(`  = ${f} (exists, use --force)`));
+      for (const f of result.removed) consola.log(pc.dim(`  - ${f} (other host, sdd-generated)`));
+      for (const k of result.kept) consola.log(pc.yellow(`  = ${describeKept(k)}`));
     });
   },
 });

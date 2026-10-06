@@ -9,6 +9,8 @@ import {
   AGENT_TARGET_OPTIONS,
   type AgentTarget,
   DEFAULT_INIT_INTEGRATION,
+  type KeptFile,
+  describeKept,
   getIntegration,
   initProject,
   installAgentIntegration,
@@ -204,6 +206,35 @@ async function checkAgentTool(target: AgentTarget, ignoreAgentTools: boolean): P
   }
 }
 
+/** Snippet users can paste into their own AGENTS.md to point agents at sdd. */
+export const AGENTS_MD_SDD_SNIPPET = [
+  "## sdd (Spec-Driven Development)",
+  "",
+  "Before working, read `.sdd/active-context.md` (current change and stage),",
+  "then `.sdd/protocol.md` (process rules). Run `sdd status` to see where you are.",
+].join("\n");
+
+/** Tell the user which existing files init left alone, and how to wire up AGENTS.md. */
+export function reportKeptFiles(kept: KeptFile[]): void {
+  const unique = [...new Map(kept.map((k) => [k.path, k])).values()];
+  if (!unique.length) return;
+  p.log.warn(
+    [
+      "Kept existing files (sdd never overwrites or deletes files it did not generate, or that were edited):",
+      ...unique.map((k) => `  = ${describeKept(k)}`),
+    ].join("\n"),
+  );
+  if (unique.some((k) => k.path === "AGENTS.md")) {
+    p.log.message(
+      [
+        "Your AGENTS.md was left unchanged. To point agents at sdd, add a section like:",
+        "",
+        ...AGENTS_MD_SDD_SNIPPET.split("\n").map((l) => `  ${l}`),
+      ].join("\n"),
+    );
+  }
+}
+
 export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   console.log("");
   p.intro(pc.bgCyan(pc.black(" sdd ")) + "  Structured Vibe Coding (Spec-Driven Development)");
@@ -244,16 +275,19 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   s.stop("Shared infrastructure ready");
 
   s.start(`Install ${optionForTarget(selected)?.label ?? selected} integration`);
+  // Respect --force: existing files are only regenerated with --force (or a confirmed
+  // re-init), and even then only sdd-generated files nobody edited.
   const ag = await installAgentIntegration({
     projectRoot,
     target: selected,
-    force: true,
+    force: force || already,
   });
   s.stop(
     `AI integration: ${optionForTarget(selected)?.key ?? selected} (+${ag.created.length} files)`,
   );
   const agentDetail = optionForTarget(selected)?.key ?? selected;
-  result.agents = { created: ag.created, skipped: ag.skipped };
+  result.agents = { created: ag.created, skipped: ag.skipped, kept: ag.kept, removed: ag.removed };
+  reportKeptFiles([...result.kept, ...ag.kept]);
 
   const workflows = await listWorkflowNames(projectRoot);
   p.log.step(`Workflows: ${workflows.join(", ")}`);
@@ -280,7 +314,8 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
               ? `  .kilo/sdd.md  +  AGENTS.md  +  .sdd/protocol.md`
               : `  .github/agents/*.agent.md  +  AGENTS.md  +  .sdd/protocol.md`,
       "",
-      pc.dim("Other hosts are removed when you pick one AI."),
+      pc.dim("Other hosts' sdd-generated files are removed when you pick one AI;"),
+      pc.dim("files you created or edited are never overwritten or deleted."),
     ].join("\n"),
     "What was installed",
   );
