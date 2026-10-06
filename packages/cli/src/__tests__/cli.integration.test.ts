@@ -210,6 +210,52 @@ describe("CLI integration", () => {
     expect(out).toMatch(/does not launch|active change status/i);
   });
 
+  it("sdd verify exits 1 with NOT RUN when nothing ran (issue #12)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-verify-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Verify typo hotfix", "-y", "-w", "hotfix", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+
+    // Wrong stage (intent has no verify step): NOT RUN, exit 1, nothing recorded
+    const wrong = runSdd(root, ["verify"]);
+    const wrongOut = wrong.stderr + wrong.stdout;
+    expect(wrong.status, wrongOut).toBe(1);
+    expect(wrongOut).toMatch(/NOT RUN/);
+    expect(wrongOut).toMatch(/local_verify/);
+    expect(wrongOut).not.toMatch(/PASS/);
+
+    const { readdir, writeFile } = await import("node:fs/promises");
+    const changes = join(root, "changes");
+    const kid = (await readdir(changes)).find((n) => n !== ".gitkeep" && n !== ".active");
+    const changePath = join(changes, kid!);
+    expect(await exists(join(changePath, "local-test-results.md"))).toBe(false);
+    await writeFile(
+      join(changePath, "intent.md"),
+      "# Intent\n\nFix a typo in the README heading so the product name is spelled correctly.\nSuccess: heading reads correctly; no other changes.\n",
+      "utf8",
+    );
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+
+    // local_verify with `commands: []`: zero commands executed → NOT RUN, exit 1
+    const none = runSdd(root, ["verify"]);
+    const noneOut = none.stderr + none.stdout;
+    expect(none.status, noneOut).toBe(1);
+    expect(noneOut).toMatch(/NOT RUN/);
+    expect(noneOut).toMatch(/no verify commands configured/);
+    const md = await readFile(join(changePath, "local-test-results.md"), "utf8");
+    expect(md).toContain("Overall: NOT RUN");
+
+    // --no-run is also NOT RUN
+    const noRun = runSdd(root, ["verify", "--no-run"]);
+    expect(noRun.status, noRun.stderr + noRun.stdout).toBe(1);
+
+    // No required commands → the gate does not block completion
+    const done = runSdd(root, ["complete", "--no-agent"]);
+    expect(done.status, done.stderr + done.stdout).toBe(0);
+  });
+
   it("sdd init --ai copilot then sdd agents install --ai claude switches host", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-late-"));
     temps.push(root);
