@@ -1,8 +1,12 @@
-import { join } from "pathe";
+import { constants } from "node:fs";
+import { access, lstat, readdir, rmdir, unlink } from "node:fs/promises";
+import { dirname, join } from "pathe";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
 import { buildContext, getActiveChangeId } from "./change-context.js";
 import { loadConfig } from "./config.js";
-import { pathExists, readText, removePath, writeText } from "./fs.js";
+import { SddError } from "./errors.js";
+import { pathExists, readText, writeText } from "./fs.js";
+import { type KeptFile, generatedState, markGenerated } from "./generated.js";
 import { sddRoot } from "./paths.js";
 import type { Config } from "./schemas.js";
 
@@ -171,51 +175,233 @@ export function agentHostPaths(target: AgentTarget): string[] {
 /** Legacy paths from older SDD versions that installed IntelliJ notes as an "agent". */
 const LEGACY_AGENT_PATHS = [".idea/sdd-agent-notes.md"];
 
+/** Top-level host folders that may be removed once sdd has emptied them (never `.github`). */
+const PRUNABLE_PARENTS = [".claude", ".idea", ".grok", ".ollama", ".kilo"];
+
+export interface RemoveAgentHostsResult {
+  /** Project-relative files and directories sdd removed */
+  removed: string[];
+  /** Files left in place because sdd did not generate them, they were edited, or are links */
+  kept: KeptFile[];
+}
+
+type PathKind = "missing" | "file" | "dir" | "symlink" | "other";
+
+/** lstat-based kind: never follows symlinks, so dangling links and loops are fine. */
+async function pathKind(full: string): Promise<PathKind> {
+  try {
+    const st = await lstat(full);
+    if (st.isSymbolicLink()) return "symlink";
+    if (st.isDirectory()) return "dir";
+    if (st.isFile()) return "file";
+    return "other";
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return "missing";
+    throw err;
+  }
+}
+
+/** First project-relative component of `rel` that is a symlink, or null. */
+async function symlinkOnPath(projectRoot: string, rel: string): Promise<string | null> {
+  let cur = "";
+  for (const part of rel.split("/")) {
+    cur = cur ? `${cur}/${part}` : part;
+    const kind = await pathKind(join(projectRoot, cur));
+    if (kind === "symlink") return cur;
+    if (kind === "missing") return null;
+  }
+  return null;
+}
+
+async function canAccess(full: string, mode: number): Promise<boolean> {
+  try {
+    await access(full, mode);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fsCode(err: unknown): string | undefined {
+  return (err as NodeJS.ErrnoException | undefined)?.code;
+}
+
+/** Turn a raw fs error (EACCES, EISDIR, …) into a sentence naming the path. */
+export function describeFsError(err: unknown, action: string, rel: string): string {
+  const code = fsCode(err);
+  const why =
+    code === "EACCES" || code === "EPERM"
+      ? "permission denied"
+      : code === "EISDIR"
+        ? "it is a directory, not a file"
+        : code === "ENOTDIR"
+          ? "a parent path is a file, not a directory"
+          : code === "ELOOP"
+            ? "too many levels of symbolic links"
+            : code === "ENOENT"
+              ? "it does not exist (dangling symbolic link?)"
+              : ((err as Error)?.message ?? String(err));
+  return `Cannot ${action} ${rel}: ${why}${code ? ` (${code})` : ""}.`;
+}
+
+/** Thrown before anything is written when sdd cannot safely install agent files. */
+export class AgentInstallPreflightError extends SddError {
+  readonly problems: string[];
+  constructor(problems: string[]) {
+    super(
+      [
+        "sdd cannot set up the AI agent files. Nothing was written.",
+        ...problems.map((pr) => `  - ${pr}`),
+        "Fix the paths above, then re-run.",
+      ].join("\n"),
+      { code: "AGENT_PREFLIGHT" },
+    );
+    this.name = "AgentInstallPreflightError";
+    this.problems = problems;
+  }
+}
+
+/** Files sdd would remove from other hosts' folders, and what it leaves alone. */
+interface RemovalPlan {
+  remove: string[];
+  kept: KeptFile[];
+}
+
+async function planOtherHostRemoval(projectRoot: string, keep: AgentTarget): Promise<RemovalPlan> {
+  const remove: string[] = [];
+  const kept: KeptFile[] = [];
+  const candidates: string[] = [];
+  for (const integ of AGENT_INTEGRATIONS) {
+    if (integ.id === keep) continue;
+    candidates.push(...agentHostPaths(integ.id));
+  }
+  candidates.push(...LEGACY_AGENT_PATHS);
+
+  const visit = async (rel: string): Promise<void> => {
+    const full = join(projectRoot, rel);
+    const kind = await pathKind(full);
+    if (kind === "missing") return;
+    if (kind === "symlink") {
+      // Never follow, read through, or delete a link (sdd never creates them).
+      kept.push({ path: rel, reason: "symlink" });
+      return;
+    }
+    if (kind === "dir") {
+      let names: string[];
+      try {
+        names = (await readdir(full)).sort();
+      } catch {
+        kept.push({ path: rel, reason: "unreadable" });
+        return;
+      }
+      for (const name of names) await visit(`${rel}/${name}`);
+      return;
+    }
+    if (kind !== "file") {
+      kept.push({ path: rel, reason: "not-generated" });
+      return;
+    }
+    let state: ReturnType<typeof generatedState>;
+    try {
+      state = generatedState(await readText(full));
+    } catch {
+      kept.push({ path: rel, reason: "unreadable" });
+      return;
+    }
+    if (state === "unmodified") remove.push(rel);
+    else kept.push({ path: rel, reason: state });
+  };
+
+  for (const rel of candidates) {
+    const link = await symlinkOnPath(projectRoot, rel);
+    if (link) {
+      if (!kept.some((k) => k.path === link)) kept.push({ path: link, reason: "symlink" });
+      continue;
+    }
+    await visit(rel);
+  }
+  return { remove, kept };
+}
+
+async function removalProblems(projectRoot: string, plan: RemovalPlan): Promise<string[]> {
+  const problems: string[] = [];
+  for (const rel of plan.remove) {
+    const dir = dirname(rel);
+    if (!(await canAccess(join(projectRoot, dir), constants.W_OK))) {
+      problems.push(
+        `Cannot remove ${rel} (another host's sdd file): ${dir}/ is not writable (permission denied). Make it writable or delete the file yourself.`,
+      );
+    }
+  }
+  return problems;
+}
+
 /**
- * Remove agent files for hosts other than `keep` (and legacy IntelliJ notes).
+ * Remove the files in `plan`, then only the directories sdd emptied by doing so.
+ * Empty directories the user made are never removed; `.github` itself is never removed.
+ */
+async function executeRemoval(projectRoot: string, plan: RemovalPlan): Promise<string[]> {
+  const removed: string[] = [];
+  const ancestors = new Set<string>();
+  for (const rel of plan.remove) {
+    try {
+      await unlink(join(projectRoot, rel));
+    } catch (err) {
+      throw new SddError(describeFsError(err, "remove", rel), { cause: err });
+    }
+    removed.push(rel);
+    let dir = dirname(rel);
+    while (dir !== "." && dir !== "") {
+      const top = !dir.includes("/");
+      if (top && !PRUNABLE_PARENTS.includes(dir)) break;
+      ancestors.add(dir);
+      dir = dirname(dir);
+    }
+  }
+  // Deepest first, so a parent is checked after its emptied children are gone.
+  const dirs = [...ancestors].sort((a, b) => b.split("/").length - a.split("/").length);
+  for (const rel of dirs) {
+    const full = join(projectRoot, rel);
+    if ((await pathKind(full)) !== "dir") continue;
+    if ((await readdir(full)).length !== 0) continue;
+    try {
+      await rmdir(full);
+      removed.push(rel);
+    } catch {
+      // Leaving an empty folder behind is harmless.
+    }
+  }
+  return removed;
+}
+
+/**
+ * Remove agent files for hosts other than `keep`, but only files sdd generated
+ * and nobody edited since (marker + content hash). User files, edited files,
+ * symlinks and other tools' files in those folders are kept and reported.
+ * Never follows symlinks. Only folders emptied by this removal are pruned.
  * Does not touch .sdd/, memory/, changes/, or non-agent .github content.
+ */
+export async function removeOtherAgentHostsDetailed(
+  projectRoot: string,
+  keep: AgentTarget,
+): Promise<RemoveAgentHostsResult> {
+  const plan = await planOtherHostRemoval(projectRoot, keep);
+  const problems = await removalProblems(projectRoot, plan);
+  if (problems.length) throw new AgentInstallPreflightError(problems);
+  const removed = await executeRemoval(projectRoot, plan);
+  return { removed, kept: plan.kept };
+}
+
+/**
+ * Remove sdd-generated, unedited agent files for hosts other than `keep`.
+ * Returns the removed paths. See {@link removeOtherAgentHostsDetailed} for kept files.
  */
 export async function removeOtherAgentHosts(
   projectRoot: string,
   keep: AgentTarget,
 ): Promise<string[]> {
-  const removed: string[] = [];
-  for (const integ of AGENT_INTEGRATIONS) {
-    if (integ.id === keep) continue;
-    for (const rel of agentHostPaths(integ.id)) {
-      const full = join(projectRoot, rel);
-      if (await pathExists(full)) {
-        await removePath(full);
-        removed.push(rel);
-      }
-    }
-  }
-  for (const rel of LEGACY_AGENT_PATHS) {
-    const full = join(projectRoot, rel);
-    if (await pathExists(full)) {
-      await removePath(full);
-      removed.push(rel);
-    }
-  }
-  // Prune empty host parents if we emptied them
-  for (const parent of [".claude", ".idea", ".grok", ".ollama", ".kilo"]) {
-    if (keep === "grok" && parent === ".grok") continue;
-    if (keep === "ollama" && parent === ".ollama") continue;
-    if (keep === "kilo" && parent === ".kilo") continue;
-    const full = join(projectRoot, parent);
-    if (!(await pathExists(full))) continue;
-    try {
-      const { readdir } = await import("node:fs/promises");
-      const kids = await readdir(full);
-      if (kids.length === 0) {
-        await removePath(full);
-        removed.push(parent);
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return removed;
+  return (await removeOtherAgentHostsDetailed(projectRoot, keep)).removed;
 }
 
 /** Parse one Speckit-style integration key. */
@@ -324,7 +510,12 @@ export interface InstallAgentOptions {
 
 export interface InstallAgentResult {
   created: string[];
+  /** sdd-generated, unedited files that already existed (re-run with force to regenerate) */
   skipped: string[];
+  /** Files never overwritten or deleted: not generated by sdd, or edited since */
+  kept: KeptFile[];
+  /** Other hosts' sdd-generated files that were removed */
+  removed: string[];
   target: AgentTarget;
 }
 
@@ -342,6 +533,120 @@ export type InstallAgentsResult = {
   targets: AgentTarget[];
 };
 
+/** What installAgentIntegration would do with one generated file. */
+export interface PlannedWrite {
+  rel: string;
+  content: string;
+  /** create: new file · overwrite: unmodified sdd file + force · skip: unmodified, no force · keep: never touched */
+  action: "create" | "overwrite" | "skip" | "keep";
+  keptReason?: KeptFile["reason"];
+  /** For symlinks on the path: the link itself */
+  keptPath?: string;
+}
+
+export interface AgentInstallPlan {
+  writes: PlannedWrite[];
+  removal: RemovalPlan;
+  /** Reasons the install cannot proceed safely; empty when it can */
+  problems: string[];
+}
+
+function agentFiles(integ: AgentIntegration): { rel: string; content: string }[] {
+  const roles = integ.rolesToInstall?.length
+    ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
+    : SDD_AGENT_ROLES;
+  return [
+    { rel: join(".sdd", "protocol.md"), content: PROTOCOL_MD },
+    ...roles.map((role) => ({ rel: integ.rolePath(role.id), content: renderThinAgent(role) })),
+    { rel: "AGENTS.md", content: renderAgentsMd(integ) },
+  ];
+}
+
+/**
+ * Work out every write and removal for an agent install without touching the disk,
+ * and collect anything that would make it fail half-way (a directory where a file
+ * goes, unreadable or read-only files, non-writable folders).
+ */
+export async function planAgentIntegration(opts: InstallAgentOptions): Promise<AgentInstallPlan> {
+  const root = opts.projectRoot;
+  const force = opts.force ?? false;
+  const integ = getIntegration(opts.target);
+  const problems: string[] = [];
+  const writes: PlannedWrite[] = [];
+
+  for (const { rel, content } of agentFiles(integ)) {
+    const full = join(root, rel);
+    // Host/agent files are never written through a symlink (file or folder).
+    if (!rel.startsWith(".sdd/")) {
+      const link = await symlinkOnPath(root, rel);
+      if (link) {
+        writes.push({ rel, content, action: "keep", keptReason: "symlink", keptPath: link });
+        continue;
+      }
+    }
+    const kind = await pathKind(full);
+    if (kind === "missing") {
+      // Nearest existing ancestor must be a writable directory.
+      let anc = dirname(rel);
+      while (anc !== "." && (await pathKind(join(root, anc))) === "missing") anc = dirname(anc);
+      const ancFull = anc === "." ? root : join(root, anc);
+      const ancKind = await pathKind(ancFull);
+      if (ancKind !== "dir" && ancKind !== "symlink") {
+        problems.push(`Cannot create ${rel}: ${anc} is a file, not a directory.`);
+      } else if (!(await canAccess(ancFull, constants.W_OK))) {
+        problems.push(
+          `Cannot create ${rel}: ${anc === "." ? "the project folder" : `${anc}/`} is not writable (permission denied).`,
+        );
+      }
+      writes.push({ rel, content, action: "create" });
+      continue;
+    }
+    if (kind === "dir") {
+      problems.push(
+        `Cannot write ${rel}: it is a directory, not a file (EISDIR). Rename or move it.`,
+      );
+      writes.push({ rel, content, action: "keep", keptReason: "not-generated" });
+      continue;
+    }
+    if (kind !== "file") {
+      writes.push({ rel, content, action: "keep", keptReason: "not-generated" });
+      continue;
+    }
+    let state: ReturnType<typeof generatedState>;
+    try {
+      state = generatedState(await readText(full));
+    } catch (err) {
+      problems.push(
+        `${describeFsError(err, "read", rel)} sdd must read it to tell whether it generated the file; fix its permissions or move it.`,
+      );
+      writes.push({ rel, content, action: "keep", keptReason: "unreadable" });
+      continue;
+    }
+    if (state !== "unmodified") {
+      writes.push({ rel, content, action: "keep", keptReason: state });
+    } else if (!force) {
+      writes.push({ rel, content, action: "skip" });
+    } else {
+      if (!(await canAccess(full, constants.W_OK))) {
+        problems.push(
+          `Cannot regenerate ${rel} (--force): the file is read-only (permission denied). Make it writable or delete it.`,
+        );
+      }
+      writes.push({ rel, content, action: "overwrite" });
+    }
+  }
+
+  const removal = await planOtherHostRemoval(root, opts.target);
+  problems.push(...(await removalProblems(root, removal)));
+  return { writes, removal, problems };
+}
+
+/** Throw {@link AgentInstallPreflightError} (before any write) if the install cannot finish. */
+export async function assertAgentInstallable(opts: InstallAgentOptions): Promise<void> {
+  const plan = await planAgentIntegration(opts);
+  if (plan.problems.length) throw new AgentInstallPreflightError(plan.problems);
+}
+
 /**
  * Install thin agents for **one** AI integration (registry-driven).
  * Writes protocol + active-context + role stubs + single `.sdd/agents.json` snapshot.
@@ -355,53 +660,67 @@ export async function installAgentIntegration(
   const root = opts.projectRoot;
   const force = opts.force ?? false;
 
-  // Single-agent product rule: never leave other hosts' agent trees around
-  await removeOtherAgentHosts(root, opts.target);
+  const plan = await planAgentIntegration({ projectRoot: root, target: opts.target, force });
+  if (plan.problems.length) throw new AgentInstallPreflightError(plan.problems);
 
-  const write = async (rel: string, content: string) => {
-    const full = join(root, rel);
-    if ((await pathExists(full)) && !force) {
+  // Single-agent product rule: remove other hosts' sdd-generated files (never user files)
+  const removed = await executeRemoval(root, plan.removal);
+  const kept: KeptFile[] = [...plan.removal.kept];
+
+  const byRel = new Map(plan.writes.map((w) => [w.rel, w]));
+  const write = async (rel: string) => {
+    const w = byRel.get(rel)!;
+    if (w.action === "keep") {
+      kept.push({ path: w.keptPath ?? rel, reason: w.keptReason! });
+      return;
+    }
+    if (w.action === "skip") {
       skipped.push(rel);
       return;
     }
-    await writeText(full, content);
+    try {
+      await writeText(join(root, rel), markGenerated(w.content));
+    } catch (err) {
+      throw new SddError(describeFsError(err, "write", rel), { cause: err });
+    }
     created.push(rel);
   };
 
-  await write(join(".sdd", "protocol.md"), PROTOCOL_MD);
+  await write(join(".sdd", "protocol.md"));
   await refreshActiveAgentContext(root);
+  for (const w of plan.writes) {
+    if (w.rel !== join(".sdd", "protocol.md") && w.rel !== "AGENTS.md") await write(w.rel);
+  }
+  await write("AGENTS.md");
 
-  const roles = integ.rolesToInstall?.length
-    ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
-    : SDD_AGENT_ROLES;
-  for (const role of roles) {
-    await write(integ.rolePath(role.id), renderThinAgent(role));
+  // Single snapshot (no separate init-options.json) — sdd's own state file under .sdd/
+  const snapshotRel = join(".sdd", "agents.json");
+  if ((await pathExists(join(root, snapshotRel))) && !force) {
+    skipped.push(snapshotRel);
+  } else {
+    await writeText(
+      join(root, snapshotRel),
+      JSON.stringify(
+        {
+          version: 3,
+          mode: "agents-only",
+          protocol: ".sdd/protocol.md",
+          activeContext: ".sdd/active-context.md",
+          roles: SDD_AGENT_ROLES.map((r) => r.id),
+          /** Speckit-style public key */
+          ai: integ.key,
+          integration: integ.key,
+          installed: [integ.id],
+          updated: new Date().toISOString(),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    created.push(snapshotRel);
   }
 
-  await write("AGENTS.md", renderAgentsMd(integ));
-
-  // Single snapshot (no separate init-options.json)
-  await write(
-    join(".sdd", "agents.json"),
-    JSON.stringify(
-      {
-        version: 3,
-        mode: "agents-only",
-        protocol: ".sdd/protocol.md",
-        activeContext: ".sdd/active-context.md",
-        roles: SDD_AGENT_ROLES.map((r) => r.id),
-        /** Speckit-style public key */
-        ai: integ.key,
-        integration: integ.key,
-        installed: [integ.id],
-        updated: new Date().toISOString(),
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-
-  return { created, skipped, target: opts.target };
+  return { created, skipped, kept, removed, target: opts.target };
 }
 
 /**
@@ -557,7 +876,7 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
 
   const protocolPath = join(markerDir, "protocol.md");
   if (!(await pathExists(protocolPath))) {
-    await writeText(protocolPath, PROTOCOL_MD);
+    await writeText(protocolPath, markGenerated(PROTOCOL_MD));
   }
 
   const config = await loadConfig(projectRoot);
