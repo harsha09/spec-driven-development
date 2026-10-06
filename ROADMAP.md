@@ -306,6 +306,25 @@ Each item has: **priority**, **problem**, **meaning (what “done” means)**, *
 
 ---
 
+### P1 — Opt-in local process metrics
+
+**Tracked in:** [#26](https://github.com/harsha09/spec-driven-development/issues/26). Covers per-phase time, input and output tokens and cost (`metrics.json`, `sdd report`). It was moved from P2 because the search and cost epic (#21) needs it first.
+
+**Problem:** Cannot improve process without skip rates, dwell time, override frequency.
+
+**Meaning:**
+
+1. **Local, opt-in** metrics file (e.g. under `.sdd/`) — no phone-home by default.
+2. Events: stage enter/leave, skip, gate override, complete.
+3. `sdd doctor` or `sdd metrics` summary.
+
+**Non-goals:**
+
+- Cloud analytics product.
+- Tracking source code content.
+
+---
+
 ### P2 — Broader code-context language adapters
 
 **Problem:** Pipeline is strongest on TypeScript; monorepos often include Python/Go/etc.
@@ -392,23 +411,6 @@ Each item has: **priority**, **problem**, **meaning (what “done” means)**, *
 
 ---
 
-### P2 — Opt-in local process metrics
-
-**Problem:** Cannot improve process without skip rates, dwell time, override frequency.
-
-**Meaning:**
-
-1. **Local, opt-in** metrics file (e.g. under `.sdd/`) — no phone-home by default.
-2. Events: stage enter/leave, skip, gate override, complete.
-3. `sdd doctor` or `sdd metrics` summary.
-
-**Non-goals:**
-
-- Cloud analytics product.
-- Tracking source code content.
-
----
-
 ### P3 — Multi-agent orchestration patterns
 
 **Meaning:** Optional patterns for parallel specialist agents with human/verify gates — only after single-agent guidance and verify are strong.
@@ -473,7 +475,8 @@ P1  Stronger local verify (acceptance-aware)
 P1  Related changes / light epic
 P1  Comparison page + demo repos
 P1  PR body / branch helper
-P2  Language adapters, pack extensibility docs, memory in handoff, metrics opt-in, IDE convenience
+P1  Opt-in local process metrics (#26)
+P2  Language adapters, pack extensibility docs, memory in handoff, IDE convenience
 P3  Multi-agent, issue seed, viz, spec-as-source
 Debt  Parallel, continuous
 ```
@@ -506,7 +509,7 @@ Debt  Parallel, continuous
 | Language breadth (code-context) | **P2** |
 | Extensibility / publishable packs | **P2** |
 | Memory synthesis in handoff | **P2** |
-| Observability / metrics | **P2** |
+| Observability / metrics | **P1** (#26) |
 | Optional IDE surface | **P2** |
 | Multi-agent orchestration | **P3** |
 | Issue-tracker sync | **P3** |
@@ -531,3 +534,4 @@ Debt  Parallel, continuous
 | Date | Note |
 |------|------|
 | 2026-08-08 | Initial roadmap from product assessment (code quality, prompts, workflows, maturity) + strategy constraints (local, not Spec Kit, MCP client-only, one product root for FE+BE, priority labels P0–P3 / P- / Debt). |
+| 2026-10-06 | Moved opt-in local process metrics from P2 to P1 (per-phase time, tokens, cost; #26). It is a prerequisite for the search and cost epic (#21). |
