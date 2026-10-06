@@ -103,7 +103,12 @@ export async function canLeaveStage(
 
   const requiredCmds = stage.verify?.commands?.filter((c) => c.required) ?? [];
   if (requiredCmds.length) {
-    const verifyOk = ctx.meta.verify_results?.[stage.id]?.ok === true;
+    // Gate on the required commands only: each must have run and exited 0 in the
+    // last verify. Optional failures make `sdd verify` fail but do not block here.
+    const lastRun = ctx.meta.verify_results?.[stage.id];
+    const verifyOk = requiredCmds.every((c) =>
+      lastRun?.results?.some((r) => r.name === c.name && r.exitCode === 0),
+    );
     const humanOverride = gateState?.status === "waived" || gateState?.status === "approved";
     if (!verifyOk && !humanOverride) {
       errors.push(

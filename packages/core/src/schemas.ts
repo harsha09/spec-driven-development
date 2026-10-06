@@ -156,6 +156,8 @@ export const ChangeMetaSchema = z.object({
     .record(
       z.object({
         ok: z.boolean(),
+        /** pass | fail | not_run (absent in metas written before 0.17.3) */
+        status: z.enum(["pass", "fail", "not_run"]).optional(),
         at: z.string(),
         results: z
           .array(

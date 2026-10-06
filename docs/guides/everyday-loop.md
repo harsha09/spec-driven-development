@@ -30,6 +30,12 @@ sdd verify                    # when you’re on the verify step
 sdd complete                  # mark this work done
 ```
 
+`sdd verify` only says **PASS** when commands actually ran and all exited 0. With no
+`verify.commands` configured (the default `commands: []`) it says **NOT RUN** and exits 1 —
+that is not a failure of your code, it means nothing was checked automatically. Complete the
+checklist in `local-test-results.md` by hand, or add commands to the stage in
+`.sdd/workflows/<workflow>.yaml`. Only commands marked `required: true` block `sdd complete`.
+
 From a product backlog after greenfield:
 
 ```bash

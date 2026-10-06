@@ -6,13 +6,22 @@ import type { Config } from "./schemas.js";
 import { nowIso } from "./slug.js";
 import { getStage } from "./workflow.js";
 
+/** pass: every command ran and exited 0 · fail: a command failed · not_run: nothing was executed */
+export type VerifyStatus = "pass" | "fail" | "not_run";
+
 export interface VerifyResult {
   stageId: string;
+  /** Overall outcome; never "pass" unless at least one command ran and all exited 0 */
+  status: VerifyStatus;
+  /** Why the status is not "pass" (human readable) */
+  reason?: string;
   results: { name: string; command: string; exitCode: number | null; output: string }[];
   checklist: string[];
   /** Path to evidence dir when configured; null when no evidence_dir is set */
   evidencePath: string | null;
-  /** False if any required command failed or was not run when required */
+  /** local-test-results.md that was written; null when nothing was recorded (wrong stage) */
+  resultsPath: string | null;
+  /** True only when status is "pass" */
   ok: boolean;
 }
 
@@ -53,10 +62,17 @@ function isToolGeneratedResults(content: string): boolean {
   return false;
 }
 
+const STATUS_LABEL: Record<VerifyStatus, string> = {
+  pass: "PASS",
+  fail: "FAIL",
+  not_run: "NOT RUN",
+};
+
 function buildSummaryLines(
   title: string,
   stageId: string,
-  ok: boolean,
+  status: VerifyStatus,
+  reason: string | undefined,
   results: VerifyResult["results"],
   checklist: string[],
 ): string[] {
@@ -66,19 +82,19 @@ function buildSummaryLines(
     `> Change: ${title}`,
     `> Stage: ${stageId}`,
     `> At: ${nowIso()}`,
-    `> Overall: ${ok ? "PASS" : "FAIL"}`,
+    `> Overall: ${STATUS_LABEL[status]}${reason ? ` — ${reason}` : ""}`,
     ``,
     `## Commands`,
     ``,
   ];
   if (results.length === 0) {
-    lines.push(`_No commands configured for this stage. Complete the checklist manually._`);
+    lines.push(`_No commands ran. Complete the checklist manually._`);
     lines.push("");
   } else {
     for (const r of results) {
       lines.push(`### ${r.name}`);
       lines.push(`- Command: \`${r.command}\``);
-      lines.push(`- Exit: ${r.exitCode}`);
+      lines.push(`- Exit: ${r.exitCode}${r.exitCode === 0 ? "" : " (FAILED)"}`);
       lines.push("");
     }
   }
@@ -105,6 +121,23 @@ export async function runLocalVerify(
   const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
   if (!stage) {
     throw new Error(`Unknown stage: ${ctx.meta.stage}`);
+  }
+
+  // Wrong stage: nothing to verify here. Report NOT RUN and record nothing.
+  if (!stage.verify) {
+    const verifyStage = ctx.workflow.stages.find((st) => st.verify);
+    return {
+      stageId: stage.id,
+      status: "not_run",
+      reason: verifyStage
+        ? `stage "${stage.id}" has no verify step; run sdd verify on "${verifyStage.id}"`
+        : `workflow "${ctx.workflow.name}" has no verify step`,
+      results: [],
+      checklist: [],
+      evidencePath: null,
+      resultsPath: null,
+      ok: false,
+    };
   }
 
   const evidenceDirRaw = stage.verify?.evidence_dir?.trim();
@@ -135,26 +168,25 @@ export async function runLocalVerify(
     }
   }
 
-  // ok: all required commands that were configured must have exit 0
-  const required = commands.filter((c) => c.required);
-  let ok = true;
-  if (required.length) {
-    if (!runCommands) {
-      ok = false;
-    } else {
-      for (const cmd of required) {
-        const r = results.find((x) => x.name === cmd.name);
-        if (!r || r.exitCode !== 0) ok = false;
-      }
-    }
-  } else if (commands.length && runCommands) {
-    // optional commands: ok if all that ran succeeded (informational)
-    ok = results.every((r) => r.exitCode === 0);
+  // No silent PASS: pass only if commands actually ran and every one exited 0.
+  let status: VerifyStatus;
+  let reason: string | undefined;
+  if (!commands.length) {
+    status = "not_run";
+    reason = `no verify commands configured for stage "${stage.id}"`;
+  } else if (!runCommands) {
+    status = "not_run";
+    reason = "commands not run (--no-run)";
+  } else {
+    const failed = results.filter((r) => r.exitCode !== 0).map((r) => r.name);
+    status = failed.length ? "fail" : "pass";
+    reason = failed.length ? `failed: ${failed.join(", ")}` : undefined;
   }
+  const ok = status === "pass";
 
   const checklist = stage.gate?.checklist ?? [];
   const summaryPath = join(ctx.path, "local-test-results.md");
-  const lines = buildSummaryLines(ctx.meta.title, stage.id, ok, results, checklist);
+  const lines = buildSummaryLines(ctx.meta.title, stage.id, status, reason, results, checklist);
   const summaryBody = lines.join("\n");
 
   if (await pathExists(summaryPath)) {
@@ -171,12 +203,12 @@ export async function runLocalVerify(
         ``,
         `## Latest run (${stamp})`,
         ``,
-        `> Overall: ${ok ? "PASS" : "FAIL"}`,
+        `> Overall: ${STATUS_LABEL[status]}${reason ? ` — ${reason}` : ""}`,
         `> Stage: ${stage.id}`,
         ``,
       ];
       if (results.length === 0) {
-        append.push(`_No commands configured for this stage._`);
+        append.push(`_No commands ran._`);
         append.push("");
       } else {
         for (const r of results) {
@@ -200,6 +232,7 @@ export async function runLocalVerify(
     ...ctx.meta.verify_results,
     [stage.id]: {
       ok,
+      status,
       at: nowIso(),
       results: results.map((r) => ({ name: r.name, exitCode: r.exitCode })),
     },
@@ -208,9 +241,12 @@ export async function runLocalVerify(
 
   return {
     stageId: stage.id,
+    status,
+    reason,
     results,
     checklist,
     evidencePath: evidenceDir,
+    resultsPath: summaryPath,
     ok,
   };
 }

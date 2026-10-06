@@ -454,16 +454,12 @@ const verify = defineCommand({
       const result = await runLocalVerify(root, config, id, {
         runCommands: !args["no-run"],
       });
-      consola.success(`Local verify for stage: ${result.stageId}`);
-      if (result.results.length) {
-        for (const r of result.results) {
-          const ok = r.exitCode === 0;
-          consola.log(
-            `  ${ok ? pc.green("✓") : pc.red("✗")} ${r.name} ${pc.dim(`(exit ${r.exitCode})`)}`,
-          );
-        }
-      } else {
-        consola.info("No commands configured — complete checklist in local-test-results.md");
+      consola.info(`Local verify for stage: ${result.stageId}`);
+      for (const r of result.results) {
+        const ok = r.exitCode === 0;
+        consola.log(
+          `  ${ok ? pc.green("✓") : pc.red("✗")} ${r.name} ${pc.dim(`(exit ${r.exitCode})`)}`,
+        );
       }
       if (result.checklist.length) {
         consola.log(pc.dim("Checklist:"));
@@ -471,13 +467,25 @@ const verify = defineCommand({
       }
       if (result.evidencePath) {
         consola.info(`Evidence: ${result.evidencePath}`);
-      } else {
-        consola.info(`Results: ${join(root, config.changes_path, id, "local-test-results.md")}`);
+      } else if (result.resultsPath) {
+        consola.info(`Results: ${result.resultsPath}`);
       }
-      if (!result.ok) {
-        consola.warn("Verify did not pass (required commands failed or were skipped).");
+      if (result.status === "pass") {
+        consola.success("Verify PASS — every command ran and exited 0.");
+      } else if (result.status === "fail") {
+        consola.error(`Verify FAIL — ${result.reason}.`);
         consola.log(
-          pc.dim("Fix commands, re-run sdd verify, or sdd gate approve/waive to override."),
+          pc.dim(
+            "Fix the failing commands and re-run sdd verify, or sdd gate approve/waive to override.",
+          ),
+        );
+        process.exitCode = 1;
+      } else {
+        consola.warn(`Verify NOT RUN — ${result.reason}. Nothing was verified.`);
+        consola.log(
+          pc.dim(
+            "Add verify.commands to this stage in .sdd/workflows/<workflow>.yaml, or complete the checklist by hand.",
+          ),
         );
         process.exitCode = 1;
       }
