@@ -298,6 +298,72 @@ describe("CLI integration", () => {
     expect(snap.ai).toBe("kilo");
   });
 
+  it("sdd init --here --no-agent installs no AI host; doctor passes (#5)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-"));
+    temps.push(root);
+
+    const r = runSdd(root, ["init", "--here", "--no-agent"]);
+    expect(r.status, r.stderr + r.stdout).toBe(0);
+    expect(r.stdout).not.toContain("Choose your AI");
+    expect(await exists(join(root, ".sdd/config.yaml"))).toBe(true);
+    expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
+    expect(await exists(join(root, ".sdd/active-context.md"))).toBe(true);
+    for (const p of [
+      "AGENTS.md",
+      ".sdd/agents.json",
+      ".github",
+      ".claude",
+      ".grok",
+      ".kilo",
+      ".ollama",
+    ]) {
+      expect(await exists(join(root, p)), p).toBe(false);
+    }
+
+    const doctor = runSdd(root, ["doctor"]);
+    expect(doctor.status, doctor.stdout + doctor.stderr).toBe(0);
+    expect(doctor.stdout).toContain("AI host");
+    expect(doctor.stdout).toContain("none (no-agent setup");
+    expect(doctor.stdout).not.toContain("✗");
+
+    const created = runSdd(root, ["new", "No agent change", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    expect(created.stdout).toContain("No AI host configured");
+    expect(await exists(join(root, "AGENTS.md"))).toBe(false);
+  });
+
+  it("re-running init --no-agent warns exactly what --force would reset (#15)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-reinit-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const again = runSdd(root, ["init", "--here", "--no-agent"]);
+    expect(again.status).toBe(1);
+    const out = again.stderr + again.stdout;
+    expect(out).toContain("already initialized");
+    expect(out).toContain("resets .sdd/config.yaml to defaults");
+    expect(out).toContain("re-copies .sdd/workflows/ and .sdd/templates/ over local edits");
+    expect(out).toContain("issue #15");
+    expect(out).toContain("back them up first");
+  });
+
+  it("sdd init --no-agent with --ai is rejected (#5)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-ai-"));
+    temps.push(root);
+    const r = runSdd(root, ["init", "--here", "--no-agent", "--ai", "copilot"]);
+    expect(r.status).toBe(1);
+    expect(r.stderr + r.stdout).toContain("--no-agent cannot be combined with --ai");
+    expect(await exists(join(root, ".sdd/config.yaml"))).toBe(false);
+  });
+
+  it("--no-agent on process commands is honoured (citty parses it as agent=false) (#5)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-flag-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "grok"]).status).toBe(0);
+    const r = runSdd(root, ["new", "Flag check", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(r.status, r.stderr + r.stdout).toBe(0);
+    expect(r.stdout).toContain("Skipped (--no-agent or SDD_NO_AGENT)");
+  });
+
   it("rejects IDE names for --ai", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-ide-"));
     temps.push(root);
