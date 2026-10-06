@@ -42,7 +42,7 @@ import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
-import { asStringList, noAgentArg } from "./shared.js";
+import { asStringList, noAgentArg, noAgentRequested } from "./shared.js";
 
 const init = defineCommand({
   meta: {
@@ -80,6 +80,12 @@ const init = defineCommand({
       description: "Do not require agent CLI on PATH (e.g. claude)",
       default: false,
     },
+    "no-agent": {
+      type: "boolean",
+      description:
+        "Set up sdd without an AI host: no host files, no AGENTS.md, never prompts (add one later with sdd agents install)",
+      default: false,
+    },
   },
   async run({ args }) {
     try {
@@ -90,6 +96,7 @@ const init = defineCommand({
         ai: args.ai,
         integration: args.integration,
         ignoreAgentTools: args["ignore-agent-tools"],
+        noAgent: noAgentRequested(args),
       });
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
@@ -223,7 +230,7 @@ const newCmd = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `new change · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -300,7 +307,7 @@ const next = defineCommand({
         projectRoot: root,
         config,
         ctx: result.ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: result.to
           ? `advanced ${result.from} → ${result.to}`
           : `on last stage ${result.ctx.meta.stage}`,
@@ -337,7 +344,7 @@ const skip = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `skipped ${args.stage} · now ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -367,7 +374,7 @@ const use = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `workflow → ${args.workflow} · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -418,7 +425,7 @@ const gate = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `gate ${action} on ${args.stage ?? ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -479,7 +486,7 @@ const verify = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `local verify ${result.ok ? "passed" : "failed"} · stage ${result.stageId}`,
       });
       await reportAgentLaunch(launch);
@@ -524,7 +531,7 @@ const complete = defineCommand({
         config,
         ctx: before,
         changeId: before.id,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `change completed${archivedTo ? " and archived" : ""}${promoted?.length ? " · greenfield promoted" : ""}`,
         reuseHandoff: true,
       });
@@ -584,7 +591,7 @@ const greenfield = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `greenfield start · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -669,7 +676,7 @@ const backlogStart = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `backlog ${feature.id} start · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -734,7 +741,7 @@ const agent = defineCommand({
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
-      if (args.print || args["no-agent"]) {
+      if (args.print || noAgentRequested(args)) {
         await refreshActiveAgentContext(root);
         const path = await writeAgentHandoff(root, config, id);
         const body = await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8"));
@@ -814,7 +821,7 @@ const agentsRefresh = defineCommand({
       const launch = await launchConfiguredAgent({
         projectRoot: root,
         config,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: "agents refresh",
       });
       await reportAgentLaunch(launch);
@@ -852,7 +859,7 @@ const useChange = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `checkout ${args.change}`,
       });
       await reportAgentLaunch(launch);
@@ -1078,7 +1085,7 @@ const refine = defineCommand({
         projectRoot: root,
         config,
         ctx,
-        noAgent: args["no-agent"],
+        noAgent: noAgentRequested(args),
         event: `${plan.mode} stage ${plan.focusStageId}`,
         kickoffInstructions: [
           `Read first: ${briefPath}`,
@@ -1133,13 +1140,14 @@ const doctor = defineCommand({
     if (initialized) {
       const config = await loadConfig(root);
       const installed = await loadInstalledAgent(root);
-      line(
-        "AI host",
-        Boolean(installed),
-        installed
-          ? `${installed.target} (${installed.integration.label})`
-          : "none — run: sdd agents install --ai copilot",
-      );
+      if (installed) {
+        line("AI host", true, `${installed.target} (${installed.integration.label})`);
+      } else {
+        // No host is a valid setup (sdd init --no-agent): info, not a failure
+        consola.log(
+          `  ${pc.cyan("i")} ${pc.bold("AI host")}  ${pc.dim("none (no-agent setup; optional: sdd agents install --ai copilot)")}`,
+        );
+      }
       const active = await getActiveChangeId(root, config);
       if (active) {
         line("Active change", true, active);

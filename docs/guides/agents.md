@@ -30,6 +30,8 @@ That’s it for day one. The AI often opens after process commands so it can hel
 
 **Learn without the AI opening?** Add `--no-agent` (see [tutorial](../tutorials/first-change)).
 
+**No AI host at all?** Run `sdd init --here --no-agent` instead of `--ai …`. sdd installs no host files and no `AGENTS.md`, and nothing ever launches. `sdd doctor` treats this as a valid setup.
+
 **Switch AI later:**
 
 ```bash

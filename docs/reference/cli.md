@@ -30,6 +30,7 @@ One command’s flags: `sdd <command> --help`.
 | Goal | Command |
 |------|---------|
 | Set up this project | `sdd init --here --ai copilot` |
+| Set up without any AI host | `sdd init --here --no-agent` |
 | Check setup | `sdd doctor` |
 | Start small work | `sdd new "Title" -w hotfix -y` |
 | Start mid-size work (workflow pack) | `sdd new "Title" -w feature -y` |
@@ -96,7 +97,8 @@ One command’s flags: `sdd <command> --help`.
 Most process commands refresh a short handoff and may open your AI.  
 **Never open AI:** `status`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
 
-Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
+Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.  
+Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
 
 ---
 
