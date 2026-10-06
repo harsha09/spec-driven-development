@@ -7,6 +7,8 @@ description: AI hosts supported by sdd init — GitHub Copilot, Grok Build, Clau
 
 At **`sdd init`** you install **exactly one** AI coding agent host. Switch later with `sdd agents install --ai <host> --force`.
 
+No host at all is also a valid setup: `sdd init --here --no-agent` writes only `.sdd/`, `memory/`, `changes/` and `domains/`. You get no host files, no `AGENTS.md` and no `.sdd/agents.json`, and it never prompts. With no host configured, process commands write the handoff but never launch an assistant, and `sdd doctor` reports `AI host: none` as info. Use it when you, a script, or an agent outside sdd drives the process. Add a host later with `sdd agents install --ai <host>`.
+
 ## Hosts
 
 | Init flag | Product | What gets installed | How you use it |

@@ -19,6 +19,7 @@ import {
   listWorkflowNames,
   optionForTarget,
   parseIntegration,
+  refreshActiveAgentContext,
 } from "@structured-vibe-coding/core";
 import pc from "picocolors";
 
@@ -30,9 +31,23 @@ export interface InitCliArgs {
   ai?: string;
   integration?: string;
   ignoreAgentTools?: boolean;
+  /** Set up sdd without any AI host (no host files, no AGENTS.md); never prompts. */
+  noAgent?: boolean;
 }
 
+/**
+ * Shown instead of the re-init confirmation when prompting is not possible.
+ * Names exactly what --force resets today (issue #15) so nobody loses edits by accident.
+ */
+export const ALREADY_INITIALIZED_MESSAGE =
+  "SDD is already initialized here. Re-running with --force resets .sdd/config.yaml to defaults " +
+  "and re-copies .sdd/workflows/ and .sdd/templates/ over local edits (issue #15) — back them up first.";
+
+/** `--no-agent` init must never prompt, even on a TTY (agents/scripts drive it). */
+let promptsDisabled = false;
+
 function isInteractive(): boolean {
+  if (promptsDisabled) return false;
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
@@ -152,7 +167,7 @@ async function maybeConfirmNonEmpty(
 
   if (await isInitialized(projectRoot)) {
     if (!isInteractive()) {
-      throw new Error("Already initialized. Re-run with --force to re-copy defaults.");
+      throw new Error(ALREADY_INITIALIZED_MESSAGE);
     }
     const again = await p.confirm({
       message: "SDD already initialized. Re-copy default workflows/templates?",
@@ -251,10 +266,20 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   console.log("");
   p.intro(pc.bgCyan(pc.black(" sdd ")) + "  Structured Vibe Coding (Spec-Driven Development)");
 
+  promptsDisabled = Boolean(args.noAgent);
+  if (args.noAgent && (args.ai?.trim() || args.integration?.trim())) {
+    throw new Error("--no-agent cannot be combined with --ai / --integration. Pick one.");
+  }
+
   const { projectRoot, here } = await resolveProjectPath(args);
   const force = Boolean(args.force);
 
   await maybeConfirmNonEmpty(projectRoot, force, here);
+
+  if (args.noAgent) {
+    await runNoAgentInit(projectRoot, here, force);
+    return;
+  }
 
   const selected = await selectIntegration({
     ai: args.ai,
@@ -349,5 +374,58 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
       ` · AI agent: ${pc.cyan(agentDetail)} only\n\n` +
       pc.dim("Next:\n") +
       next.map((l) => `  ${l}`).join("\n"),
+  );
+}
+
+/**
+ * `sdd init --no-agent`: shared SDD setup only. No AI host files, no AGENTS.md,
+ * no .sdd/agents.json (so process commands never launch an assistant), no prompts.
+ */
+async function runNoAgentInit(projectRoot: string, here: boolean, force: boolean): Promise<void> {
+  p.note(
+    [
+      `${pc.bold("Project")}     ${basename(projectRoot)}`,
+      `${pc.bold("Path")}        ${pc.dim(projectRoot)}`,
+      `${pc.bold("Mode")}        ${here ? "current directory (--here)" : "project path"}`,
+      `${pc.bold("AI agent")}    none (--no-agent)`,
+    ].join("\n"),
+    "SDD project setup",
+  );
+
+  const s = p.spinner();
+  s.start("Install shared infrastructure (.sdd, workflows, templates, memory)");
+  const already = await isInitialized(projectRoot);
+  await initProject({ projectRoot, force: force || already, agents: false });
+  // Shared playbook + live-task file (both under .sdd/; not host files)
+  await refreshActiveAgentContext(projectRoot);
+  s.stop("Shared infrastructure ready");
+
+  const workflows = await listWorkflowNames(projectRoot);
+  p.log.step(`Workflows: ${workflows.join(", ")}`);
+  p.log.step(`Config: .sdd/config.yaml`);
+
+  p.note(
+    [
+      pc.bold("Created (shared SDD):"),
+      `  .sdd/   memory/   changes/   domains/`,
+      `  .sdd/protocol.md  +  .sdd/active-context.md  (process rules + live task)`,
+      "",
+      pc.bold("AI agent:"),
+      `  none — no host files, no AGENTS.md; sdd commands never launch an assistant`,
+      pc.dim("  Add one later: sdd agents install --ai copilot|claude|grok|ollama|kilo"),
+    ].join("\n"),
+    "What was installed",
+  );
+
+  const next = [
+    here ? `# already in project` : `cd ${projectRoot}`,
+    `sdd new "Your first change" -w patch -y`,
+    `sdd status`,
+    `# whoever does the work: read .sdd/active-context.md then .sdd/protocol.md`,
+  ];
+  p.outro(
+    `${pc.green("Initialized")} · AI agent: ${pc.cyan("none")}\n\n${pc.dim("Next:\n")}${next
+      .map((l) => `  ${l}`)
+      .join("\n")}`,
   );
 }
