@@ -149,6 +149,28 @@ describe("CLI integration", () => {
     },
   );
 
+  it("sdd init --force on a host switch lists removed files; bad paths fail clearly", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-removed-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--ai", "kilo", "--ignore-agent-tools"]).status).toBe(0);
+    const sw = runSdd(root, ["init", "--here", "--force", "--ai", "copilot"]);
+    expect(sw.status, sw.stderr + sw.stdout).toBe(0);
+    expect(sw.stdout).toContain("Removed (other AI hosts' sdd-generated files");
+    expect(sw.stdout).toContain("- .kilo/sdd.md");
+
+    // A directory where AGENTS.md goes: clear error, exit 1, nothing written
+    const bad = await mkdtemp(join(tmpdir(), "sdd-cli-eisdir-"));
+    temps.push(bad);
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(bad, "AGENTS.md"));
+    const r = runSdd(bad, ["init", "--here", "--ai", "copilot"]);
+    const out = r.stderr + r.stdout;
+    expect(r.status, out).toBe(1);
+    expect(out).toContain("Cannot write AGENTS.md: it is a directory");
+    expect(out).toContain("Nothing was written");
+    expect(await exists(join(bad, ".sdd"))).toBe(false);
+  });
+
   it("sdd init --here --ai copilot then new/status/next/refresh", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-flow-"));
     temps.push(root);
