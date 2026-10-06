@@ -6,6 +6,14 @@ export const noAgentArg = {
   default: false,
 };
 
+/**
+ * True when the user asked for no agent. citty (mri) parses `--no-agent` as
+ * `agent: false` and leaves `args["no-agent"]` at its default, so check both.
+ */
+export function noAgentRequested(args: Record<string, unknown>): boolean {
+  return args["no-agent"] === true || args.agent === false;
+}
+
 export function asStringList(value: unknown): string[] {
   if (value == null) return [];
   if (Array.isArray(value)) {

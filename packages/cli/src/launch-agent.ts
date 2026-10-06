@@ -128,7 +128,8 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
       handoffPath,
       target: null,
       launched: false,
-      reason: "No AI agent configured (run sdd init --ai grok|copilot|claude|ollama|kilo)",
+      reason:
+        "No AI host configured (no-agent setup) — nothing launched. Add one: sdd agents install --ai copilot|claude|grok|ollama|kilo",
     };
   }
 
