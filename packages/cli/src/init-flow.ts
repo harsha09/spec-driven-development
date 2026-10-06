@@ -32,6 +32,14 @@ export interface InitCliArgs {
   noAgent?: boolean;
 }
 
+/**
+ * Shown instead of the re-init confirmation when prompting is not possible.
+ * Names exactly what --force resets today (issue #15) so nobody loses edits by accident.
+ */
+export const ALREADY_INITIALIZED_MESSAGE =
+  "SDD is already initialized here. Re-running with --force resets .sdd/config.yaml to defaults " +
+  "and re-copies .sdd/workflows/ and .sdd/templates/ over local edits (issue #15) — back them up first.";
+
 /** `--no-agent` init must never prompt, even on a TTY (agents/scripts drive it). */
 let promptsDisabled = false;
 
@@ -156,7 +164,7 @@ async function maybeConfirmNonEmpty(
 
   if (await isInitialized(projectRoot)) {
     if (!isInteractive()) {
-      throw new Error("Already initialized. Re-run with --force to re-copy defaults.");
+      throw new Error(ALREADY_INITIALIZED_MESSAGE);
     }
     const again = await p.confirm({
       message: "SDD already initialized. Re-copy default workflows/templates?",
