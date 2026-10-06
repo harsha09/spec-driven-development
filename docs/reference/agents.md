@@ -45,6 +45,27 @@ Ollama does **not** auto-load multi-role agent trees like Claude. Project guidan
 
 Set the model with **`SDD_OLLAMA_MODEL`** or **`OLLAMA_MODEL`** (default `llama3.2`).
 
+## Existing files are safe
+
+Every markdown file sdd generates (`AGENTS.md`, host stubs, `.sdd/protocol.md`, `.sdd/README.md`) carries a marker line with a hash of its content:
+
+```text
+<!-- sdd:generated sha256=… (sdd regenerates this file only while it is unchanged; edit freely) -->
+```
+
+This protection covers **`AGENTS.md`, host agent files and folders, `.sdd/protocol.md` and `.sdd/README.md`**:
+
+- Without `--force`, `sdd init` and `sdd agents install` never replace one of these files that already exists.
+- With `--force`, sdd regenerates a file only if its marker is present and the content still matches the hash. Line endings don't count (a CRLF checkout of an unedited file is still unedited).
+- Files with no marker (your own `AGENTS.md`, other tools' files in `.claude/`, `.kilo/`, …) and sdd files you edited are **never overwritten or deleted**, with or without `--force`. sdd prints them as *kept*.
+- When you switch hosts, sdd removes the other host's unedited sdd files, lists what it removed, and removes only the folders it emptied. Empty folders you made are left alone. `.github/` itself is never removed.
+- sdd never follows symbolic links in host folders: it does not write, read or delete through a link, and does not remove the link. Links are listed as kept. Broken links and link loops are skipped.
+- Before writing anything, sdd checks every agent path. A directory where a file goes, an unreadable file, a read-only file it would regenerate, or a folder it cannot write to stops init with a clear message, and nothing is written.
+- If you already have an `AGENTS.md`, sdd leaves it alone and prints a short section you can paste into it.
+- Files from sdd versions older than this marker count as unmarked. To regenerate one, delete it and re-run.
+
+**Not covered yet (issue #15):** sdd's own state under `.sdd/`. `--force` resets `.sdd/config.yaml` and re-copies `.sdd/workflows/` and `.sdd/templates/`, and rewrites `.sdd/agents.json`. `.sdd/active-context.md` is regenerated on every init. On a fresh init where `.sdd/` exists but `config.yaml` does not, `.sdd/workflows/` and `.sdd/templates/` are copied over existing files even without `--force`. Back up local edits there first.
+
 ## Agent roles (stubs)
 
 | Role id | Purpose | Copilot / Claude | Grok / Ollama |
