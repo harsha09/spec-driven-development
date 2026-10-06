@@ -1,88 +1,109 @@
-name: Release (CD)
+name: Release (manual)
 
-# Publishes npm packages when you create a GitHub Release or run this workflow manually.
+# The ONLY workflow that publishes @structured-vibe-coding/core + cli to npm.
+# Manual-only: there is no push, tag or GitHub Release trigger, so no merge or
+# push can ever publish. See docs/maintainers/ci-cd.md.
+#
+# Run: Actions → Release (manual) → Run workflow (from main), with
+#   sha  = the full 40-char commit SHA that QA passed (packed tarball).
+#
+# Gates (before anything is built or published):
+#   - the run was dispatched from refs/heads/main
+#   - `sha` is a 40-char hex SHA, an ancestor of (or equal to) origin/main
+#   - `sha` == origin/main HEAD at dispatch time (main must not have moved;
+#     if it has, QA the new HEAD and dispatch again with that SHA)
+#   - origin/main is re-checked right before npm publish
+# Then: bump (conventional commits since last tag, or forced) → build → typecheck
+# → test → CLI smoke → publish core, then cli → commit chore(release): vX.Y.Z
+# [skip release] on top of `sha` → tag vX.Y.Z → GitHub Release.
 #
 # Required repository secret: NPM_TOKEN
-#
-# If package.json version is already on npm, auto patch-bumps until free.
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      npm_tag:
-        description: "npm dist-tag"
-        required: false
-        default: "latest"
-      skip_npm:
-        description: "Skip npm publish"
-        type: boolean
-        required: false
-        default: false
+      sha:
+        description: "Full 40-char commit SHA that QA passed; must equal main HEAD"
+        required: true
+        type: string
       bump:
-        description: "Force version bump before publish"
+        description: "Bump type (auto = conventional commits since last tag)"
         type: choice
         options:
-          - none
+          - auto
           - patch
           - minor
           - major
-        default: none
+        default: auto
+      npm_tag:
+        description: "npm dist-tag"
+        type: string
+        default: "latest"
+      dry_run:
+        description: "Gates + bump + build + test only (no npm publish, no push, no tag, no release)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   id-token: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-npm
   cancel-in-progress: false
 
 jobs:
-  quality:
-    name: Quality gate
+  release:
+    name: Verify sha, version, publish, release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          cache: pnpm
-          package-manager-cache: false
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Build, typecheck, test
+      - name: Require dispatch from main
+        if: github.ref != 'refs/heads/main'
         run: |
-          pnpm build
-          pnpm typecheck
-          pnpm test
+          echo "::error::Run this workflow from main (dispatched from ${GITHUB_REF})."
+          exit 1
 
-      - name: CLI smoke
-        run: bash scripts/cli-smoke.sh
-
-  publish-npm:
-    name: Publish to npm
-    needs: quality
-    if: >-
-      github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && inputs.skip_npm != true)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v5
+      - name: Checkout (full history)
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: main
+          # Push the release commit/tag back to main
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify QA-passed sha is main HEAD
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$RELEASE_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::Input sha must be a full 40-character lowercase hex commit SHA (got '${RELEASE_SHA}')."
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          if ! git cat-file -e "${RELEASE_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Commit ${RELEASE_SHA} does not exist in this repository."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "::error::${RELEASE_SHA} is not on main (not an ancestor of origin/main ${MAIN_HEAD})."
+            exit 1
+          fi
+          if [ "$RELEASE_SHA" != "$MAIN_HEAD" ]; then
+            echo "::error::main has moved: origin/main is ${MAIN_HEAD}, but sha is ${RELEASE_SHA}. QA the new main HEAD and dispatch again with that SHA."
+            git log --oneline "${RELEASE_SHA}..origin/main"
+            exit 1
+          fi
+          echo "OK: ${RELEASE_SHA} is origin/main HEAD"
+
+      - name: Check out exactly the QA-passed sha
+        run: |
+          set -euo pipefail
+          git checkout --detach "$RELEASE_SHA"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -97,81 +118,122 @@ jobs:
           cache: pnpm
           package-manager-cache: false
 
-      - name: Install & build
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Bump version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
         run: |
-          pnpm install --frozen-lockfile
+          set -euo pipefail
+          if [ "$BUMP" = "auto" ]; then
+            node scripts/bump-version.mjs
+          else
+            node scripts/bump-version.mjs "$BUMP"
+          fi
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $VERSION"
+
+      - name: Build, typecheck, test
+        run: |
           pnpm build
+          pnpm typecheck
+          pnpm test
+
+      - name: CLI smoke
+        run: bash scripts/cli-smoke.sh
 
       - name: Check NPM_TOKEN
+        if: ${{ !inputs.dry_run }}
         run: |
           if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "::error::Secret NPM_TOKEN is not set."
+            echo "::error::NPM_TOKEN secret is missing. Add it under Settings → Secrets → Actions."
             exit 1
           fi
 
       - name: Configure npm auth
+        if: ${{ !inputs.dry_run }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Optional forced bump
-        if: github.event_name == 'workflow_dispatch' && inputs.bump != 'none'
-        run: node scripts/bump-version.mjs ${{ inputs.bump }}
-
-      - name: Ensure version is not already on npm
-        id: ver
+      - name: Ensure version not already on npm
+        if: ${{ !inputs.dry_run }}
         run: node scripts/ensure-unpublished-version.mjs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Resolve npm tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.npm_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish packages
+      - name: Re-check main has not moved
+        if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
-          echo "Commit: $(git rev-parse --short HEAD)"
-          echo "Workflow file expects publish-npm.sh (not raw pnpm --filter publish)"
-          test -x scripts/publish-npm.sh || chmod +x scripts/publish-npm.sh
-          bash scripts/publish-npm.sh "${{ steps.tag.outputs.tag }}"
+          git fetch --no-tags origin main
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          if [ "$MAIN_HEAD" != "$RELEASE_SHA" ]; then
+            echo "::error::main moved during the run (now ${MAIN_HEAD}). Nothing was published. QA the new HEAD and dispatch again."
+            exit 1
+          fi
+
+      - name: Publish to npm (core, then cli)
+        if: ${{ !inputs.dry_run }}
+        run: bash scripts/publish-npm.sh "$NPM_DIST_TAG"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_DIST_TAG: ${{ inputs.npm_tag }}
 
+      - name: Resolve final version
+        id: final
+        run: |
+          VERSION=$(node -e "process.stdout.write(require('./packages/core/package.json').version)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Commit version bump if needed
+      - name: Commit version bump and tag
+        if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
-          VERSION="$(node -e "process.stdout.write(require('./packages/core/package.json').version)")"
+          VERSION="${{ steps.final.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json packages/core/package.json packages/cli/package.json || true
+          git add package.json packages/core/package.json packages/cli/package.json
           if git diff --cached --quiet; then
-            echo "No version file changes"
+            echo "No version file changes to commit"
           else
             git commit -m "chore(release): v${VERSION} [skip release]"
-            git push origin HEAD:${{ github.ref_name }}
           fi
-          if ! git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+          else
             git tag -a "v${VERSION}" -m "Release v${VERSION}"
-            git push origin "v${VERSION}"
           fi
+          # Fast-forward only: the release commit sits directly on the QA-passed sha
+          git push origin HEAD:refs/heads/main
+          git push origin "v${VERSION}"
 
-      - name: Cleanup auth
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.final.outputs.version }}
+          name: v${{ steps.final.outputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup npm auth
         if: always()
-        run: rm -f .npmrc
+        run: rm -f .npmrc packages/core/.npmrc packages/cli/.npmrc
 
       - name: Summary
+        if: always()
         run: |
-          VERSION="$(node -e "process.stdout.write(require('./packages/core/package.json').version)")"
-          echo "## npm publish" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Version:** \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Install: \`npm i -g @structured-vibe-coding/cli@${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Release (manual)"
+            echo ""
+            echo "- **QA-passed sha:** \`${RELEASE_SHA}\`"
+            echo "- **Version:** v${{ steps.final.outputs.version || steps.version.outputs.version }}"
+            echo "- **Bump:** ${{ inputs.bump }} · **npm tag:** ${{ inputs.npm_tag }} · **dry run:** ${{ inputs.dry_run }}"
+            echo "- **npm:** \`@structured-vibe-coding/core\` then \`@structured-vibe-coding/cli\`"
+          } >> "$GITHUB_STEP_SUMMARY"
