@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -258,6 +258,35 @@ on_complete:
     // Nothing ran (--no-run, and hotfix has no commands): recorded as NOT RUN, never PASS
     expect(after.meta.verify_results.local_verify?.ok).toBe(false);
     expect(after.meta.verify_results.local_verify?.status).toBe("not_run");
+  });
+
+  it("verify keeps a filled local-test-results report that uses the template heading", async () => {
+    const root = await tempProject();
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Filled results",
+      workflowName: "hotfix",
+    });
+    await writeFile(join(ctx.path, "intent.md"), meat("Intent"), "utf8");
+    await advanceStage(root, config, ctx.id);
+    await advanceStage(root, config, ctx.id);
+    const report = [
+      "# Local test results",
+      "",
+      "Happy path verified locally: the empty state renders.",
+      "",
+      "Key edge cases covered or waived with notes: offline mode waived.",
+      "",
+    ].join("\n");
+    await writeFile(join(ctx.path, "local-test-results.md"), report, "utf8");
+    await runLocalVerify(root, config, ctx.id, { runCommands: false });
+    const saved = await readFile(join(ctx.path, "local-test-results.md"), "utf8");
+    expect(saved.startsWith("# Local test results")).toBe(true);
+    expect(saved).toContain("Happy path verified locally");
+    expect(saved).not.toContain("## Latest run");
+    expect(saved).not.toContain("# Local verify results");
   });
 
   it("verify with evidence_dir creates evidence tree", async () => {
