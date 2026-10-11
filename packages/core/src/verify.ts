@@ -51,14 +51,30 @@ function runCommand(
   });
 }
 
-/** True if file looks like a tool-generated stub / previous verify summary we may overwrite. */
+/**
+ * True when the results file is still an empty template or a previous
+ * tool-written summary, so verify may replace it.
+ *
+ * A filled report is preserved even when it keeps the template heading
+ * ("# Local test results"). Appending a second summary under that heading
+ * duplicates the document and hides the notes the human already wrote.
+ */
 function isToolGeneratedResults(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return true;
-  // Template stubs often start with placeholders or empty checklist guidance
-  if (trimmed.includes("{{") || trimmed.includes("TODO")) return true;
-  // Prior tool-generated verify summaries
+  if (trimmed.includes("{{")) return true;
   if (trimmed.startsWith("# Local verify results")) return true;
+  if (trimmed.startsWith("# Local test results")) {
+    const body = trimmed.replace(/^# Local test results\s*/, "");
+    // The shipped template is only a heading, a placeholder table, and sign-off blanks.
+    const filled =
+      !body.includes("{{") &&
+      !body.includes("| 1 | PASS / FAIL |") &&
+      !/\bTODO\b/.test(body) &&
+      body.length > 80;
+    return !filled;
+  }
+  if (/\bTODO\b/.test(trimmed)) return true;
   return false;
 }
 
@@ -194,6 +210,9 @@ export async function runLocalVerify(
     if (isToolGeneratedResults(existing)) {
       // Overwrite tool-generated summary so the file stays one document
       await writeText(summaryPath, summaryBody);
+    } else if (results.length === 0) {
+      // A filled report plus a run that executed no commands must stay as written.
+      // Appending "no commands configured" hides the notes under a second summary.
     } else {
       // Preserve substantial user notes; append a dated latest-run section
       const stamp = nowIso();
