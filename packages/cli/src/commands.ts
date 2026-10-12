@@ -43,7 +43,7 @@ import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
-import { asStringList, noAgentArg, noAgentRequested } from "./shared.js";
+import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 
 const init = defineCommand({
   meta: {
@@ -130,8 +130,15 @@ const newCmd = defineCommand({
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
+      const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
       let title = args.title?.trim();
       if (!title) {
+        if (!interactive) {
+          consola.error(
+            'Title is required. Pass one: sdd new "Fix lagna list" (add -w <workflow> or -y to skip the workflow prompt).',
+          );
+          process.exit(1);
+        }
         title = await consola.prompt("Change title:", { type: "text" });
         if (!title || typeof title !== "string") {
           consola.error("Title is required");
@@ -157,7 +164,11 @@ const newCmd = defineCommand({
       });
 
       let workflowName = rec.name;
-      if (!args.workflow && !args.yes) {
+      if (!args.workflow && !args.yes && !interactive) {
+        consola.info(
+          `Non-interactive: using recommended workflow '${rec.name}' (${rec.reason}). Pass -w <workflow> or -y to choose.`,
+        );
+      } else if (!args.workflow && !args.yes) {
         consola.log("");
         consola.log(
           `${pc.bold("Recommended:")} ${pc.green(rec.name)} ${pc.dim(`(${rec.reason})`)}`,
@@ -452,7 +463,7 @@ const verify = defineCommand({
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
       const result = await runLocalVerify(root, config, id, {
-        runCommands: !args["no-run"],
+        runCommands: !noRunRequested(args),
       });
       consola.info(`Local verify for stage: ${result.stageId}`);
       for (const r of result.results) {

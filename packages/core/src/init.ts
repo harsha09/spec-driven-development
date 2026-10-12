@@ -19,6 +19,7 @@ import {
   writeTextIfMissing,
 } from "./fs.js";
 import { type KeptFile, generatedState, markGenerated } from "./generated.js";
+import { renderSddReadme } from "./guidance.js";
 import { mcpConfigPath } from "./mcp/sources.js";
 import { changesDir, domainsDir, memoryDir, sddRoot, templatesDir, workflowsDir } from "./paths.js";
 import type { Config } from "./schemas.js";
@@ -118,7 +119,7 @@ Parent page for **stable** project docs. Start here, then open only what you nee
 | Architecture | [architecture.md](architecture.md) |
 | Conventions | [conventions.md](conventions.md) |
 
-Active work: \`.sdd/active-context.md\` and \`changes/<id>/\`.
+Active work: \`.sdd/active-context.md\` and the configured changes folder.
 `,
     );
     await writeTextIfMissing(
@@ -216,34 +217,7 @@ Active work: \`.sdd/active-context.md\` and \`changes/<id>/\`.
   if (readmeState === "edited" || readmeState === "not-generated") {
     kept.push({ path: ".sdd/README.md", reason: readmeState });
   } else if (readmeState === null || force) {
-    await writeText(
-      sddReadme,
-      markGenerated(`# Structured Vibe Coding (SDD)
-
-This directory configures local Spec-Driven Development for this repo.
-
-- \`config.yaml\` — project settings and per-change policy
-- \`workflows/\` — YAML workflow packs (customize freely)
-- \`templates/\` — markdown templates for stage artifacts
-- \`protocol.md\` / \`active-context.md\` — agent playbook + live task (after agent install)
-
-Work lives in \`../changes/<id>/\`. Completed packs stay there with \`status: completed\`.
-Promote lasting decisions into \`../memory/\`. (Archive-on-complete is opt-in.)
-
-**Documentation map (stable):** \`../memory/index.md\`  
-**Change-scoped docs:** \`../changes/<id>/\`
-
-## Quick commands
-
-\`\`\`bash
-sdd new "My feature"
-sdd status
-sdd next
-sdd verify
-sdd complete
-\`\`\`
-`),
-    );
+    await writeText(sddReadme, markGenerated(renderSddReadme(config)));
     created.push(sddReadme);
   }
 

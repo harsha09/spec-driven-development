@@ -153,6 +153,8 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
     changeId,
     event: opts.event ?? "SDD command finished",
     instructions: opts.kickoffInstructions,
+    memoryPath: opts.config.memory_path,
+    changesPath: opts.config.changes_path,
   });
 
   const target = installed.target;

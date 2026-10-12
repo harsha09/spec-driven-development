@@ -26,12 +26,14 @@ async function exists(p: string): Promise<boolean> {
 function runSdd(
   cwd: string,
   args: string[],
+  opts?: { stdin?: "ignore" | "pipe" },
 ): { status: number | null; stdout: string; stderr: string } {
   // Vitest injects NO_COLOR + FORCE_COLOR together; that silences consola in children.
   // Use a minimal env so CLI output is capturable (status/help use consola).
   const r = spawnSync(process.execPath, [sddBin, ...args], {
     cwd,
     encoding: "utf8",
+    stdio: opts?.stdin === "ignore" ? ["ignore", "pipe", "pipe"] : undefined,
     env: {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
@@ -248,6 +250,26 @@ describe("CLI integration", () => {
     expect(handoff.length).toBeGreaterThan(50);
   });
 
+  it("sdd new without a TTY does not prompt (#9)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-new-notty-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+
+    const missing = runSdd(root, ["new"], { stdin: "ignore" });
+    const missingOut = missing.stderr + missing.stdout;
+    expect(missing.status, missingOut).toBe(1);
+    expect(missingOut).toMatch(/Title is required/);
+    expect(missingOut).toMatch(/sdd new/);
+    expect(missingOut).not.toMatch(/uv_tty_init|TTY initialization failed/i);
+
+    const created = runSdd(root, ["new", "Fix lagna list"], { stdin: "ignore" });
+    const createdOut = created.stderr + created.stdout;
+    expect(created.status, createdOut).toBe(0);
+    expect(createdOut).toMatch(/Non-interactive: using recommended workflow/i);
+    expect(createdOut).toMatch(/Created change/i);
+    expect(createdOut).not.toMatch(/uv_tty_init|TTY initialization failed/i);
+  });
+
   it("sdd status --help does not claim agent launch", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-status-help-"));
     temps.push(root);
@@ -306,6 +328,39 @@ describe("CLI integration", () => {
     // No required commands → the gate does not block completion
     const done = runSdd(root, ["complete", "--no-agent"]);
     expect(done.status, done.stderr + done.stdout).toBe(0);
+  });
+
+  it("sdd verify --no-run does not execute commands (#19)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-norun-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(root, ".sdd/workflows/vt.yaml"),
+      `name: vt
+description: no-run repro
+version: 1
+stages:
+  - id: local_verify
+    artifacts: []
+    gate: { type: soft }
+    verify:
+      commands:
+        - name: marker
+          run: "touch ran.flag"
+          required: true
+`,
+      "utf8",
+    );
+    const created = runSdd(root, ["new", "No run repro", "-y", "-w", "vt", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const skipped = runSdd(root, ["verify", "--no-run", "--no-agent"]);
+    const skippedOut = skipped.stderr + skipped.stdout;
+    expect(skipped.status, skippedOut).toBe(1);
+    expect(skippedOut).toMatch(/NOT RUN/);
+    expect(skippedOut).toMatch(/--no-run/);
+    expect(skippedOut).not.toMatch(/Verify PASS/);
+    expect(await exists(join(root, "ran.flag"))).toBe(false);
   });
 
   it("sdd init --ai copilot then sdd agents install --ai claude switches host", async () => {
