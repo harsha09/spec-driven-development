@@ -7,7 +7,7 @@
 import { join } from "pathe";
 import { type ChangeContext, buildContext } from "./change-context.js";
 import { pathExists, writeText } from "./fs.js";
-import { memoryDir, sddRoot } from "./paths.js";
+import { guidancePaths, memoryDir, sddRoot } from "./paths.js";
 import type { Config } from "./schemas.js";
 import { getStage, isStageSkipped, resolveStages, shouldAutoSkip } from "./workflow.js";
 
@@ -123,6 +123,7 @@ export async function buildRefinePlan(opts: BuildRefinePlanOptions): Promise<Ref
 
   const briefMarkdown = buildRefineBriefMarkdown({
     ctx,
+    config: opts.config,
     focusStageId,
     focusStageTitle: focusStage.title ?? focusStageId,
     mode,
@@ -177,6 +178,7 @@ export async function buildRefinePlan(opts: BuildRefinePlanOptions): Promise<Ref
 
 function buildRefineBriefMarkdown(opts: {
   ctx: ChangeContext;
+  config: Config;
   focusStageId: string;
   focusStageTitle: string;
   mode: RefineMode;
@@ -191,6 +193,7 @@ function buildRefineBriefMarkdown(opts: {
 }): string {
   const {
     ctx,
+    config,
     focusStageId,
     focusStageTitle,
     mode,
@@ -204,6 +207,7 @@ function buildRefineBriefMarkdown(opts: {
     openItemsPath,
   } = opts;
 
+  const paths = guidancePaths(config);
   return `# Refine brief (auto-generated)
 
 > Change: **${ctx.meta.title}** · \`${ctx.id}\`  
@@ -216,9 +220,10 @@ function buildRefineBriefMarkdown(opts: {
 You are the **SDD refine** agent (one agent, mode \`${mode}\`).
 
 1. Work by **stage**, not hard-coded filenames. Focus stage resolves to the files below.
-2. **Never edit** \`memory/constitution.md\` (or any constitution path). Read it as constraints only.
-3. **Do not** run \`sdd next\`, \`sdd complete\`, or change \`meta.yaml\` stage/status.
-4. Process is **never blocked** by findings — report and improve docs only.
+2. **Never edit** \`${paths.constitution}\` (or any constitution path). Read it as constraints only.
+3. Stage-scoped refine brief lives at \`${paths.changes}/<id>/refine-brief.md\`.
+4. **Do not** run \`sdd next\`, \`sdd complete\`, or change \`meta.yaml\` stage/status.
+5. Process is **never blocked** by findings — report and improve docs only.
 
 ## Constitution (READ-ONLY)
 

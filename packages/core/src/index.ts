@@ -13,6 +13,7 @@ export * from "./errors.js";
 export * from "./env.js";
 export * from "./version.js";
 export * from "./agents.js";
+export * from "./guidance.js";
 export {
   generateCodeContext,
   DEFAULT_CODE_CONTEXT_CAPS,

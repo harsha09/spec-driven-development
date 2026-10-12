@@ -1,0 +1,15 @@
+id: 2026-10-11-fix-open-bugs-7-8-9-10-19-20
+title: "Fix open bugs #7 #8 #9 #10 #19 #20"
+workflow: patch
+created: 2026-10-11T18:19:27.435Z
+updated: 2026-10-11T18:25:21.114Z
+status: in_progress
+stage: implement
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results: {}
