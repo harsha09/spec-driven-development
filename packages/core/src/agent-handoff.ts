@@ -1,5 +1,6 @@
 import { join } from "pathe";
 import type { ChangeContext } from "./change-context.js";
+import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
 import { getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
@@ -68,9 +69,10 @@ export async function buildAgentPrompt(
     parts.push("");
   }
 
+  const paths = guidancePaths(config);
   parts.push(`## Constraints`);
   parts.push(`- Follow artifacts in the change directory as source of truth.`);
-  parts.push(`- Honor \`memory/constitution.md\` when present (non-negotiables).`);
+  parts.push(`- Honor \`${paths.constitution}\` when present (non-negotiables).`);
   parts.push(`- Do not skip ARB/decision constraints if present.`);
   parts.push(`- Local development only — verify on this machine.`);
   parts.push(`- Prefer small, reviewable commits.`);
@@ -78,8 +80,8 @@ export async function buildAgentPrompt(
 
   parts.push(`## Artifacts to read`);
   const memoryHint = join(projectRoot, config.memory_path);
-  parts.push(`- Documentation map (if present): ${memoryHint}/index.md`);
-  parts.push(`- Memory: ${memoryHint}/`);
+  parts.push(`- Documentation map (if present): \`${paths.memoryIndex}\` (${memoryHint}/index.md)`);
+  parts.push(`- Memory: \`${paths.memory}/\` (${memoryHint}/)`);
   for (const s of ctx.stages) {
     for (const a of s.artifacts) {
       parts.push(`- ${join(ctx.path, a.path)}`);
@@ -105,7 +107,9 @@ export async function buildAgentPrompt(
     parts.push(
       `1. Run: \`sdd context\` (optional: \`--path …\`, \`--symbol …\`, \`--out change\`)`,
     );
-    parts.push(`2. If present, read: \`changes/${ctx.id}/code-context.md\` (regenerate if stale)`);
+    parts.push(
+      `2. If present, read: \`${changesPathRel(config)}/${ctx.id}/code-context.md\` (regenerate if stale)`,
+    );
     parts.push(
       `3. Org libraries / remote AST: \`.sdd/mcp.yaml\` sources via \`sdd mcp sources\` / \`sdd mcp fetch\``,
     );

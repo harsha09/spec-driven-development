@@ -14,6 +14,14 @@ export function noAgentRequested(args: Record<string, unknown>): boolean {
   return args["no-agent"] === true || args.agent === false;
 }
 
+/**
+ * True when the user passed `--no-run`. citty (mri) parses that as `run: false`
+ * and leaves `args["no-run"]` at its default, so check both (same as `--no-agent`).
+ */
+export function noRunRequested(args: Record<string, unknown>): boolean {
+  return args["no-run"] === true || args.run === false;
+}
+
 export function asStringList(value: unknown): string[] {
   if (value == null) return [];
   if (Array.isArray(value)) {

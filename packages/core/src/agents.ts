@@ -3,11 +3,12 @@ import { access, lstat, readdir, rmdir, unlink } from "node:fs/promises";
 import { dirname, join } from "pathe";
 import { buildAgentPrompt, formatStatus } from "./agent-handoff.js";
 import { buildContext, getActiveChangeId } from "./change-context.js";
-import { loadConfig } from "./config.js";
+import { defaultConfig, loadConfig } from "./config.js";
 import { SddError } from "./errors.js";
 import { pathExists, readText, writeText } from "./fs.js";
 import { type KeptFile, generatedState, markGenerated } from "./generated.js";
-import { sddRoot } from "./paths.js";
+import { refreshConfiguredGuidance } from "./guidance.js";
+import { configPath, guidancePaths, sddRoot } from "./paths.js";
 import type { Config } from "./schemas.js";
 
 /**
@@ -467,7 +468,7 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
       "If stage is intent/feature/design/tasks/stories/research: act as planner (artifacts, little or no product code).",
       "If stage is implement: act as implementer (scoped code only).",
       "If stage is local_verify: act as reviewer (gaps vs acceptance; fixes only).",
-      "If kickoff/brief says refine or analyze: follow changes/<id>/refine-brief.md — stage-scoped refine; never edit constitution; do not sdd next.",
+      "If kickoff/brief says refine or analyze: follow <changes_path>/<id>/refine-brief.md — stage-scoped refine; never edit constitution; do not sdd next.",
     ],
   },
   {
@@ -551,14 +552,17 @@ export interface AgentInstallPlan {
   problems: string[];
 }
 
-function agentFiles(integ: AgentIntegration): { rel: string; content: string }[] {
+function agentFiles(integ: AgentIntegration, config: Config): { rel: string; content: string }[] {
   const roles = integ.rolesToInstall?.length
     ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
     : SDD_AGENT_ROLES;
   return [
-    { rel: join(".sdd", "protocol.md"), content: PROTOCOL_MD },
-    ...roles.map((role) => ({ rel: integ.rolePath(role.id), content: renderThinAgent(role) })),
-    { rel: "AGENTS.md", content: renderAgentsMd(integ) },
+    { rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config) },
+    ...roles.map((role) => ({
+      rel: integ.rolePath(role.id),
+      content: renderThinAgent(role, config),
+    })),
+    { rel: "AGENTS.md", content: renderAgentsMd(integ, config) },
   ];
 }
 
@@ -573,8 +577,10 @@ export async function planAgentIntegration(opts: InstallAgentOptions): Promise<A
   const integ = getIntegration(opts.target);
   const problems: string[] = [];
   const writes: PlannedWrite[] = [];
+  // Init plans the install before config.yaml exists; defaults match what init writes.
+  const config = (await pathExists(configPath(root))) ? await loadConfig(root) : defaultConfig();
 
-  for (const { rel, content } of agentFiles(integ)) {
+  for (const { rel, content } of agentFiles(integ, config)) {
     const full = join(root, rel);
     // Host/agent files are never written through a symlink (file or folder).
     if (!rel.startsWith(".sdd/")) {
@@ -749,9 +755,12 @@ export async function installAgentIntegrations(
   return { created, skipped, targets: opts.targets };
 }
 
-/** Thin agent body shared across hosts (same text). */
-export function renderThinAgent(role: SddAgentRole): string {
-  const rules = role.roleRules.map((r) => `- ${r}`).join("\n");
+/** Thin agent body shared across hosts (same text). Paths come from config. */
+export function renderThinAgent(role: SddAgentRole, config?: Config): string {
+  const paths = guidancePaths(config ?? { memory_path: "memory", changes_path: "changes" });
+  const rules = role.roleRules
+    .map((r) => `- ${r.replaceAll("<changes_path>", paths.changes)}`)
+    .join("\n");
   return `---
 name: ${role.id}
 description: ${role.description}
@@ -765,8 +774,8 @@ ${role.roleLine}
 
 1. \`.sdd/active-context.md\` — current change and stage
 2. \`.sdd/protocol.md\` — SDD rules for this repo (single playbook)
-3. \`memory/constitution.md\` if present — non-negotiables
-4. Active change files under \`changes/<id>/\` as listed in active-context
+3. \`${paths.constitution}\` if present — non-negotiables
+4. Active change files under \`${paths.changes}/<id>/\` as listed in active-context
 
 ## Role rules
 
@@ -824,7 +833,7 @@ export async function writeAgentHandoff(
 > Generated for the AI coding agent configured at init.  
 > Change: **${ctx.meta.title}** · \`${ctx.id}\` · stage **${ctx.meta.stage}**
 
-Also read: \`.sdd/active-context.md\`, \`.sdd/protocol.md\`, \`memory/constitution.md\` if present.
+Also read: \`.sdd/active-context.md\`, \`.sdd/protocol.md\`, \`${guidancePaths(config).constitution}\` if present.
 
 ---
 
@@ -845,8 +854,15 @@ export function agentKickoffMessage(opts: {
    * (used by sdd refine and other specialized modes).
    */
   instructions?: string;
+  /** Configured folders; defaults keep existing `memory/` and `changes/` wording. */
+  memoryPath?: string;
+  changesPath?: string;
 }): string {
   const event = opts.event ?? "context updated";
+  const paths = guidancePaths({
+    memory_path: opts.memoryPath ?? "memory",
+    changes_path: opts.changesPath ?? "changes",
+  });
   if (opts.instructions?.trim()) {
     return [
       `SDD: ${event}.`,
@@ -861,10 +877,34 @@ export function agentKickoffMessage(opts: {
     `Title: ${opts.title}`,
     `Change: ${opts.changeId}`,
     `Stage: ${opts.stage}`,
-    `Read in order: .sdd/active-context.md, .sdd/handoff.md, .sdd/protocol.md, memory/constitution.md (if present).`,
-    `Do the work for the current stage only under changes/${opts.changeId}/. Do not expand scope.`,
+    `Read in order: .sdd/active-context.md, .sdd/handoff.md, .sdd/protocol.md, ${paths.constitution} (if present).`,
+    `Do the work for the current stage only under ${paths.changes}/${opts.changeId}/. Do not expand scope.`,
     `When the stage is done, tell the human to run: sdd next (or sdd verify / sdd complete as appropriate).`,
   ].join(" ");
+}
+
+/**
+ * Rewrite unmodified generated protocol, host guidance, and role files so they
+ * name the configured memory and changes folders. Edited files stay put.
+ */
+async function refreshGeneratedAgentFiles(projectRoot: string, config: Config): Promise<void> {
+  const installed = await loadInstalledAgent(projectRoot);
+  const files = installed
+    ? agentFiles(installed.integration, config)
+    : [{ rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config) }];
+  for (const { rel, content } of files) {
+    const full = join(projectRoot, rel);
+    if (!(await pathExists(full))) {
+      if (rel === join(".sdd", "protocol.md")) {
+        await writeText(full, markGenerated(content));
+      }
+      continue;
+    }
+    const existing = await readText(full);
+    if (generatedState(existing) !== "unmodified") continue;
+    if (existing === markGenerated(content)) continue;
+    await writeText(full, markGenerated(content));
+  }
 }
 
 /** Write .sdd/active-context.md for the current change. */
@@ -874,12 +914,9 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
     return null;
   }
 
-  const protocolPath = join(markerDir, "protocol.md");
-  if (!(await pathExists(protocolPath))) {
-    await writeText(protocolPath, markGenerated(PROTOCOL_MD));
-  }
-
   const config = await loadConfig(projectRoot);
+  await refreshConfiguredGuidance(projectRoot, config);
+  await refreshGeneratedAgentFiles(projectRoot, config);
   const activeId = await getActiveChangeId(projectRoot, config);
   const outPath = join(markerDir, "active-context.md");
 
@@ -919,93 +956,106 @@ ${handoff}
   return outPath;
 }
 
-/** Single playbook — only long agent-facing content we author once. */
-export const PROTOCOL_MD = `# SDD protocol
+/** Default-path protocol text. Generated files use {@link renderProtocolMd}. */
+export const PROTOCOL_MD = renderProtocolMd({ memory_path: "memory", changes_path: "changes" });
 
-This repo uses **Structured Vibe Coding** (\`sdd\`). Agents must follow this file plus \`.sdd/active-context.md\`. Do not invent a parallel process.
+/** Single playbook — paths come from project config, not hard-coded defaults. */
+export function renderProtocolMd(config: Pick<Config, "memory_path" | "changes_path">): string {
+  const paths = guidancePaths(config);
+  const fence = "```";
+  return [
+    "# SDD protocol",
+    "",
+    "This repo uses **Structured Vibe Coding** (`sdd`). Agents must follow this file plus `.sdd/active-context.md`. Do not invent a parallel process.",
+    "",
+    "## Source of truth",
+    "",
+    "| What | Where |",
+    "|------|--------|",
+    `| Process state | \`${paths.changes}/<id>/meta.yaml\` (workflow, stage, gates) |`,
+    "| Current task snapshot | `.sdd/active-context.md` |",
+    `| Non-negotiables | \`${paths.constitution}\` if present |`,
+    `| Stable product/tech rules | \`${paths.memory}/*.md\` (start at \`${paths.memoryIndex}\` if present) |`,
+    `| Stage artifacts | files in \`${paths.changes}/<id>/\` for the active change |`,
+    "",
+    "## Required read order",
+    "",
+    "1. `.sdd/active-context.md`",
+    "2. This file (`.sdd/protocol.md`)",
+    `3. \`${paths.constitution}\` if present (non-negotiables agents must not violate)`,
+    "4. `meta.yaml` + artifacts for the **current stage** (and prior stages if needed)",
+    `5. \`${paths.memoryIndex}\` (documentation map) if present, then linked memory pages when architecture or conventions matter`,
+    "",
+    "## Stage behavior",
+    "",
+    "| Stage kind | Agent focus |",
+    "|------------|-------------|",
+    "| intent / feature / stories | Clarify scope; write short artifacts |",
+    "| design / lld / db / research / hl_arb | Specs and decisions; minimal product code |",
+    "| tasks | Break work into implementable checklist |",
+    "| implement | Code only for this change; follow tasks/acceptance |",
+    "| local_verify | Check acceptance; fix only; prepare for complete |",
+    "| brainstorm (optional) | Multiple approaches; parallel exploration; no final design yet |",
+    "| clarify_* (optional) | Ask clarifying questions; write Q&A; or tell human to skip |",
+    "",
+    "## Optional stages",
+    "",
+    "- Stages marked **optional** / kind `brainstorm` or `clarify` may be skipped:  ",
+    '  `sdd skip <stage_id> -r "not needed"`',
+    "- Do **not** invent a skip by jumping stages. `sdd next` blocks on empty required stubs (e.g. design.md).",
+    "- If the tool falls back to an earlier stage, **complete that stage** before advancing again.",
+    "",
+    "## Hard rules",
+    "",
+    "1. **Do not skip hard gates.** If blocked, tell the human to run `sdd gate approve` (or fix the gate).",
+    "2. **Stay in scope** of the active change title/intent. No drive-by refactors or new features.",
+    "3. **Honor constraints** in `arb-decision.md`, design, and memory non-negotiables.",
+    "4. **Local verify** is part of done when the workflow has a verify stage: `sdd verify`.",
+    "5. Prefer small, reviewable diffs.",
+    "6. **Required stage artifacts must be substantive** — not empty templates. Design cannot be skipped via empty design.md.",
+    "",
+    "## Commands (human / shell)",
+    "",
+    `${fence}bash`,
+    "sdd status",
+    "sdd next",
+    "sdd agent              # print handoff",
+    "sdd agents refresh     # refresh active-context.md",
+    "sdd verify",
+    "sdd complete",
+    fence,
+    "",
+    "## Out of scope for agents",
+    "",
+    "- Replacing CI/CD or team process tools",
+    "- Deleting `.sdd` / completed change history",
+    "- Claiming complete without verify when required",
+    "",
+  ].join("\n");
+}
 
-## Source of truth
-
-| What | Where |
-|------|--------|
-| Process state | \`changes/<id>/meta.yaml\` (workflow, stage, gates) |
-| Current task snapshot | \`.sdd/active-context.md\` |
-| Non-negotiables | \`memory/constitution.md\` if present |
-| Stable product/tech rules | \`memory/*.md\` (start at \`memory/index.md\` if present) |
-| Stage artifacts | files in \`changes/<id>/\` for the active change |
-
-## Required read order
-
-1. \`.sdd/active-context.md\`
-2. This file (\`.sdd/protocol.md\`)
-3. \`memory/constitution.md\` if present (non-negotiables agents must not violate)
-4. \`meta.yaml\` + artifacts for the **current stage** (and prior stages if needed)
-5. \`memory/index.md\` (documentation map) if present, then linked memory pages when architecture or conventions matter
-
-## Stage behavior
-
-| Stage kind | Agent focus |
-|------------|-------------|
-| intent / feature / stories | Clarify scope; write short artifacts |
-| design / lld / db / research / hl_arb | Specs and decisions; minimal product code |
-| tasks | Break work into implementable checklist |
-| implement | Code only for this change; follow tasks/acceptance |
-| local_verify | Check acceptance; fix only; prepare for complete |
-| brainstorm (optional) | Multiple approaches; parallel exploration; no final design yet |
-| clarify_* (optional) | Ask clarifying questions; write Q&A; or tell human to skip |
-
-## Optional stages
-
-- Stages marked **optional** / kind \`brainstorm\` or \`clarify\` may be skipped:  
-  \`sdd skip <stage_id> -r "not needed"\`
-- Do **not** invent a skip by jumping stages. \`sdd next\` blocks on empty required stubs (e.g. design.md).
-- If the tool falls back to an earlier stage, **complete that stage** before advancing again.
-
-## Hard rules
-
-1. **Do not skip hard gates.** If blocked, tell the human to run \`sdd gate approve\` (or fix the gate).
-2. **Stay in scope** of the active change title/intent. No drive-by refactors or new features.
-3. **Honor constraints** in \`arb-decision.md\`, design, and memory non-negotiables.
-4. **Local verify** is part of done when the workflow has a verify stage: \`sdd verify\`.
-5. Prefer small, reviewable diffs.
-6. **Required stage artifacts must be substantive** — not empty templates. Design cannot be skipped via empty design.md.
-
-## Commands (human / shell)
-
-\`\`\`bash
-sdd status
-sdd next
-sdd agent              # print handoff
-sdd agents refresh     # refresh active-context.md
-sdd verify
-sdd complete
-\`\`\`
-
-## Out of scope for agents
-
-- Replacing CI/CD or team process tools
-- Deleting \`.sdd\` / completed change history
-- Claiming complete without verify when required
-`;
-
-function renderAgentsMd(integ: AgentIntegration): string {
-  return `# Agents
-
-This repo uses **SDD agents only** (no skills).
-
-AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ host tools like Copilot or Claude Code.
-
-| Read first | |
-|------------|--|
-| Live task | \`.sdd/active-context.md\` |
-| Playbook | \`.sdd/protocol.md\` |
-| Constitution | \`memory/constitution.md\` if present |
-| Doc map (stable) | \`memory/index.md\` if present |
-
-| AI agent | Files |
-|----------|--------|
-${integ.agentsMdRow}
-
-Refresh context: \`sdd agents refresh\`.
-`;
+export function renderAgentsMd(integ: AgentIntegration, config?: Config): string {
+  const paths = guidancePaths(config ?? { memory_path: "memory", changes_path: "changes" });
+  return [
+    "# Agents",
+    "",
+    "This repo uses **SDD agents only** (no skills).",
+    "",
+    "AI coding agents are **not** the same as IDEs: VS Code, Cursor, and IntelliJ host tools like Copilot or Claude Code.",
+    "",
+    "| Read first | |",
+    "|------------|--|",
+    "| Live task | `.sdd/active-context.md` |",
+    "| Playbook | `.sdd/protocol.md` |",
+    `| Constitution | \`${paths.constitution}\` if present |`,
+    `| Doc map (stable) | \`${paths.memoryIndex}\` if present |`,
+    `| Active change | \`${paths.changes}/<id>/\` |`,
+    "",
+    "| AI agent | Files |",
+    "|----------|--------|",
+    integ.agentsMdRow,
+    "",
+    "Refresh context: `sdd agents refresh`.",
+    "",
+  ].join("\n");
 }

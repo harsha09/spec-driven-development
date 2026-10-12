@@ -1,7 +1,7 @@
 /**
  * Incomplete design must not advance to tasks; fallback restores incomplete stage.
  */
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,6 +10,7 @@ import {
   buildContext,
   canLeaveStage,
   createChange,
+  defaultTemplatesDir,
   initProject,
   isSubstantiveArtifactContent,
   loadConfig,
@@ -56,6 +57,42 @@ and streaming rows from the query layer to avoid loading the full result set in 
 Memory pressure on large exports; mitigated by streaming.
 `;
     expect(isSubstantiveArtifactContent(body)).toBe(true);
+  });
+
+  it("counts meaningful table cells and ignores headers, separators, blanks, and row numbers (#8)", () => {
+    const filled = `# Acceptance
+
+## Cases
+
+| # | Scenario | Expected (local) |
+|---|----------|------------------|
+| 1 | Under 3.2 h remain before next sunrise | Final sign change before sunrise is listed |
+| 2 | Normal day | List unchanged |
+
+## Explicitly not testing
+- UI layout
+`;
+    expect(isSubstantiveArtifactContent(filled)).toBe(true);
+
+    const headersOnly = `| # | Scenario | Expected (local) |
+|---|----------|------------------|
+| 1 | | |
+| 2 | | |
+`;
+    expect(isSubstantiveArtifactContent(headersOnly)).toBe(false);
+    expect(isSubstantiveArtifactContent("| 1 | TBD | TODO |\n| 2 | - | N/A |\n")).toBe(false);
+  });
+
+  it("rejects every unchanged shipped template (#20)", async () => {
+    const dir = defaultTemplatesDir();
+    const names = (await readdir(dir)).filter((name) => name.endsWith(".md")).sort();
+    expect(names.length).toBeGreaterThan(0);
+    const passing: string[] = [];
+    for (const name of names) {
+      const body = await readFile(join(dir, name), "utf8");
+      if (isSubstantiveArtifactContent(body)) passing.push(name);
+    }
+    expect(passing).toEqual([]);
   });
 });
 
