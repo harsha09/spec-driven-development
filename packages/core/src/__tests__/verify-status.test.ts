@@ -107,6 +107,19 @@ describe("sdd verify status (no silent PASS)", () => {
     await expect(completeChange(root, config, ctx.id)).rejects.toThrow(/Required local verify/);
   });
 
+  it("--no-run does not execute a command that would create a marker (#19)", async () => {
+    const marker = join(tmpdir(), `sdd-norun-${Date.now()}.flag`);
+    const { root, config, ctx } = await projectWithVerify([
+      { name: "marker", run: `touch ${JSON.stringify(marker)}`, required: true },
+    ]);
+    await advanceStage(root, config, ctx.id);
+    const r = await runLocalVerify(root, config, ctx.id, { runCommands: false });
+    expect(r.status).toBe("not_run");
+    expect(r.reason).toContain("--no-run");
+    expect(r.results).toHaveLength(0);
+    expect(await pathExists(marker)).toBe(false);
+  });
+
   it("all commands pass: PASS and the stage can complete", async () => {
     const { root, config, ctx } = await projectWithVerify([
       { name: "unit", run: "true", required: true },

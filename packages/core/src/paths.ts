@@ -23,6 +23,33 @@ export function memoryDir(projectRoot: string, config: Config): string {
   return join(projectRoot, config.memory_path);
 }
 
+/** Project-relative memory folder, always with a trailing slash stripped. */
+export function memoryPathRel(config: Pick<Config, "memory_path">): string {
+  return config.memory_path.replace(/\/+$/, "") || "memory";
+}
+
+/** Project-relative changes folder, always with a trailing slash stripped. */
+export function changesPathRel(config: Pick<Config, "changes_path">): string {
+  return config.changes_path.replace(/\/+$/, "") || "changes";
+}
+
+/** Paths agents should be told to read, taken from config rather than defaults. */
+export function guidancePaths(config: Pick<Config, "memory_path" | "changes_path">): {
+  memory: string;
+  changes: string;
+  constitution: string;
+  memoryIndex: string;
+} {
+  const memory = memoryPathRel(config);
+  const changes = changesPathRel(config);
+  return {
+    memory,
+    changes,
+    constitution: `${memory}/constitution.md`,
+    memoryIndex: `${memory}/index.md`,
+  };
+}
+
 export function changesDir(projectRoot: string, config: Config): string {
   return join(projectRoot, config.changes_path);
 }
