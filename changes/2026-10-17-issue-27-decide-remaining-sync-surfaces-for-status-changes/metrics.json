@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "phase": "intent",
+      "startedAt": "2026-10-17T12:07:48.721Z"
+    }
+  ],
+  "requests": []
+}

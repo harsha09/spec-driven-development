@@ -1,0 +1,15 @@
+id: 2026-10-17-issue-27-decide-remaining-sync-surfaces-for-status-changes
+title: "Issue #27: decide remaining sync surfaces for status, changes table, and gates"
+workflow: feature
+created: 2026-10-17T12:07:48.721Z
+updated: 2026-10-17T12:07:48.721Z
+status: in_progress
+stage: intent
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results: {}
