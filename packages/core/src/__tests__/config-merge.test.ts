@@ -17,6 +17,11 @@ describe("mergeConfigDefaults", () => {
     expect(config.per_change.require_reason_on_skip).toBe(true);
     expect(config.persistence.domain_sync.anchored_domains).toEqual(["billing"]);
     expect(config.metrics.enabled).toBe(true);
+    expect(config.metrics.exclude).toEqual([]);
+
+    const disabled = mergeConfigDefaults({ metrics: { enabled: false } });
+    expect(disabled.metrics.enabled).toBe(false);
+    expect(disabled.metrics.exclude).toEqual([]);
   });
 
   it("validates merged values instead of persisting malformed config", () => {

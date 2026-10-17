@@ -1,4 +1,5 @@
 import { createReadStream } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { z } from "zod";
 import { pathExists, readText, writeText } from "./fs.js";
@@ -221,6 +222,70 @@ function phaseAt(metrics: ChangeMetrics, timestamp: string): PhaseMetric | undef
   });
 }
 
+function toForwardSlashes(value: string): string {
+  let out = "";
+  for (const ch of value) out += ch === "\\" ? "/" : ch;
+  return out;
+}
+
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return value.slice(0, end);
+}
+
+function stripLeadingDotSlash(value: string): string {
+  let out = value;
+  while (out.startsWith("./")) out = out.slice(2);
+  return out;
+}
+
+function prefixLooksAbsolute(prefix: string): boolean {
+  if (prefix.startsWith("/") || prefix.startsWith("\\")) return true;
+  const first = prefix.charCodeAt(0);
+  const letter = (first >= 65 && first <= 90) || (first >= 97 && first <= 122);
+  return letter && prefix.charCodeAt(1) === 58;
+}
+
+/** Repo-relative exclude prefix, or a throw when the prefix cannot be compared safely. */
+function normalizeExcludePrefix(prefix: string): string {
+  if (isAbsolute(prefix) || prefixLooksAbsolute(prefix)) {
+    throw new Error("metrics.exclude prefix is invalid.");
+  }
+  const slashed = stripLeadingDotSlash(toForwardSlashes(prefix));
+  if (prefixLooksAbsolute(slashed)) throw new Error("metrics.exclude prefix is invalid.");
+  const trimmed = stripTrailingSlashes(slashed);
+  if (!trimmed) throw new Error("metrics.exclude prefix is invalid.");
+  for (const segment of trimmed.split("/")) {
+    if (segment === "" || segment === "." || segment === "..") {
+      throw new Error("metrics.exclude prefix is invalid.");
+    }
+  }
+  return trimmed;
+}
+
+/**
+ * Refuse an in-repo session log under metrics.exclude before the file is opened.
+ * Logs outside the project root are not excluded. Invalid prefixes throw first.
+ */
+export function assertSessionLogAllowed(
+  projectRoot: string,
+  prefixes: readonly string[],
+  sessionLogPath: string,
+): void {
+  const normalized = prefixes.map(normalizeExcludePrefix);
+  const root = resolve(projectRoot);
+  const absLog = resolve(root, sessionLogPath);
+  const rel = relative(root, absLog);
+  if (rel.startsWith("..") || isAbsolute(rel)) return;
+  const relPosix = rel.split(sep).join("/");
+  for (const prefix of normalized) {
+    if (relPosix === prefix || relPosix.startsWith(`${prefix}/`)) {
+      throw new Error(`Refusing to import a session log under excluded prefix "${prefix}".`);
+    }
+  }
+}
+
 export async function importSessionMetrics(
   projectRoot: string,
   config: Config,
@@ -228,6 +293,7 @@ export async function importSessionMetrics(
   sessionLogPath: string,
 ): Promise<MetricsImportResult> {
   if (!config.metrics.enabled) throw new Error("Metrics are disabled in .sdd/config.yaml.");
+  assertSessionLogAllowed(projectRoot, config.metrics.exclude, sessionLogPath);
 
   const metrics = await readChangeMetrics(projectRoot, config, changeId);
   const requestIds = new Set(

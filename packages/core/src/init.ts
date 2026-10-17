@@ -6,6 +6,7 @@ import { defaultConfig, mergeConfigDefaults, saveConfig } from "./config.js";
 import {
   defaultMcpYamlPath,
   defaultMemoryDir,
+  defaultPricesYamlPath,
   defaultTemplatesDir,
   defaultWorkflowsDir,
 } from "./defaults.js";
@@ -159,6 +160,14 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
   if (await pathExists(mcpSrc)) {
     const wrote = await writeTextIfMissing(mcpDest, await readText(mcpSrc));
     if (wrote) created.push(mcpDest);
+  }
+
+  // Operator-owned prices. Write only when missing, including on --force.
+  const pricesSrc = defaultPricesYamlPath();
+  const pricesDest = join(root, "prices.yaml");
+  if (await pathExists(pricesSrc)) {
+    const wrote = await writeTextIfMissing(pricesDest, await readText(pricesSrc));
+    if (wrote) created.push(pricesDest);
   }
 
   // memory — stable team docs; never overwrite on --force (constitution, product, …)

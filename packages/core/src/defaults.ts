@@ -37,3 +37,7 @@ export function defaultMemoryDir(): string {
 export function defaultMcpYamlPath(): string {
   return join(defaultsRoot(), "mcp.yaml");
 }
+
+export function defaultPricesYamlPath(): string {
+  return join(defaultsRoot(), "prices.yaml");
+}
