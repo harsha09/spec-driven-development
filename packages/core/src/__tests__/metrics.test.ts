@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -45,7 +45,10 @@ async function setup(metricsEnabled = true) {
 describe("change metrics persistence", () => {
   it("defaults metrics on and accepts an explicit opt-out", () => {
     expect(ConfigSchema.parse({}).metrics.enabled).toBe(true);
+    expect(ConfigSchema.parse({}).metrics.exclude).toEqual([]);
     expect(ConfigSchema.parse({ metrics: { enabled: false } }).metrics.enabled).toBe(false);
+    expect(ConfigSchema.parse({ metrics: { enabled: false } }).metrics.exclude).toEqual([]);
+    expect(() => ConfigSchema.parse({ metrics: { exclude: [""] } })).toThrow();
   });
 
   it("stores UTC phase intervals and preserves previous visits", async () => {
@@ -245,5 +248,77 @@ stages:
       /metrics are disabled/i,
     );
     expect(await pathExists(join(change.path, "metrics.json"))).toBe(false);
+  });
+
+  it("refuses an excluded in-repo session log before reading it", async () => {
+    const { root, config, change } = await setup();
+    config.metrics.exclude = ["secret"];
+    const metricsPath = join(change.path, "metrics.json");
+    const before = await readFile(metricsPath, "utf8");
+    const startedAt = JSON.parse(before).phases[0].startedAt as string;
+    const row = (requestId: string) => ({
+      type: "assistant",
+      timestamp: startedAt,
+      requestId,
+      message: {
+        usage: { input_tokens: 4, output_tokens: 1 },
+        content: [{ type: "text", text: "PRIVATE PROMPT CONTENT" }],
+      },
+    });
+
+    const secretLog = join(root, "secret", "session.jsonl");
+    await mkdir(join(root, "secret"), { recursive: true });
+    await writeFile(secretLog, `${JSON.stringify(row("excluded-request"))}\n`);
+    await chmod(secretLog, 0o000);
+    await expect(importSessionMetrics(root, config, change.id, secretLog)).rejects.toThrow(
+      'Refusing to import a session log under excluded prefix "secret".',
+    );
+    expect(await readFile(metricsPath, "utf8")).toBe(before);
+    await chmod(secretLog, 0o644);
+
+    config.metrics.exclude = ["secret/"];
+    await chmod(secretLog, 0o000);
+    await expect(importSessionMetrics(root, config, change.id, secretLog)).rejects.toThrow(
+      'Refusing to import a session log under excluded prefix "secret".',
+    );
+    await chmod(secretLog, 0o644);
+    config.metrics.exclude = ["secret"];
+
+    const nearLog = join(root, "secrets", "log.jsonl");
+    await mkdir(join(root, "secrets"), { recursive: true });
+    await writeFile(nearLog, `${JSON.stringify(row("near-request"))}\n`);
+    await expect(importSessionMetrics(root, config, change.id, nearLog)).resolves.toMatchObject({
+      imported: 1,
+    });
+
+    const siblingLog = join(root, "secret-file.jsonl");
+    await writeFile(siblingLog, `${JSON.stringify(row("sibling-request"))}\n`);
+    await expect(importSessionMetrics(root, config, change.id, siblingLog)).resolves.toMatchObject({
+      imported: 1,
+    });
+
+    const outsideLog = join(tmpdir(), `sdd-outside-${Date.now()}.jsonl`);
+    await writeFile(outsideLog, `${JSON.stringify(row("outside-request"))}\n`);
+    try {
+      await expect(
+        importSessionMetrics(root, config, change.id, outsideLog),
+      ).resolves.toMatchObject({ imported: 1 });
+    } finally {
+      await rm(outsideLog, { force: true });
+    }
+
+    config.metrics.exclude = ["../secret"];
+    await expect(importSessionMetrics(root, config, change.id, outsideLog)).rejects.toThrow(
+      "metrics.exclude prefix is invalid.",
+    );
+    config.metrics.exclude = ["/secret"];
+    await expect(importSessionMetrics(root, config, change.id, secretLog)).rejects.toThrow(
+      "metrics.exclude prefix is invalid.",
+    );
+
+    const stored = await readFile(metricsPath, "utf8");
+    expect(stored).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(stored).not.toContain(secretLog);
+    expect(stored).not.toContain("excluded-request");
   });
 });

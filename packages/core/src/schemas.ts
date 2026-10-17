@@ -82,7 +82,12 @@ export const WorkflowSchema = z.object({
 
 export const ConfigSchema = z.object({
   version: z.number().default(1),
-  metrics: z.object({ enabled: z.boolean().default(true) }).default({}),
+  metrics: z
+    .object({
+      enabled: z.boolean().default(true),
+      exclude: z.array(z.string().min(1)).default([]),
+    })
+    .default({}),
   memory_path: z.string().default("memory"),
   changes_path: z.string().default("changes"),
   archive_path: z.string().default("archive"),

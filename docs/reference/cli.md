@@ -42,6 +42,9 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | See where I am | `sdd status` |
 | Sync recorded checks to local HEAD | `sdd sync <change>` |
 | Import measured agent token usage | `sdd metrics import <session-log>` |
+| Report phase time, tokens, and cost | `sdd report` |
+| Report every change that has metrics | `sdd report --all` |
+| Print the one-change cost report | `sdd cost` |
 | Move to next step | `sdd next` |
 | Finish work | `sdd complete` |
 | Check the change works | `sdd verify` |
@@ -68,6 +71,9 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd status --list` | All open changes | Several PRs |
 | `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
 | `sdd metrics import <session-log>` | Import measured Claude Code or Codex tokens into the active change; use `--change <id>` for another change | Review token use |
+| `sdd report` | Print active time, human wait, measured tokens, and cost for the active change. Use `--change <id>` to select one change. | After metrics exist |
+| `sdd report --all` | Print that report for every change that has a metrics.json, sorted by first phase start. | Compare changes |
+| `sdd cost` | Print the same one-change report as `sdd report`, including the same cost figures. Use `--change <id>` to select one change. | Check cost |
 | `sdd next` | Advance one stage | Step done |
 | `sdd next --force` | Bypass checks | Emergency only |
 | `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
@@ -101,7 +107,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 ## About the AI opening
 
 Most process commands refresh a short handoff and may open your AI.
-**Never open AI:** `status`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
+**Never open AI:** `status`, `report`, `cost`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
@@ -110,10 +116,21 @@ Phase timing and token metrics are enabled by default. Disable collection in `.s
 
 ```yaml
 metrics:
-	enabled: false
+  enabled: false
+  exclude: []
 ```
 
+`metrics.exclude` lists repo-relative prefixes. Import refuses to read a session log under an excluded prefix. The default is `[]`.
+
+When metrics are disabled, `sdd report` and `sdd cost` print `Metrics are disabled` and exit 0.
+
 Session imports store measured token counts, request IDs, phase names, and timestamps only. The session-log path and prompt/response content are not stored.
+
+Tools without session logs can use a local proxy that the operator runs; sdd does not read proxy logs in this version.
+
+`.sdd/prices.yaml` holds USD rates per one million tokens and `usd_to_inr` (default 84). `sdd init` writes it only when missing. Cost uses `models.<provider>` when that key exists, otherwise `models.default`. If the file is missing, every cost is `n/a` and the report says `prices.yaml is missing`. Costs are not written into `metrics.json`.
+
+If a change has no measured requests, the report adds one `estimated (handoff code points / 4)` row from `.sdd/handoff.md` and labels it as an estimate, not a model tokenizer. This version does not include a BPE tokenizer.
 
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
 
