@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { lstat } from "node:fs/promises";
 import { join } from "pathe";
 import { type AgentTarget, assertAgentInstallable, installAgentIntegration } from "./agents.js";
@@ -30,7 +31,15 @@ import {
 } from "./generated.js";
 import { renderSddReadme } from "./guidance.js";
 import { mcpConfigPath } from "./mcp/sources.js";
-import { changesDir, domainsDir, memoryDir, sddRoot, templatesDir, workflowsDir } from "./paths.js";
+import {
+  changesDir,
+  changesPathRel,
+  domainsDir,
+  memoryDir,
+  sddRoot,
+  templatesDir,
+  workflowsDir,
+} from "./paths.js";
 import type { Config } from "./schemas.js";
 
 export interface InitOptions {
@@ -44,6 +53,11 @@ export interface InitOptions {
    * - `AgentTarget` — install that integration only
    */
   agents?: false | AgentTarget;
+  /**
+   * Test seam for "is this path tracked?". Return null when git cannot answer.
+   * Production uses `git ls-files`.
+   */
+  indexLookup?: (projectRoot: string, relativePaths: string[]) => Promise<string[] | null>;
 }
 
 export interface InitResult {
@@ -263,6 +277,28 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
   await writeTextIfMissing(join(changesDir(projectRoot, config), ".gitkeep"), "");
   await writeTextIfMissing(join(domainsDir(projectRoot, config), ".gitkeep"), "");
 
+  const sddIgnore = join(root, ".gitignore");
+  const changesIgnore = join(changesDir(projectRoot, config), ".gitignore");
+  if (await ensureIgnoreEntries(sddIgnore, ["handoff.md", "active-context.md"])) {
+    created.push(sddIgnore);
+  }
+  if (await ensureIgnoreEntries(changesIgnore, [".active"])) {
+    created.push(changesIgnore);
+  }
+  const perMachine = [
+    ".sdd/active-context.md",
+    ".sdd/handoff.md",
+    `${changesPathRel(config)}/.active`,
+  ];
+  const tracked = await (opts.indexLookup ?? gitTrackedPaths)(projectRoot, perMachine);
+  if (tracked) {
+    for (const rel of tracked) {
+      warnings.push(
+        `Already tracked (gitignore will not hide edits): ${rel}. sdd does not run git rm.`,
+      );
+    }
+  }
+
   // root pointer README for humans
   const sddReadme = join(root, "README.md");
   const readmeState = (await pathExists(sddReadme))
@@ -288,6 +324,49 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
   }
 
   return { created, config, kept, warnings, agents: agentsResult };
+}
+
+/** Append missing ignore lines. Returns true when the file did not exist before. */
+async function ensureIgnoreEntries(filePath: string, required: string[]): Promise<boolean> {
+  const existed = await pathExists(filePath);
+  const original = existed ? await readText(filePath) : "";
+  const present = new Set(
+    original
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#")),
+  );
+  const missing = required.filter((line) => !present.has(line));
+  if (existed && missing.length === 0) return false;
+  let next = original;
+  if (next.length > 0 && !next.endsWith("\n")) next += "\n";
+  next += missing.map((line) => `${line}\n`).join("");
+  await writeText(filePath, next);
+  return !existed;
+}
+
+function gitTrackedPaths(projectRoot: string, relativePaths: string[]): Promise<string[] | null> {
+  return new Promise((resolve) => {
+    const child = spawn("git", ["ls-files", "--", ...relativePaths], {
+      cwd: projectRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.on("error", () => resolve(null));
+    child.on("close", (code) => {
+      if (code !== 0) resolve(null);
+      else
+        resolve(
+          stdout
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean),
+        );
+    });
+  });
 }
 
 function validateLayoutRoot(value: string): string {

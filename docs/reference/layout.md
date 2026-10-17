@@ -30,6 +30,12 @@ AGENTS.md             ← tiny pointer for AIs
 # .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/
 ```
 
+## What belongs in git
+
+Commit the shared process: `.sdd/config.yaml`, `.sdd/workflows/`, `.sdd/templates/`, `.sdd/protocol.md`, `memory/`, and each change pack under the configured changes directory.
+
+Ignore per-machine files. Init writes `.sdd/.gitignore` for `handoff.md` and `active-context.md`, and `<changes_path>/.gitignore` for `.active` (by default `changes/.active`). `.active` is the live change pointer. `handoff.md` and `active-context.md` are a repo-relative handoff and task brief. Commands that move or launch work rewrite them; they do not change on every command. If git already tracks one of them, init warns and leaves the index alone. A second non-interactive `sdd init` without `--force` does not repair gitignore when `.sdd/config.yaml` already exists. Confirming the re-init prompt in a terminal behaves like `--force`. Run `sdd init --force` to append any missing ignore lines without replacing the rest of the file.
+
 ## Keep project data together
 
 Use `--root` during initialization to place SDD's project data under one relative directory while keeping `.sdd/config.yaml`, workflows, and templates at their normal locations:

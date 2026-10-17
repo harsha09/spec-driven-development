@@ -4,7 +4,7 @@
  * process is never blocked.
  */
 
-import { join } from "pathe";
+import { join, relative } from "pathe";
 import { type ChangeContext, buildContext } from "./change-context.js";
 import { pathExists, writeText } from "./fs.js";
 import { guidancePaths, memoryDir, sddRoot } from "./paths.js";
@@ -65,12 +65,12 @@ function stageArtifactRefs(ctx: ChangeContext, stageId: string): RefineArtifactR
   }));
 }
 
-function listMarkdown(refs: RefineArtifactRef[]): string {
+function listMarkdown(refs: RefineArtifactRef[], displayDir: string): string {
   if (!refs.length) return "_None._";
   return refs
     .map(
       (r) =>
-        `- \`${r.path}\` (stage \`${r.stageId}\`${r.required ? ", required" : ""}) → \`${r.absPath}\``,
+        `- \`${r.path}\` (stage \`${r.stageId}\`${r.required ? ", required" : ""}) → \`${displayDir}/${r.path}\``,
     )
     .join("\n");
 }
@@ -120,6 +120,10 @@ export async function buildRefinePlan(opts: BuildRefinePlanOptions): Promise<Ref
   const briefPath = join(ctx.path, "refine-brief.md");
   const reportPath = join(ctx.path, "quality-report.md");
   const openItemsPath = join(ctx.path, "open-items.md");
+  const paths = guidancePaths(opts.config);
+  const briefRel = `${ctx.displayPath}/refine-brief.md`;
+  const reportRel = `${ctx.displayPath}/quality-report.md`;
+  const openItemsRel = `${ctx.displayPath}/open-items.md`;
 
   const briefMarkdown = buildRefineBriefMarkdown({
     ctx,
@@ -131,23 +135,23 @@ export async function buildRefinePlan(opts: BuildRefinePlanOptions): Promise<Ref
     focusArtifacts,
     priorArtifacts,
     laterArtifacts,
-    constitutionPath,
+    constitutionPath: paths.constitution,
     constitutionExists,
-    reportPath,
-    openItemsPath,
+    reportPath: reportRel,
+    openItemsPath: openItemsRel,
   });
 
   const kickoff = [
     `SDD: ${mode} stage \`${focusStageId}\`.`,
     `Title: ${ctx.meta.title}`,
     `Change: ${ctx.id}`,
-    `Read first: ${briefPath}`,
+    `Read first: ${briefRel}`,
     `Also: .sdd/protocol.md, .sdd/active-context.md`,
     constitutionExists
-      ? `Constitution (READ-ONLY): ${constitutionPath}`
+      ? `Constitution (READ-ONLY): ${paths.constitution}`
       : `No constitution.md found (optional).`,
     mode === "analyze"
-      ? `Mode ANALYZE: write findings to ${reportPath} only — do not edit pack artifacts.`
+      ? `Mode ANALYZE: write findings to ${reportRel} only — do not edit pack artifacts.`
       : `Mode REFINE: improve focus-stage artifacts; impact-scan prior pack files (fix mechanical inconsistencies; highlight judgment calls). Never edit constitution. Do not run sdd next.`,
     focusOnly
       ? `focusOnly=true: edit only focus-stage files (still read prior + constitution).`
@@ -235,11 +239,11 @@ ${
 
 ## Focus stage artifacts (primary ${mode === "analyze" ? "review" : "edit"} target)
 
-${listMarkdown(focusArtifacts)}
+${listMarkdown(focusArtifacts, ctx.displayPath)}
 
 ## Prior stage artifacts (pack trail — always read)
 
-${listMarkdown(priorArtifacts)}
+${listMarkdown(priorArtifacts, ctx.displayPath)}
 
 ${
   focusOnly
@@ -252,7 +256,7 @@ ${
 
 ## Later stage artifacts (usually leave alone)
 
-${listMarkdown(laterArtifacts)}
+${listMarkdown(laterArtifacts, ctx.displayPath)}
 
 Do **not** invent content for later stages that were not materialized yet. If a later file exists and contradicts the refined focus, **highlight** only (unless the human asked to align the whole pack).
 
@@ -288,11 +292,12 @@ Do **not** invent content for later stages that were not materialized yet. If a 
 export async function writeRefineBrief(plan: RefinePlan, projectRoot: string): Promise<string> {
   await writeText(plan.briefPath, plan.briefMarkdown);
   const pointer = join(sddRoot(projectRoot), "refine-brief.md");
+  const briefRel = relative(projectRoot, plan.briefPath);
   await writeText(
     pointer,
     `# Refine brief pointer
 
-Active refine brief: \`${plan.briefPath}\`
+Active refine brief: \`${briefRel}\`
 
 Run: \`sdd refine${plan.focusStageId ? ` ${plan.focusStageId}` : ""}\`
 
