@@ -82,6 +82,7 @@ export const WorkflowSchema = z.object({
 
 export const ConfigSchema = z.object({
   version: z.number().default(1),
+  metrics: z.object({ enabled: z.boolean().default(true) }).default({}),
   memory_path: z.string().default("memory"),
   changes_path: z.string().default("changes"),
   archive_path: z.string().default("archive"),
@@ -158,6 +159,10 @@ export const ChangeMetaSchema = z.object({
         ok: z.boolean(),
         /** pass | fail | not_run (absent in metas written before 0.17.3) */
         status: z.enum(["pass", "fail", "not_run"]).optional(),
+        head_sha: z
+          .string()
+          .regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i)
+          .optional(),
         at: z.string(),
         results: z
           .array(

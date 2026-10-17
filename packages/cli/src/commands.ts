@@ -21,6 +21,7 @@ import {
   loadConfig,
   loadInstalledAgent,
   loadWorkflow,
+  readChangeMetrics,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
@@ -42,8 +43,11 @@ import pc from "picocolors";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
+import { metricsCmd } from "./metrics-cmd.js";
+import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
+import { syncCmd } from "./sync-cmd.js";
 
 const init = defineCommand({
   meta: {
@@ -61,9 +65,13 @@ const init = defineCommand({
       description: "Use current directory (do not create a subfolder)",
       default: false,
     },
+    root: {
+      type: "string",
+      description: "Place memory, changes, domains, and archive under this relative path",
+    },
     force: {
       type: "boolean",
-      description: "Re-init / merge into non-empty dir; rewrite agent stubs",
+      description: "Re-init: merge config and refresh unchanged generated defaults",
       default: false,
     },
     ai: {
@@ -93,6 +101,7 @@ const init = defineCommand({
       await runSpeckitStyleInit({
         path: args.path,
         here: args.here,
+        root: args.root,
         force: args.force,
         ai: args.ai,
         integration: args.integration,
@@ -284,6 +293,21 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
+      const metrics = await readChangeMetrics(root, config, id);
+      if (metrics.phases.length) {
+        consola.log(pc.bold("Phase times (local):"));
+        for (const phase of metrics.phases) {
+          const started = new Date(phase.startedAt).toLocaleString();
+          const ended = phase.endedAt ? new Date(phase.endedAt).toLocaleString() : "in progress";
+          consola.log(`  ${phase.phase}: ${started} → ${ended}`);
+        }
+      }
+      const verifiedHead = Object.entries(ctx.meta.verify_results ?? {})
+        .filter(([, result]) => result.head_sha)
+        .sort((left, right) => right[1].at.localeCompare(left[1].at))[0];
+      if (verifiedHead?.[1].head_sha) {
+        consola.log(`Verified HEAD (${verifiedHead[0]}): ${verifiedHead[1].head_sha}`);
+      }
       consola.log("");
     });
   },
@@ -1145,11 +1169,10 @@ const doctor = defineCommand({
     consola.log(pc.bold("sdd doctor") + pc.dim(` · ${root}`));
     consola.log("");
 
-    const major = Number(process.versions.node.split(".")[0]);
     line(
       "Node.js",
-      major >= 20,
-      `v${process.versions.node}${major < 24 ? " (24+ recommended)" : ""}`,
+      isNodeVersionSupported(process.versions.node),
+      `v${process.versions.node} (24+ required)`,
     );
 
     const initialized = await isInitialized(root);
@@ -1201,7 +1224,7 @@ const help = defineCommand({
   async run() {
     const root = projectRoot();
     consola.log(pc.bold("sdd") + " — keep short plans next to your code (with your AI)");
-    consola.log(pc.dim("  Needs: Node 20+ · about 10 minutes for your first loop"));
+    consola.log(pc.dim("  Needs: Node 24+ · about 10 minutes for your first loop"));
     consola.log("");
     consola.log(pc.bold("First time (learn without the AI popping up):"));
     consola.log(
@@ -1275,6 +1298,8 @@ export const commands = {
   checkout: useChange,
   context: contextCmd,
   mcp: mcpCmd,
+  metrics: metricsCmd,
+  sync: syncCmd,
   refine,
   doctor,
   help,

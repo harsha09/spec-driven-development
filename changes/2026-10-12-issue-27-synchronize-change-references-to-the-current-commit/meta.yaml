@@ -1,0 +1,38 @@
+id: 2026-10-12-issue-27-synchronize-change-references-to-the-current-commit
+title: "Issue #27: synchronize change references to the current commit"
+workflow: feature
+created: 2026-10-12T15:40:27.172Z
+updated: 2026-10-12T15:53:55.120Z
+status: completed
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The acceptance scope is explicit; this repo's supported persisted surfaces are
+      verify_results in meta.yaml and local-test-results.md, which design will use.
+    at: 2026-10-12T15:41:32.973Z
+  - stage: clarify_design
+    reason: The local artifact boundary and no-network rule are decided; absent PR/status/gate files are
+      documented as external scope, and Git execution is an environment limitation.
+    at: 2026-10-12T15:42:34.729Z
+  - stage: clarify_tasks
+    reason: The five tasks specify the code boundaries, offline behavior, and deterministic test
+      strategy; no task-level unknown blocks implementation.
+    at: 2026-10-12T15:43:01.116Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    at: 2026-10-12T15:53:10.420Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
+completed_at: 2026-10-12T15:53:55.120Z

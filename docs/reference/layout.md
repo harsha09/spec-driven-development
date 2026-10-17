@@ -30,6 +30,16 @@ AGENTS.md             ← tiny pointer for AIs
 # .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/
 ```
 
+## Keep project data together
+
+Use `--root` during initialization to place SDD's project data under one relative directory while keeping `.sdd/config.yaml`, workflows, and templates at their normal locations:
+
+```bash
+sdd init --here --root .sdd --ai copilot
+```
+
+This sets `memory_path`, `changes_path`, `domains_path`, and `archive_path` to `.sdd/memory`, `.sdd/changes`, `.sdd/domains`, and `.sdd/archive` before those folders are created. Without `--root`, existing defaults remain `memory/`, `changes/`, `domains/`, and `archive/`. If the default `memory/` already contains files, init preserves them and warns; use `--root .sdd` to avoid adding SDD memory documents alongside application documents.
+
 ### Optional: external MCP sources
 
 `sdd init` creates an empty **`.sdd/mcp.yaml`**. Register design-system / org / AST servers with `sdd mcp sources add …` so sdd can pull context at the right stage. See [MCP sources](../guides/mcp).
@@ -43,7 +53,7 @@ After a **new product** path finishes, you may also see:
 
 ## Related
 
-- [Change packs & memory](../concepts/change-packs)  
-- [Set up your AI](../guides/agents)  
-- [MCP sources](../guides/mcp)  
+- [Change packs & memory](../concepts/change-packs)
+- [Set up your AI](../guides/agents)
+- [MCP sources](../guides/mcp)
 

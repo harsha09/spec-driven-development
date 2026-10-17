@@ -17,6 +17,7 @@ import {
   writeText,
   writeYaml,
 } from "./fs.js";
+import { startPhase, transitionPhase } from "./metrics.js";
 import { archiveDir, changeMetaPath, changePath, changesDir, templatesDir } from "./paths.js";
 import {
   type ChangeMeta,
@@ -121,6 +122,7 @@ export async function createChange(input: CreateChangeInput): Promise<ChangeCont
   }
 
   await writeYaml(changeMetaPath(projectRoot, config, id), meta);
+  await startPhase(projectRoot, config, id, startId, meta.created);
   await materializeStageArtifacts(projectRoot, config, id, workflow, meta, firstStage);
   await setActiveChange(projectRoot, config, id);
 
@@ -215,7 +217,7 @@ function defaultArtifactContent(
 ): string {
   return `# ${artifactId}
 
-> Change: **${meta.title}** (\`${meta.id}\`)  
+> Change: **${meta.title}** (\`${meta.id}\`)
 > Workflow: \`${workflow.name}\` · Stage: \`${stage.id}\`
 
 ## Summary
@@ -246,6 +248,16 @@ export async function advanceStage(
     const fallback = await fallbackIncompleteStageId(ctx);
     if (fallback && fallback !== ctx.meta.stage) {
       const from = ctx.meta.stage;
+      const at = nowIso();
+      await transitionPhase(
+        projectRoot,
+        config,
+        changeId,
+        from,
+        fallback,
+        at,
+        ctx.meta.updated ?? ctx.meta.created,
+      );
       ctx.meta.stage = fallback;
       await saveChangeMeta(projectRoot, config, ctx.meta);
       const stage = getStage(ctx.workflow, ctx.meta, fallback)!;
@@ -298,6 +310,16 @@ export async function advanceStage(
     };
   }
 
+  const at = nowIso();
+  await transitionPhase(
+    projectRoot,
+    config,
+    changeId,
+    from,
+    next,
+    at,
+    ctx.meta.updated ?? ctx.meta.created,
+  );
   ctx.meta.stage = next;
   await saveChangeMeta(projectRoot, config, ctx.meta);
 
@@ -360,6 +382,16 @@ export async function skipStage(
   if (ctx.meta.stage === stageId) {
     const next = nextStageId(ctx.workflow, ctx.meta);
     if (next) {
+      const at = nowIso();
+      await transitionPhase(
+        projectRoot,
+        config,
+        changeId,
+        stageId,
+        next,
+        at,
+        ctx.meta.updated ?? ctx.meta.created,
+      );
       ctx.meta.stage = next;
       const nextStage = getStage(ctx.workflow, ctx.meta, next);
       if (nextStage) {
@@ -395,10 +427,23 @@ export async function switchWorkflow(
     );
   }
 
+  const previousStage = ctx.meta.stage;
   ctx.meta.workflow = workflowName;
   const hasStage = workflow.stages.some((s) => s.id === ctx.meta.stage);
   if (!hasStage) {
     ctx.meta.stage = workflow.stages[0]!.id;
+  }
+  if (ctx.meta.stage !== previousStage) {
+    const at = nowIso();
+    await transitionPhase(
+      projectRoot,
+      config,
+      changeId,
+      previousStage,
+      ctx.meta.stage,
+      at,
+      ctx.meta.updated ?? ctx.meta.created,
+    );
   }
   if (reason) {
     ctx.meta.flags = {
@@ -437,6 +482,15 @@ export async function completeChange(
     throw new Error(check.errors.join("\n"));
   }
 
+  await transitionPhase(
+    projectRoot,
+    config,
+    changeId,
+    ctx.meta.stage,
+    null,
+    nowIso(),
+    ctx.meta.updated ?? ctx.meta.created,
+  );
   ctx.meta.status = "completed";
   ctx.meta.completed_at = nowIso();
   await saveChangeMeta(projectRoot, config, ctx.meta);

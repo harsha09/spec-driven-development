@@ -4,7 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,17 +23,25 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
+type RunSddOpts = { stdin?: "ignore" | "pipe"; env?: Record<string, string> };
+
+function runSddOpts(extra: Record<string, string> | RunSddOpts): RunSddOpts {
+  if ("stdin" in extra || "env" in extra) return extra as RunSddOpts;
+  return { env: extra as Record<string, string> };
+}
+
 function runSdd(
   cwd: string,
   args: string[],
-  opts?: { stdin?: "ignore" | "pipe" },
+  extra: Record<string, string> | RunSddOpts = {},
 ): { status: number | null; stdout: string; stderr: string } {
+  const opts = runSddOpts(extra);
   // Vitest injects NO_COLOR + FORCE_COLOR together; that silences consola in children.
   // Use a minimal env so CLI output is capturable (status/help use consola).
   const r = spawnSync(process.execPath, [sddBin, ...args], {
     cwd,
     encoding: "utf8",
-    stdio: opts?.stdin === "ignore" ? ["ignore", "pipe", "pipe"] : undefined,
+    stdio: opts.stdin === "ignore" ? ["ignore", "pipe", "pipe"] : undefined,
     env: {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
@@ -41,6 +49,7 @@ function runSdd(
       USER: process.env.USER,
       LANG: process.env.LANG,
       CI: "1",
+      ...opts.env,
     },
   });
   return {
@@ -66,6 +75,148 @@ afterEach(async () => {
 });
 
 describe("CLI integration", () => {
+  it("init --root namespaces project data and warns before merging existing memory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-layout-root-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--root", ".sdd", "--no-agent"]).status).toBe(0);
+
+    const config = await readFile(join(root, ".sdd/config.yaml"), "utf8");
+    expect(config).toContain("memory_path: .sdd/memory");
+    expect(config).toContain("changes_path: .sdd/changes");
+    expect(config).toContain("domains_path: .sdd/domains");
+    expect(config).toContain("archive_path: .sdd/archive");
+    expect(await exists(join(root, ".sdd/changes/.gitkeep"))).toBe(true);
+    expect(await exists(join(root, "changes"))).toBe(false);
+    expect(await exists(join(root, "memory"))).toBe(false);
+
+    const created = runSdd(root, [
+      "new",
+      "Namespaced path change",
+      "-w",
+      "hotfix",
+      "-y",
+      "--no-agent",
+    ]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    expect(created.stdout + created.stderr).toContain(".sdd/changes/");
+
+    const brownfield = await mkdtemp(join(tmpdir(), "sdd-cli-memory-warning-"));
+    temps.push(brownfield);
+    await mkdir(join(brownfield, "memory"));
+    await writeFile(join(brownfield, "memory/PRD.md"), "# Product\n");
+    const initialized = runSdd(brownfield, ["init", "--here", "--no-agent"]);
+    expect(initialized.status, initialized.stderr + initialized.stdout).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toContain(
+      "Existing memory/ content will be preserved",
+    );
+    expect(await readFile(join(brownfield, "memory/PRD.md"), "utf8")).toBe("# Product\n");
+  });
+
+  it("sdd sync updates local verify references and never invokes remote services", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-sync-"));
+    temps.push(root);
+    const fakeBin = join(root, "fake-bin");
+    const fakeGit = join(fakeBin, "git");
+    await mkdir(fakeBin);
+    await mkdir(join(root, ".git"));
+    const oldSha = "a".repeat(40);
+    const newSha = "b".repeat(40);
+    await writeFile(fakeGit, `#!/bin/sh\nprintf '%s\\n' '${oldSha}'\n`);
+    await chmod(fakeGit, 0o755);
+    const env = { PATH: `${fakeBin}:${process.env.PATH ?? ""}` };
+
+    expect(runSdd(root, ["init", "--here", "--no-agent"], env).status).toBe(0);
+    await writeFile(
+      join(root, ".sdd/workflows/sync-test.yaml"),
+      `name: sync-test
+version: 1
+stages:
+  - id: implement
+    artifacts: []
+  - id: local_verify
+    artifacts: []
+    verify:
+      commands:
+        - name: smoke
+          run: "true"
+          required: true
+`,
+    );
+    const created = runSdd(
+      root,
+      ["new", "Sync CLI test", "-w", "sync-test", "-y", "--no-agent"],
+      env,
+    );
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find(
+      (name) => name !== ".gitkeep" && name !== ".active",
+    )!;
+    expect(runSdd(root, ["next", "--no-agent"], env).status).toBe(0);
+    expect(runSdd(root, ["verify", "--no-agent"], env).status).toBe(0);
+
+    await writeFile(fakeGit, `#!/bin/sh\nprintf '%s\\n' '${newSha}'\n`);
+    const stale = runSdd(root, ["verify", "--no-agent"], env);
+    expect(stale.status).toBe(1);
+    expect(stale.stdout + stale.stderr).toMatch(/stale SHA/i);
+
+    const synced = runSdd(root, ["sync", changeId], env);
+    expect(synced.status, synced.stderr + synced.stdout).toBe(0);
+    expect(synced.stdout + synced.stderr).toContain(newSha);
+    expect(synced.stdout + synced.stderr).toContain("Updated verification records: 1");
+    const status = runSdd(root, ["status"], env);
+    expect(status.status, status.stderr + status.stdout).toBe(0);
+    expect(status.stdout + status.stderr).toContain(`Verified HEAD (local_verify): ${newSha}`);
+    const verified = runSdd(root, ["verify", "--no-agent"], env);
+    expect(verified.status, verified.stderr + verified.stdout).toBe(0);
+    expect(verified.stdout + verified.stderr).toContain("Verify PASS");
+  });
+
+  it("imports session usage idempotently and shows local phase times", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-metrics-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+
+    const created = runSdd(root, ["new", "Metrics CLI test", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find(
+      (name) => name !== ".gitkeep" && name !== ".active",
+    )!;
+    const changePath = join(root, "changes", changeId);
+    const metricsPath = join(changePath, "metrics.json");
+    const phase = JSON.parse(await readFile(metricsPath, "utf8")).phases[0];
+    const logPath = join(root, "session.jsonl");
+    const row = {
+      type: "assistant",
+      timestamp: phase.startedAt,
+      requestId: "cli-request-1",
+      message: {
+        usage: {
+          input_tokens: 12,
+          cache_read_input_tokens: 3,
+          cache_creation_input_tokens: 1,
+          output_tokens: 8,
+        },
+        content: [{ type: "text", text: "PRIVATE SESSION TEXT" }],
+      },
+    };
+    await writeFile(logPath, `${JSON.stringify(row)}\n`);
+
+    const first = runSdd(root, ["metrics", "import", logPath]);
+    expect(first.status, first.stderr + first.stdout).toBe(0);
+    expect(first.stdout + first.stderr).toContain("Imported 1 measured request");
+    const second = runSdd(root, ["metrics", "import", logPath, "--change", changeId]);
+    expect(second.status, second.stderr + second.stdout).toBe(0);
+    expect(second.stdout + second.stderr).toContain("Duplicates: 1");
+
+    const status = runSdd(root, ["status"]);
+    expect(status.status, status.stderr + status.stdout).toBe(0);
+    expect(status.stdout + status.stderr).toMatch(/Phase times \(local\):[\s\S]*intent:/);
+    const stored = await readFile(metricsPath, "utf8");
+    expect(stored).not.toContain("PRIVATE SESSION TEXT");
+    expect(stored).not.toContain(logPath);
+    expect(JSON.parse(stored).requests).toHaveLength(1);
+  });
+
   it("sdd init --here --ai grok sets up agents without separate agents install", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-grok-"));
     temps.push(root);
@@ -422,10 +573,11 @@ stages:
     }
 
     const doctor = runSdd(root, ["doctor"]);
-    expect(doctor.status, doctor.stdout + doctor.stderr).toBe(0);
+    const supportedNode = Number(process.versions.node.split(".")[0]) >= 24;
+    expect(doctor.status, doctor.stdout + doctor.stderr).toBe(supportedNode ? 0 : 1);
     expect(doctor.stdout).toContain("AI host");
     expect(doctor.stdout).toContain("none (no-agent setup");
-    expect(doctor.stdout).not.toContain("✗");
+    expect(doctor.stdout).toContain("24+ required");
 
     const created = runSdd(root, ["new", "No agent change", "-w", "hotfix", "-y", "--no-agent"]);
     expect(created.status, created.stderr + created.stdout).toBe(0);
@@ -433,7 +585,7 @@ stages:
     expect(await exists(join(root, "AGENTS.md"))).toBe(false);
   });
 
-  it("re-running init --no-agent warns exactly what --force would reset (#15)", async () => {
+  it("re-running init --no-agent explains safe --force behavior (#15)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-reinit-"));
     temps.push(root);
     expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
@@ -441,10 +593,38 @@ stages:
     expect(again.status).toBe(1);
     const out = again.stderr + again.stdout;
     expect(out).toContain("already initialized");
-    expect(out).toContain("resets .sdd/config.yaml to defaults");
-    expect(out).toContain("re-copies .sdd/workflows/ and .sdd/templates/ over local edits");
-    expect(out).toContain("issue #15");
-    expect(out).toContain("back them up first");
+    expect(out).toContain("preserves supported config values");
+    expect(out).toContain("refreshes only unchanged SDD-generated workflows/templates");
+    expect(out).toContain("edited or untracked files are kept");
+  });
+
+  it("init --force preserves custom config paths and lists edited workflows/templates (#15)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-force-preserve-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+
+    const configPath = join(root, ".sdd/config.yaml");
+    const config = (await readFile(configPath, "utf8"))
+      .replace(/^changes_path: changes$/m, "changes_path: .sdd/changes")
+      .replace(/^(\s*)allow_skip: true$/m, "$1allow_skip: false");
+    await writeFile(configPath, config);
+    const workflowPath = join(root, ".sdd/workflows/patch.yaml");
+    const templatePath = join(root, ".sdd/templates/intent.md");
+    const workflow = `${await readFile(workflowPath, "utf8")}\n# Team workflow note\n`;
+    const template = `${await readFile(templatePath, "utf8")}\nTeam-specific intent prompt.\n`;
+    await writeFile(workflowPath, workflow);
+    await writeFile(templatePath, template);
+
+    const forced = runSdd(root, ["init", "--here", "--no-agent", "--force"]);
+    expect(forced.status, forced.stderr + forced.stdout).toBe(0);
+    const out = forced.stdout + forced.stderr;
+    expect(out).toContain(".sdd/workflows/patch.yaml (generated by sdd, then edited — kept)");
+    expect(out).toContain(".sdd/templates/intent.md (generated by sdd, then edited — kept)");
+    expect(await readFile(configPath, "utf8")).toContain("changes_path: .sdd/changes");
+    expect(await readFile(configPath, "utf8")).toContain("allow_skip: false");
+    expect(await readFile(workflowPath, "utf8")).toBe(workflow);
+    expect(await readFile(templatePath, "utf8")).toBe(template);
+    expect(await exists(join(root, ".sdd/changes/.gitkeep"))).toBe(true);
   });
 
   it("sdd init --no-agent with --ai is rejected (#5)", async () => {
