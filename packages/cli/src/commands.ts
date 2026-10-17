@@ -46,6 +46,7 @@ import { mcpCmd } from "./mcp-cmd.js";
 import { metricsCmd } from "./metrics-cmd.js";
 import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
+import { costCmd, reportCmd } from "./report-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
@@ -1308,6 +1309,8 @@ export const commands = {
   context: contextCmd,
   mcp: mcpCmd,
   metrics: metricsCmd,
+  report: reportCmd,
+  cost: costCmd,
   sync: syncCmd,
   refine,
   doctor,

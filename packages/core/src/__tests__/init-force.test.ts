@@ -171,4 +171,25 @@ describe("sdd init --force preserves project customization", () => {
     expect(await readFile(configPath, "utf8")).toBe(configBefore);
     expect(await readFile(workflowPath, "utf8")).toBe(workflowBefore);
   });
+
+  it("writes prices.yaml when missing and keeps a user edit on --force", async () => {
+    const root = await freshProject();
+    const prices = join(root, ".sdd/prices.yaml");
+    const text = await readFile(prices, "utf8");
+    expect(text).toContain("usd_to_inr: 84");
+    expect(text).not.toContain("sdd:generated");
+    const manifest = JSON.parse(await readFile(join(root, ".sdd/.generated.json"), "utf8")) as {
+      files: Record<string, string>;
+    };
+    expect(manifest.files[".sdd/prices.yaml"]).toBeUndefined();
+
+    const edited = `${text}# user edit\n`;
+    await writeFile(prices, edited);
+    await initProject({ projectRoot: root, agents: false, force: true });
+    expect(await readFile(prices, "utf8")).toBe(edited);
+
+    await rm(prices);
+    await initProject({ projectRoot: root, agents: false, force: true });
+    expect(await readFile(prices, "utf8")).toBe(text);
+  });
 });
