@@ -11,6 +11,8 @@ import {
   loadConfig,
   pathExists,
   runLocalVerify,
+  saveChangeMeta,
+  syncChangeHead,
 } from "../index.js";
 
 /** Issue #12: `sdd verify` must never report PASS when nothing ran or a command failed. */
@@ -134,6 +136,67 @@ describe("sdd verify status (no silent PASS)", () => {
     expect(md).toContain("Overall: PASS");
     const { ctx: done } = await completeChange(root, config, ctx.id);
     expect(done.meta.status).toBe("completed");
+  });
+
+  it("stale SHA and result-count references fail before verification can pass", async () => {
+    const { root, config, ctx } = await projectWithVerify([
+      { name: "unit", run: "true", required: true },
+      { name: "lint", run: "true" },
+    ]);
+    await advanceStage(root, config, ctx.id);
+    const originalSha = "a".repeat(40);
+    const currentSha = "b".repeat(40);
+
+    const first = await runLocalVerify(root, config, ctx.id, { headSha: originalSha });
+    expect(first.status).toBe("pass");
+    await expect(runLocalVerify(root, config, ctx.id, { headSha: null })).rejects.toThrow(
+      /Git HEAD is unavailable/i,
+    );
+    await expect(runLocalVerify(root, config, ctx.id, { headSha: currentSha })).rejects.toThrow(
+      /stale sha.*meta\.yaml/i,
+    );
+
+    const synced = await syncChangeHead(root, config, ctx.id, { headSha: currentSha });
+    expect(synced.updatedResults).toBe(1);
+    await expect(
+      runLocalVerify(root, config, ctx.id, { headSha: currentSha }),
+    ).resolves.toMatchObject({ status: "pass" });
+
+    const resultsPath = join(ctx.path, "local-test-results.md");
+    const report = await readFile(resultsPath, "utf8");
+    await writeFile(resultsPath, report.replace('result_count="2"', 'result_count="3"'));
+    await expect(runLocalVerify(root, config, ctx.id, { headSha: currentSha })).rejects.toThrow(
+      /result count mismatch.*local-test-results\.md/i,
+    );
+  });
+
+  it("preserves human-authored verification notes across repeated runs", async () => {
+    const { root, config, ctx } = await projectWithVerify([{ name: "unit", run: "true" }]);
+    await advanceStage(root, config, ctx.id);
+    const resultsPath = join(ctx.path, "local-test-results.md");
+    await writeFile(resultsPath, "# Human notes\n\nKeep this context.\n");
+
+    await runLocalVerify(root, config, ctx.id, { headSha: "c".repeat(40) });
+    await runLocalVerify(root, config, ctx.id, { headSha: "c".repeat(40) });
+
+    const report = await readFile(resultsPath, "utf8");
+    expect(report).toContain("# Human notes\n\nKeep this context.");
+    expect(report.match(/Keep this context\./g)).toHaveLength(1);
+    expect(report.match(/Latest run \(/g)).toHaveLength(2);
+  });
+
+  it("fails when an SDD report marker has no matching metadata record", async () => {
+    const { root, config, ctx } = await projectWithVerify([{ name: "unit", run: "true" }]);
+    await advanceStage(root, config, ctx.id);
+    const headSha = "d".repeat(40);
+    await runLocalVerify(root, config, ctx.id, { headSha });
+    const changed = await buildContext(root, config, ctx.id);
+    changed.meta.verify_results = {};
+    await saveChangeMeta(root, config, changed.meta);
+
+    await expect(runLocalVerify(root, config, ctx.id, { headSha })).rejects.toThrow(
+      /missing verification metadata.*local-test-results\.md/i,
+    );
   });
 
   it("required command fails: FAIL and the gate blocks completion", async () => {

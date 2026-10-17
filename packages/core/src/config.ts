@@ -27,3 +27,25 @@ export async function saveConfig(projectRoot: string, config: Config): Promise<v
 export function defaultConfig(): Config {
   return ConfigSchema.parse({});
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function mergeDefaults(defaults: unknown, overrides: unknown): unknown {
+  if (!isRecord(defaults) || !isRecord(overrides)) return overrides ?? defaults;
+
+  const merged = Object.create(null) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(defaults)) {
+    merged[key] = Object.hasOwn(overrides, key) ? mergeDefaults(value, overrides[key]) : value;
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!Object.hasOwn(defaults, key)) merged[key] = value;
+  }
+  return merged;
+}
+
+/** Merge a user's config over current defaults, then validate and strip unsupported keys. */
+export function mergeConfigDefaults(existing: unknown): Config {
+  return ConfigSchema.parse(mergeDefaults(defaultConfig(), existing));
+}
