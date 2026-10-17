@@ -530,6 +530,7 @@ export async function completeChange(
       ctx: {
         id: changeId,
         path: archivedTo,
+        displayPath: `${config.archive_path.replace(/\/+$/, "") || "archive"}/${changeId}`,
         meta,
         workflow: ctx.workflow,
         stages: ctx.stages,

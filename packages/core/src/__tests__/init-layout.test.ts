@@ -37,6 +37,12 @@ describe("init layout root", () => {
       workflowName: "hotfix",
     });
     expect(change.path).toContain("/.sdd/changes/");
+    const changesIgnore = await readFile(join(root, ".sdd/changes/.gitignore"), "utf8");
+    expect(changesIgnore).toContain(".active");
+    expect(await pathExists(join(root, "changes/.gitignore"))).toBe(false);
+    const sddIgnore = await readFile(join(root, ".sdd/.gitignore"), "utf8");
+    expect(sddIgnore).toContain("handoff.md");
+    expect(sddIgnore).toContain("active-context.md");
   });
 
   it("warns about existing memory content and leaves it intact", async () => {

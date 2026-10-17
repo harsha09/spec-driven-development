@@ -342,7 +342,7 @@ async function spawnCliAgent(opts: {
 /** Log launch result consistently after any sdd command. */
 export async function reportAgentLaunch(result: LaunchAgentResult): Promise<void> {
   if (result.handoffPath) {
-    consola.info(`Handoff: ${result.handoffPath}`);
+    consola.info("Handoff: .sdd/handoff.md");
   }
   if (result.launched) {
     consola.success(`Started ${result.target} (${(result.command ?? []).join(" ")})`);

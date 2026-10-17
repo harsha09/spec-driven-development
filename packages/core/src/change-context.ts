@@ -1,5 +1,11 @@
 import { ensureDir, listDirs, pathExists, readText, readYaml, writeText, writeYaml } from "./fs.js";
-import { activePointerPath, changeMetaPath, changePath, changesDir } from "./paths.js";
+import {
+  activePointerPath,
+  changeMetaPath,
+  changePath,
+  changesDir,
+  displayChangePath,
+} from "./paths.js";
 import {
   type ChangeMeta,
   ChangeMetaSchema,
@@ -12,7 +18,10 @@ import { activeStages, loadWorkflow, resolveStages } from "./workflow.js";
 
 export interface ChangeContext {
   id: string;
+  /** Absolute directory used for file reads and writes. */
   path: string;
+  /** Repo-relative directory for status, handoff, and active-context text. */
+  displayPath: string;
   meta: ChangeMeta;
   workflow: Workflow;
   stages: Stage[];
@@ -50,6 +59,7 @@ export async function buildContext(
   return {
     id: changeId,
     path: changePath(projectRoot, config, changeId),
+    displayPath: displayChangePath(config, changeId),
     meta,
     workflow,
     stages: resolveStages(workflow, meta),
@@ -75,21 +85,7 @@ export async function getActiveChangeId(
       await writeText(pointer, "");
     }
   }
-  const all = await listChanges(projectRoot, config);
-  const inProgress: { id: string; updated: string }[] = [];
-  for (const id of all) {
-    try {
-      const meta = await loadChangeMeta(projectRoot, config, id);
-      if (meta.status === "in_progress" || meta.status === "blocked") {
-        inProgress.push({ id, updated: meta.updated ?? meta.created });
-      }
-    } catch {
-      // ignore corrupt meta
-    }
-  }
-  if (!inProgress.length) return null;
-  inProgress.sort((a, b) => b.updated.localeCompare(a.updated));
-  return inProgress[0]!.id;
+  return null;
 }
 
 export async function clearActiveIf(

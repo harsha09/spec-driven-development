@@ -33,6 +33,11 @@ export function changesPathRel(config: Pick<Config, "changes_path">): string {
   return config.changes_path.replace(/\/+$/, "") || "changes";
 }
 
+/** Repo-relative change directory shown to humans. Never an absolute machine path. */
+export function displayChangePath(config: Pick<Config, "changes_path">, changeId: string): string {
+  return `${changesPathRel(config)}/${changeId}`;
+}
+
 /** Paths agents should be told to read, taken from config rather than defaults. */
 export function guidancePaths(config: Pick<Config, "memory_path" | "changes_path">): {
   memory: string;
