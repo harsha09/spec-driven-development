@@ -2,13 +2,13 @@ import { spawn } from "node:child_process";
 import { join } from "pathe";
 import { buildContext, saveChangeMeta } from "./change.js";
 import { ensureDir, pathExists, readText, writeText } from "./fs.js";
+import { getHeadSha } from "./git-head.js";
 import type { Config } from "./schemas.js";
 import { nowIso } from "./slug.js";
 import { getStage } from "./workflow.js";
 
 /** pass: every command ran and exited 0 · fail: a command failed · not_run: nothing was executed */
 export type VerifyStatus = "pass" | "fail" | "not_run";
-
 export interface VerifyResult {
   stageId: string;
   /** Overall outcome; never "pass" unless at least one command ran and all exited 0 */
@@ -63,7 +63,17 @@ function isToolGeneratedResults(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return true;
   if (trimmed.includes("{{")) return true;
-  if (trimmed.startsWith("# Local verify results")) return true;
+  if (trimmed.startsWith("# Local verify results")) {
+    return false;
+  }
+  if (trimmed.startsWith("<!-- sdd:verify-report:start -->")) {
+    return (
+      trimmed.includes("<!-- sdd:verify-report:end -->") &&
+      /<!-- sdd:verify stage="[^"]+" head_sha="(?:none|[0-9a-f]{40}|[0-9a-f]{64})" result_count="\d+" -->/i.test(
+        trimmed,
+      )
+    );
+  }
   if (trimmed.startsWith("# Local test results")) {
     const body = trimmed.replace(/^# Local test results\s*/, "");
     // The shipped template is only a heading, a placeholder table, and sign-off blanks.
@@ -87,16 +97,20 @@ const STATUS_LABEL: Record<VerifyStatus, string> = {
 function buildSummaryLines(
   title: string,
   stageId: string,
+  headSha: string | null,
   status: VerifyStatus,
   reason: string | undefined,
   results: VerifyResult["results"],
   checklist: string[],
 ): string[] {
   const lines = [
+    `<!-- sdd:verify-report:start -->`,
+    ``,
     `# Local verify results`,
     ``,
     `> Change: ${title}`,
     `> Stage: ${stageId}`,
+    `<!-- sdd:verify stage="${stageId}" head_sha="${headSha ?? "none"}" result_count="${results.length}" -->`,
     `> At: ${nowIso()}`,
     `> Overall: ${STATUS_LABEL[status]}${reason ? ` — ${reason}` : ""}`,
     ``,
@@ -124,6 +138,8 @@ function buildSummaryLines(
   lines.push("");
   lines.push(`-`);
   lines.push("");
+  lines.push(`<!-- sdd:verify-report:end -->`);
+  lines.push("");
   return lines;
 }
 
@@ -131,7 +147,7 @@ export async function runLocalVerify(
   projectRoot: string,
   config: Config,
   changeId: string,
-  opts?: { runCommands?: boolean },
+  opts?: { runCommands?: boolean; headSha?: string | null },
 ): Promise<VerifyResult> {
   const ctx = await buildContext(projectRoot, config, changeId);
   const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
@@ -154,6 +170,61 @@ export async function runLocalVerify(
       resultsPath: null,
       ok: false,
     };
+  }
+
+  const headSha = opts?.headSha !== undefined ? opts.headSha : await getHeadSha(projectRoot);
+  const anyRecordedSha = Object.entries(ctx.meta.verify_results ?? {}).find(
+    ([, recorded]) => recorded.head_sha,
+  );
+  if (anyRecordedSha && !headSha) {
+    throw new Error(
+      `Cannot validate recorded SHA in ${join(ctx.path, "meta.yaml")} at verify_results.${anyRecordedSha[0]}.head_sha because Git HEAD is unavailable.`,
+    );
+  }
+  for (const [resultStage, recorded] of Object.entries(ctx.meta.verify_results ?? {})) {
+    if (recorded.head_sha && headSha && recorded.head_sha !== headSha) {
+      throw new Error(
+        `Stale SHA in ${join(ctx.path, "meta.yaml")} at verify_results.${resultStage}.head_sha: recorded ${recorded.head_sha}, current HEAD ${headSha}. Run sdd sync ${changeId}.`,
+      );
+    }
+  }
+
+  const summaryPath = join(ctx.path, "local-test-results.md");
+  if (await pathExists(summaryPath)) {
+    const existing = await readText(summaryPath);
+    const markerPattern =
+      /<!-- sdd:verify stage="([^"]+)" head_sha="(none|[0-9a-f]{40}|[0-9a-f]{64})" result_count="(\d+)" -->/gi;
+    for (const marker of existing.matchAll(markerPattern)) {
+      const line = existing.slice(0, marker.index).split("\n").length;
+      const reportStage = marker[1]!;
+      const reportSha = marker[2]!.toLowerCase();
+      const reportResult = ctx.meta.verify_results?.[reportStage];
+      if (!reportResult) {
+        throw new Error(
+          `Missing verification metadata in ${join(ctx.path, "meta.yaml")} for ${summaryPath}:${line} (${reportStage}).`,
+        );
+      }
+      if (reportSha !== "none" && !headSha) {
+        throw new Error(
+          `Cannot validate SHA in ${summaryPath}:${line} because Git HEAD is unavailable.`,
+        );
+      }
+      if (headSha && reportSha !== "none" && reportSha !== headSha) {
+        throw new Error(
+          `Stale SHA in ${summaryPath}:${line}: recorded ${reportSha}, current HEAD ${headSha}. Run sdd sync ${changeId}.`,
+        );
+      }
+      if (reportResult && Number(marker[3]) !== reportResult.results.length) {
+        throw new Error(
+          `Recorded result count mismatch in ${summaryPath}:${line}: report has ${marker[3]}, metadata has ${reportResult.results.length}.`,
+        );
+      }
+      if (reportResult?.head_sha && reportSha !== reportResult.head_sha) {
+        throw new Error(
+          `SHA mismatch between ${join(ctx.path, "meta.yaml")} and ${summaryPath}:${line}.`,
+        );
+      }
+    }
   }
 
   const evidenceDirRaw = stage.verify?.evidence_dir?.trim();
@@ -201,8 +272,15 @@ export async function runLocalVerify(
   const ok = status === "pass";
 
   const checklist = stage.gate?.checklist ?? [];
-  const summaryPath = join(ctx.path, "local-test-results.md");
-  const lines = buildSummaryLines(ctx.meta.title, stage.id, status, reason, results, checklist);
+  const lines = buildSummaryLines(
+    ctx.meta.title,
+    stage.id,
+    results.length ? headSha : null,
+    status,
+    reason,
+    results,
+    checklist,
+  );
   const summaryBody = lines.join("\n");
 
   if (await pathExists(summaryPath)) {
@@ -224,6 +302,7 @@ export async function runLocalVerify(
         ``,
         `> Overall: ${STATUS_LABEL[status]}${reason ? ` — ${reason}` : ""}`,
         `> Stage: ${stage.id}`,
+        `<!-- sdd:verify stage="${stage.id}" head_sha="${results.length ? (headSha ?? "none") : "none"}" result_count="${results.length}" -->`,
         ``,
       ];
       if (results.length === 0) {
@@ -252,6 +331,7 @@ export async function runLocalVerify(
     [stage.id]: {
       ok,
       status,
+      ...(results.length && headSha ? { head_sha: headSha } : {}),
       at: nowIso(),
       results: results.map((r) => ({ name: r.name, exitCode: r.exitCode })),
     },

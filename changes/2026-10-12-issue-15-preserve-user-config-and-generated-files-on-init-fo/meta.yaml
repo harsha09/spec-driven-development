@@ -1,0 +1,43 @@
+id: 2026-10-12-issue-15-preserve-user-config-and-generated-files-on-init-fo
+title: "Issue #15: preserve user config and generated files on init --force"
+workflow: feature
+created: 2026-10-12T15:54:05.167Z
+updated: 2026-10-12T16:14:51.394Z
+status: completed
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue gives a reproducible failure and exact expected behavior; implementation
+      boundaries are clear from initProject.
+    at: 2026-10-12T15:55:16.629Z
+  - stage: brainstorm
+    reason: A content-hash manifest for YAML/Markdown defaults plus a defaults-over-existing config
+      merge directly matches the requested behavior.
+    at: 2026-10-12T15:55:17.424Z
+  - stage: clarify_design
+    reason: The manifest schema, config merge, legacy ownership behavior, and fail-before-write rule are
+      all specified in design.md.
+    at: 2026-10-12T15:55:51.155Z
+  - stage: clarify_tasks
+    reason: The five tasks explicitly define merge semantics, manifest trust, failure ordering, and test
+      expectations.
+    at: 2026-10-12T15:56:11.478Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    at: 2026-10-12T16:14:27.260Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
+completed_at: 2026-10-12T16:14:51.394Z

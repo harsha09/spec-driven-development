@@ -26,6 +26,7 @@ import pc from "picocolors";
 export interface InitCliArgs {
   path?: string;
   here?: boolean;
+  root?: string;
   force?: boolean;
   /** Speckit-style: --ai / --integration */
   ai?: string;
@@ -35,13 +36,10 @@ export interface InitCliArgs {
   noAgent?: boolean;
 }
 
-/**
- * Shown instead of the re-init confirmation when prompting is not possible.
- * Names exactly what --force resets today (issue #15) so nobody loses edits by accident.
- */
+/** Shown instead of the re-init confirmation when prompting is not possible. */
 export const ALREADY_INITIALIZED_MESSAGE =
-  "SDD is already initialized here. Re-running with --force resets .sdd/config.yaml to defaults " +
-  "and re-copies .sdd/workflows/ and .sdd/templates/ over local edits (issue #15) — back them up first.";
+  "SDD is already initialized here. Re-running with --force preserves supported config values " +
+  "and refreshes only unchanged SDD-generated workflows/templates; edited or untracked files are kept.";
 
 /** `--no-agent` init must never prompt, even on a TTY (agents/scripts drive it). */
 let promptsDisabled = false;
@@ -170,7 +168,8 @@ async function maybeConfirmNonEmpty(
       throw new Error(ALREADY_INITIALIZED_MESSAGE);
     }
     const again = await p.confirm({
-      message: "SDD already initialized. Re-copy default workflows/templates?",
+      message:
+        "SDD already initialized. Refresh unchanged generated defaults and keep customizations?",
       initialValue: false,
     });
     if (p.isCancel(again) || !again) {
@@ -277,7 +276,7 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   await maybeConfirmNonEmpty(projectRoot, force, here);
 
   if (args.noAgent) {
-    await runNoAgentInit(projectRoot, here, force);
+    await runNoAgentInit(projectRoot, here, force, args.root);
     return;
   }
 
@@ -311,8 +310,10 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   const result = await initProject({
     projectRoot,
     force: force || already,
+    layoutRoot: args.root,
     agents: false,
   });
+  for (const warning of result.warnings) p.log.warn(warning);
   s.stop("Shared infrastructure ready");
 
   s.start(`Install ${optionForTarget(selected)?.label ?? selected} integration`);
@@ -343,7 +344,8 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
   p.note(
     [
       pc.bold("Always created (shared SDD):"),
-      `  .sdd/   memory/   changes/   domains/`,
+      `  .sdd/`,
+      `  project data: ${result.config.memory_path}/  ${result.config.changes_path}/  ${result.config.domains_path}/  ${result.config.archive_path}/`,
       "",
       pc.bold("AI agent (selected host):"),
       selected === "grok"
@@ -381,7 +383,12 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
  * `sdd init --no-agent`: shared SDD setup only. No AI host files, no AGENTS.md,
  * no .sdd/agents.json (so process commands never launch an assistant), no prompts.
  */
-async function runNoAgentInit(projectRoot: string, here: boolean, force: boolean): Promise<void> {
+async function runNoAgentInit(
+  projectRoot: string,
+  here: boolean,
+  force: boolean,
+  layoutRoot?: string,
+): Promise<void> {
   p.note(
     [
       `${pc.bold("Project")}     ${basename(projectRoot)}`,
@@ -395,7 +402,14 @@ async function runNoAgentInit(projectRoot: string, here: boolean, force: boolean
   const s = p.spinner();
   s.start("Install shared infrastructure (.sdd, workflows, templates, memory)");
   const already = await isInitialized(projectRoot);
-  await initProject({ projectRoot, force: force || already, agents: false });
+  const result = await initProject({
+    projectRoot,
+    force: force || already,
+    layoutRoot,
+    agents: false,
+  });
+  for (const warning of result.warnings) p.log.warn(warning);
+  reportKeptFiles(result.kept);
   // Shared playbook + live-task file (both under .sdd/; not host files)
   await refreshActiveAgentContext(projectRoot);
   s.stop("Shared infrastructure ready");
@@ -407,7 +421,8 @@ async function runNoAgentInit(projectRoot: string, here: boolean, force: boolean
   p.note(
     [
       pc.bold("Created (shared SDD):"),
-      `  .sdd/   memory/   changes/   domains/`,
+      `  .sdd/`,
+      `  project data: ${result.config.memory_path}/  ${result.config.changes_path}/  ${result.config.domains_path}/  ${result.config.archive_path}/`,
       `  .sdd/protocol.md  +  .sdd/active-context.md  (process rules + live task)`,
       "",
       pc.bold("AI agent:"),

@@ -1,0 +1,21 @@
+id: 2026-10-12-issue-6-support-a-namespaced-root-for-sdd-project-paths
+title: "Issue #6: support a namespaced root for SDD project paths"
+workflow: patch
+created: 2026-10-12T16:24:08.641Z
+updated: 2026-10-12T16:29:29.807Z
+status: completed
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results:
+  local_verify:
+    ok: false
+    status: not_run
+    at: 2026-10-12T16:28:55.079Z
+    results: []
+completed_at: 2026-10-12T16:29:29.807Z
