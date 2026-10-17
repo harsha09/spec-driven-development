@@ -12,7 +12,7 @@ By the end, intent and progress live as **markdown in git**—the same trail you
 | | |
 |--|--|
 | **Time** | About 10 minutes |
-| **You need** | Node.js 20+ and a folder for an app (or an empty folder) |
+| **You need** | Node.js 24+ and a folder for an app (or an empty folder) |
 | **Goal** | Feel the loop: start → write a note → next → finish |
 | **Install** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) on npm |
 
@@ -21,8 +21,8 @@ We’ll use `--no-agent` so nothing launches an AI window while you learn. You c
 :::
 
 ::: info Other paths
-New product? → [Greenfield](../guides/greenfield)  
-Bigger feature? → [Simple feature](../guides/simple-feature) after this tutorial  
+New product? → [Greenfield](../guides/greenfield)
+Bigger feature? → [Simple feature](../guides/simple-feature) after this tutorial
 :::
 
 ---

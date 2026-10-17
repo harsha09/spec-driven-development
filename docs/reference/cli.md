@@ -5,9 +5,9 @@ description: Friendly sdd command list — what each command does and when to us
 
 # CLI reference
 
-Binary name: **`sdd`**.  
-Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@structured-vibe-coding/cli)**  
-Learn by doing: [Start in 10 minutes](../tutorials/first-change).  
+Binary name: **`sdd`**.
+Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@structured-vibe-coding/cli)**
+Learn by doing: [Start in 10 minutes](../tutorials/first-change).
 One command’s flags: `sdd <command> --help`.
 
 ---
@@ -20,7 +20,7 @@ One command’s flags: `sdd <command> --help`.
 | Item from product backlog after greenfield (`F-001`) | **`sdd backlog start F-001`** |
 | New product discovery (vision → backlog) | **`sdd greenfield "One-line idea"`** |
 
-`sdd new` and `sdd backlog start` both open a **change pack**. The difference is the **source**: free-form title vs backlog id.  
+`sdd new` and `sdd backlog start` both open a **change pack**. The difference is the **source**: free-form title vs backlog id.
 `-w feature` is a **workflow pack name**, not the same as `sdd backlog` / the old `sdd feature` alias.
 
 ---
@@ -38,6 +38,8 @@ One command’s flags: `sdd <command> --help`.
 | See product backlog | `sdd backlog list` |
 | Build backlog item | `sdd backlog start F-001` |
 | See where I am | `sdd status` |
+| Sync recorded checks to local HEAD | `sdd sync <change>` |
+| Import measured agent token usage | `sdd metrics import <session-log>` |
 | Move to next step | `sdd next` |
 | Finish work | `sdd complete` |
 | Check the change works | `sdd verify` |
@@ -52,7 +54,7 @@ One command’s flags: `sdd <command> --help`.
 | Command | What it does | When |
 |---------|--------------|------|
 | `sdd init` | Create sdd files + one AI setup | Once per app |
-| `sdd init --force` | Refresh defaults (keeps your memory files; regenerates only sdd-generated agent files you haven’t edited) | Upgrades |
+| `sdd init --force` | Merge current defaults into supported config; refresh only unchanged SDD-generated workflows/templates and agent files | Upgrades |
 | `sdd new "title"` | Start a change pack from a free-form title | Everyday work |
 | `sdd new … -w <pack>` | Choose path (hotfix, feature, …) | You know the path |
 | `sdd new … -y` | Skip confirm prompts | Scripts / CI |
@@ -62,6 +64,8 @@ One command’s flags: `sdd <command> --help`.
 | `sdd feature list\|start` | **Alias** for `sdd backlog …` (compat) | Old scripts |
 | `sdd status` | Progress (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
+| `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
+| `sdd metrics import <session-log>` | Import measured Claude Code or Codex tokens into the active change; use `--change <id>` for another change | Review token use |
 | `sdd next` | Advance one stage | Step done |
 | `sdd next --force` | Bypass checks | Emergency only |
 | `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
@@ -94,18 +98,29 @@ One command’s flags: `sdd <command> --help`.
 
 ## About the AI opening
 
-Most process commands refresh a short handoff and may open your AI.  
+Most process commands refresh a short handoff and may open your AI.
 **Never open AI:** `status`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
 
-Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.  
+Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
+
+Phase timing and token metrics are enabled by default. Disable collection in `.sdd/config.yaml`:
+
+```yaml
+metrics:
+	enabled: false
+```
+
+Session imports store measured token counts, request IDs, phase names, and timestamps only. The session-log path and prompt/response content are not stored.
+
+`sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
 
 ---
 
 ## Related
 
-- [Everyday loop](../guides/everyday-loop)  
-- [Greenfield](../guides/greenfield)  
-- [AI setup](../guides/agents)  
-- [MCP sources](../guides/mcp)  
-- [Code context](../guides/code-context)  
+- [Everyday loop](../guides/everyday-loop)
+- [Greenfield](../guides/greenfield)
+- [AI setup](../guides/agents)
+- [MCP sources](../guides/mcp)
+- [Code context](../guides/code-context)

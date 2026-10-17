@@ -1,0 +1,21 @@
+id: 2026-10-12-issue-13-align-node-engine-requirements-and-support-docs
+title: "Issue #13: align Node engine requirements and support docs"
+workflow: patch
+created: 2026-10-12T16:15:13.688Z
+updated: 2026-10-12T16:23:29.042Z
+status: completed
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results:
+  local_verify:
+    ok: false
+    status: not_run
+    at: 2026-10-12T16:23:08.663Z
+    results: []
+completed_at: 2026-10-12T16:23:29.042Z

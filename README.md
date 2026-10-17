@@ -4,9 +4,9 @@ Your AI writes fast. The reasons disappear into chat.
 
 **`sdd`** is a **local Spec-Driven Development CLI**: short steps, notes **in your repo**, so you, your team, and Copilot / Claude Code / Grok / Ollama stay aligned.
 
-- No cloud process product  
-- No required IDE extension  
-- One AI at setup: Copilot, Grok, Claude Code, or Ollama  
+- No cloud process product
+- No required IDE extension
+- One AI at setup: Copilot, Grok, Claude Code, or Ollama
 
 | | |
 |---|---|
@@ -15,7 +15,7 @@ Your AI writes fast. The reasons disappear into chat.
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
 | **Roadmap** | [ROADMAP.md](./ROADMAP.md) (priorities P0–P3, intent for implementers) |
 | **MCP sources** | sdd *calls* org design-system / AST / API MCPs (`.sdd/mcp.yaml`) |
-| **Needs** | Node 20+ · about 10 minutes for the first loop |
+| **Needs** | Node 24+ · about 10 minutes for the first loop |
 
 ---
 
