@@ -738,4 +738,202 @@ stages:
     expect(aliasList.status, aliasList.stderr + aliasList.stdout).toBe(0);
     expect(aliasList.stdout + aliasList.stderr).toMatch(/F-001/);
   });
+
+  it("prints Metrics are disabled and writes nothing when metrics are off", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-report-off-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Disabled report", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const metricsPath = join(root, "changes", changeId, "metrics.json");
+    const pricesPath = join(root, ".sdd/prices.yaml");
+    const before = await readFile(metricsPath);
+    const configPath = join(root, ".sdd/config.yaml");
+    const config = await readFile(configPath, "utf8");
+    expect(config).toContain("enabled: true");
+    await writeFile(configPath, config.replace("enabled: true", "enabled: false"));
+    await rm(pricesPath);
+
+    for (const args of [
+      ["report"],
+      ["report", "--all"],
+      ["cost"],
+      ["report", "--change", changeId],
+    ]) {
+      const result = runSdd(root, args);
+      const out = `${result.stdout}\n${result.stderr}`;
+      expect(result.status, out).toBe(0);
+      expect(result.stdout.trim()).toBe("Metrics are disabled");
+      expect(out).not.toContain("No active change");
+      expect(out).not.toContain("prices.yaml is missing");
+    }
+    await writeFile(join(root, "changes/.active"), "\n");
+    for (const args of [["report"], ["report", "--all"], ["cost"]]) {
+      const result = runSdd(root, args);
+      expect(result.status, result.stderr + result.stdout).toBe(0);
+      expect(result.stdout.trim()).toBe("Metrics are disabled");
+    }
+    expect(await exists(pricesPath)).toBe(false);
+    expect(await readFile(metricsPath)).toEqual(before);
+  });
+
+  it("sorts sdd report --all and rejects --all with --change", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-report-all-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const writeMetrics = async (id: string, startedAt: string | null) => {
+      const dir = join(root, "changes", id);
+      await mkdir(dir, { recursive: true });
+      if (!startedAt) return;
+      await writeFile(
+        join(dir, "metrics.json"),
+        JSON.stringify({
+          version: 1,
+          phases: [{ phase: "intent", startedAt, endedAt: startedAt }],
+          requests: [],
+        }),
+      );
+    };
+    await writeMetrics("change-c", "2026-01-03T00:00:00.000Z");
+    await writeMetrics("change-b", "2026-01-02T00:00:00.000Z");
+    await writeMetrics("change-a", "2026-01-02T00:00:00.000Z");
+    await writeMetrics("change-d", null);
+
+    const listed = runSdd(root, ["report", "--all"]);
+    const listedOut = listed.stdout;
+    expect(listed.status, listed.stderr + listed.stdout).toBe(0);
+    const positions = ["change-a", "change-b", "change-c"].map((id) =>
+      listedOut.indexOf(`Change: ${id}`),
+    );
+    expect(positions.every((index) => index >= 0)).toBe(true);
+    expect(positions[0]).toBeLessThan(positions[1]!);
+    expect(positions[1]).toBeLessThan(positions[2]!);
+    expect(listedOut).not.toContain("change-d");
+
+    const pricesPath = join(root, ".sdd/prices.yaml");
+    const pricesBefore = await readFile(pricesPath);
+    const both = runSdd(root, ["report", "--all", "--change", "change-a"]);
+    expect(both.status).toBe(1);
+    expect(both.stdout + both.stderr).toContain("Use either --change or --all, not both.");
+    expect(await readFile(pricesPath)).toEqual(pricesBefore);
+    expect(await readFile(join(root, "changes", "change-a", "metrics.json"))).toBeTruthy();
+
+    const empty = await mkdtemp(join(tmpdir(), "sdd-cli-report-empty-"));
+    temps.push(empty);
+    expect(runSdd(empty, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const none = runSdd(empty, ["report", "--all"]);
+    expect(none.status, none.stderr + none.stdout).toBe(0);
+    expect(none.stdout).toContain("No change metrics found.");
+  });
+
+  it("prints the same cost text from sdd cost and sdd report", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-cost-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const changeId = "costed";
+    await mkdir(join(root, "changes", changeId), { recursive: true });
+    await writeFile(join(root, "changes/.active"), `${changeId}\n`);
+    await writeFile(
+      join(root, "changes", changeId, "metrics.json"),
+      JSON.stringify({
+        version: 1,
+        phases: [
+          {
+            phase: "intent",
+            startedAt: "2026-01-01T00:00:00.000Z",
+            endedAt: "2026-01-01T00:10:00.000Z",
+          },
+        ],
+        requests: [
+          {
+            provider: "claude-code",
+            requestId: "cost-1",
+            phase: "intent",
+            startedAt: "2026-01-01T00:00:00.000Z",
+            inputTokens: 1_000_000,
+            cacheReadTokens: null,
+            cacheWriteTokens: null,
+            outputTokens: null,
+            measured: true,
+          },
+        ],
+      }),
+    );
+    const report = runSdd(root, ["report"]);
+    const cost = runSdd(root, ["cost", "--change", changeId]);
+    expect(report.status, report.stderr + report.stdout).toBe(0);
+    expect(cost.status, cost.stderr + cost.stdout).toBe(0);
+    expect(cost.stdout).toBe(report.stdout);
+    expect(report.stdout).toContain("3.0000");
+    expect(report.stdout).toContain("252.00");
+    expect(report.stdout).not.toContain(root);
+
+    const pricesPath = join(root, ".sdd/prices.yaml");
+    const metricsPath = join(root, "changes", changeId, "metrics.json");
+    const pricesBefore = await readFile(pricesPath);
+    const metricsBefore = await readFile(metricsPath);
+    await writeFile(pricesPath, "not: prices\n");
+    const invalid = runSdd(root, ["report"]);
+    expect(invalid.status).toBe(1);
+    expect(invalid.stdout + invalid.stderr).toContain("prices.yaml is invalid");
+    expect(invalid.stdout + invalid.stderr).not.toContain("source  phase");
+    expect(await readFile(metricsPath)).toEqual(metricsBefore);
+    await writeFile(pricesPath, pricesBefore);
+  });
+
+  it("reports one measured import and estimates only an unmeasured handoff", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-report-import-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Report import", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const metricsPath = join(root, "changes", changeId, "metrics.json");
+    const handoff = join(root, ".sdd/handoff.md");
+    await rm(handoff, { force: true });
+
+    const missing = runSdd(root, ["report"]);
+    expect(missing.status, missing.stderr + missing.stdout).toBe(0);
+    expect(missing.stdout).toContain("No estimate: .sdd/handoff.md is missing.");
+    expect(missing.stdout).not.toContain(root);
+
+    await writeFile(handoff, "abcd😀");
+    const estimated = runSdd(root, ["report"]);
+    expect(estimated.status, estimated.stderr + estimated.stdout).toBe(0);
+    expect(estimated.stdout).toContain("estimated (handoff code points / 4)");
+    expect(estimated.stdout).toContain("default  1  1  n/a");
+
+    await chmod(handoff, 0o000);
+    const unreadable = runSdd(root, ["report"]);
+    expect(unreadable.status).toBe(1);
+    expect(unreadable.stdout + unreadable.stderr).toContain("Could not read .sdd/handoff.md.");
+    expect(unreadable.stdout + unreadable.stderr).not.toContain(root);
+    await chmod(handoff, 0o644);
+
+    const phase = JSON.parse(await readFile(metricsPath, "utf8")).phases[0];
+    const logPath = join(root, "session.jsonl");
+    const row = {
+      type: "assistant",
+      timestamp: phase.startedAt,
+      requestId: "report-request-1",
+      message: {
+        usage: { input_tokens: 12, output_tokens: 8 },
+        content: [{ type: "text", text: "PRIVATE PROMPT CONTENT" }],
+      },
+    };
+    await writeFile(logPath, `${JSON.stringify(row)}\n`);
+    expect(runSdd(root, ["metrics", "import", logPath]).status).toBe(0);
+    expect(runSdd(root, ["metrics", "import", logPath]).status).toBe(0);
+    const reported = runSdd(root, ["report"]);
+    expect(reported.status, reported.stderr + reported.stdout).toBe(0);
+    expect(reported.stdout).toContain("measured  total  all  1  12");
+    expect(reported.stdout).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(reported.stdout).not.toContain(logPath);
+    expect(reported.stdout).not.toContain("estimated");
+    const stored = await readFile(metricsPath, "utf8");
+    expect(stored).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(stored).not.toContain(logPath);
+    expect(JSON.parse(stored).requests).toHaveLength(1);
+  });
 });

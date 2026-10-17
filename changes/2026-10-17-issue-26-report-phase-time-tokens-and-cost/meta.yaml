@@ -1,0 +1,31 @@
+id: 2026-10-17-issue-26-report-phase-time-tokens-and-cost
+title: "Issue #26: report phase time, tokens, and cost"
+workflow: feature
+created: 2026-10-17T12:25:28.493Z
+updated: 2026-10-17T13:10:23.238Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: intent is clear
+    at: 2026-10-17T12:42:39.688Z
+  - stage: brainstorm
+    reason: single approach is clear
+    at: 2026-10-17T12:42:40.160Z
+  - stage: clarify_design
+    reason: design is locked
+    at: 2026-10-17T12:42:41.119Z
+  - stage: clarify_tasks
+    reason: tasks are locked
+    at: 2026-10-17T12:42:42.094Z
+gates: {}
+verify_results: {}
