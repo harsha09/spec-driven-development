@@ -23,14 +23,26 @@ export function memoryDir(projectRoot: string, config: Config): string {
   return join(projectRoot, config.memory_path);
 }
 
+/** Drop trailing `/` without a regex. A `/+` pattern is polynomial on a long run of slashes. */
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return value.slice(0, end);
+}
+
 /** Project-relative memory folder, always with a trailing slash stripped. */
 export function memoryPathRel(config: Pick<Config, "memory_path">): string {
-  return config.memory_path.replace(/\/+$/, "") || "memory";
+  return stripTrailingSlashes(config.memory_path) || "memory";
 }
 
 /** Project-relative changes folder, always with a trailing slash stripped. */
 export function changesPathRel(config: Pick<Config, "changes_path">): string {
-  return config.changes_path.replace(/\/+$/, "") || "changes";
+  return stripTrailingSlashes(config.changes_path) || "changes";
+}
+
+/** Repo-relative archive directory for a completed change. */
+export function displayArchivePath(config: Pick<Config, "archive_path">, changeId: string): string {
+  return `${stripTrailingSlashes(config.archive_path) || "archive"}/${changeId}`;
 }
 
 /** Repo-relative change directory shown to humans. Never an absolute machine path. */
