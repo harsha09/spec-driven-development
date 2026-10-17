@@ -18,7 +18,14 @@ import {
   writeYaml,
 } from "./fs.js";
 import { startPhase, transitionPhase } from "./metrics.js";
-import { archiveDir, changeMetaPath, changePath, changesDir, templatesDir } from "./paths.js";
+import {
+  archiveDir,
+  changeMetaPath,
+  changePath,
+  changesDir,
+  displayArchivePath,
+  templatesDir,
+} from "./paths.js";
 import {
   type ChangeMeta,
   ChangeMetaSchema,
@@ -530,6 +537,7 @@ export async function completeChange(
       ctx: {
         id: changeId,
         path: archivedTo,
+        displayPath: displayArchivePath(config, changeId),
         meta,
         workflow: ctx.workflow,
         stages: ctx.stages,

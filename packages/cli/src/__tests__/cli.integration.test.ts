@@ -75,6 +75,28 @@ afterEach(async () => {
 });
 
 describe("CLI integration", () => {
+  it("sdd status with an empty .active does not adopt another pack (#11)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-no-active-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Other pack", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    await writeFile(join(root, "changes/.active"), "\n");
+
+    const status = runSdd(root, ["status"]);
+    const out = status.stderr + status.stdout;
+    expect(status.status, out).toBe(1);
+    expect(out).toContain("No active change. Pass --change <id> or run `sdd new`.");
+    expect(out).not.toContain(root);
+
+    const id = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const selected = runSdd(root, ["status", "--change", id]);
+    const selectedOut = selected.stderr + selected.stdout;
+    expect(selected.status, selectedOut).toBe(0);
+    expect(selectedOut).toContain(`Path: changes/${id}`);
+    expect(selectedOut).not.toContain(root);
+  });
+
   it("init --root namespaces project data and warns before merging existing memory", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-layout-root-"));
     temps.push(root);
@@ -148,9 +170,7 @@ stages:
       env,
     );
     expect(created.status, created.stderr + created.stdout).toBe(0);
-    const changeId = (await readdir(join(root, "changes"))).find(
-      (name) => name !== ".gitkeep" && name !== ".active",
-    )!;
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
     expect(runSdd(root, ["next", "--no-agent"], env).status).toBe(0);
     expect(runSdd(root, ["verify", "--no-agent"], env).status).toBe(0);
 
@@ -178,9 +198,7 @@ stages:
 
     const created = runSdd(root, ["new", "Metrics CLI test", "-w", "hotfix", "-y", "--no-agent"]);
     expect(created.status, created.stderr + created.stdout).toBe(0);
-    const changeId = (await readdir(join(root, "changes"))).find(
-      (name) => name !== ".gitkeep" && name !== ".active",
-    )!;
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
     const changePath = join(root, "changes", changeId);
     const metricsPath = join(changePath, "metrics.json");
     const phase = JSON.parse(await readFile(metricsPath, "utf8")).phases[0];
@@ -345,7 +363,7 @@ stages:
 
     const { readdir } = await import("node:fs/promises");
     const changes = join(root, "changes");
-    const kids = (await readdir(changes)).filter((n) => n !== ".gitkeep" && n !== ".active");
+    const kids = (await readdir(changes)).filter((n) => !n.startsWith("."));
     expect(kids.length).toBeGreaterThanOrEqual(1);
     const changePath = join(changes, kids[0]!);
     expect(await exists(join(changePath, "meta.yaml"))).toBe(true);
@@ -418,6 +436,9 @@ stages:
     expect(created.status, createdOut).toBe(0);
     expect(createdOut).toMatch(/Non-interactive: using recommended workflow/i);
     expect(createdOut).toMatch(/Created change/i);
+    expect(createdOut).toMatch(/Path:\s+changes\//);
+    expect(createdOut).not.toContain(root);
+    expect(createdOut).toContain("Handoff: .sdd/handoff.md");
     expect(createdOut).not.toMatch(/uv_tty_init|TTY initialization failed/i);
   });
 
@@ -452,7 +473,7 @@ stages:
 
     const { readdir, writeFile } = await import("node:fs/promises");
     const changes = join(root, "changes");
-    const kid = (await readdir(changes)).find((n) => n !== ".gitkeep" && n !== ".active");
+    const kid = (await readdir(changes)).find((n) => !n.startsWith("."));
     const changePath = join(changes, kid!);
     expect(await exists(join(changePath, "local-test-results.md"))).toBe(false);
     await writeFile(
@@ -659,15 +680,16 @@ stages:
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
 
     const gf = runSdd(root, ["greenfield", "Shared shopping list for roommates", "--no-agent"]);
-    expect(gf.status, gf.stderr + gf.stdout).toBe(0);
-    expect(gf.stdout + gf.stderr).toMatch(/greenfield|vision/i);
-    expect(gf.stdout + gf.stderr).toMatch(/backlog start/i);
+    const gfOut = gf.stderr + gf.stdout;
+    expect(gf.status, gfOut).toBe(0);
+    expect(gfOut).toMatch(/greenfield|vision/i);
+    expect(gfOut).toMatch(/backlog start/i);
+    expect(gfOut).toMatch(/Path:\s+changes\//);
+    expect(gfOut).not.toContain(root);
     expect(await exists(join(root, ".sdd/workflows/greenfield.yaml"))).toBe(true);
 
     const { readdir, writeFile } = await import("node:fs/promises");
-    const kids = (await readdir(join(root, "changes"))).filter(
-      (n) => n !== ".gitkeep" && n !== ".active",
-    );
+    const kids = (await readdir(join(root, "changes"))).filter((n) => !n.startsWith("."));
     expect(kids.length).toBe(1);
     const changePath = join(root, "changes", kids[0]!);
     const vision = await readFile(join(changePath, "vision.md"), "utf8");
@@ -694,13 +716,19 @@ stages:
     );
 
     const list = runSdd(root, ["backlog", "list"]);
-    expect(list.status, list.stderr + list.stdout).toBe(0);
-    expect(list.stdout + list.stderr).toMatch(/F-001/);
-    expect(list.stdout + list.stderr).toMatch(/sdd new/i);
+    const listOut = list.stderr + list.stdout;
+    expect(list.status, listOut).toBe(0);
+    expect(listOut).toMatch(/F-001/);
+    expect(listOut).toMatch(/sdd new/i);
+    expect(listOut).toContain("memory/features.md");
+    expect(listOut).not.toContain(root);
 
     const start = runSdd(root, ["backlog", "start", "F-001", "--no-agent"]);
-    expect(start.status, start.stderr + start.stdout).toBe(0);
-    expect(start.stdout + start.stderr).toMatch(/F-001|Started/i);
+    const startOut = start.stderr + start.stdout;
+    expect(start.status, startOut).toBe(0);
+    expect(startOut).toMatch(/F-001|Started/i);
+    expect(startOut).toMatch(/Path:\s+changes\//);
+    expect(startOut).not.toContain(root);
 
     const backlogFile = await readFile(join(root, "memory/features.md"), "utf8");
     expect(backlogFile).toMatch(/\*\*Status:\*\*\s*in_progress/i);

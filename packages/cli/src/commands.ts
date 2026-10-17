@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import {
   advanceStage,
   approveGate,
@@ -47,6 +47,13 @@ import { metricsCmd } from "./metrics-cmd.js";
 import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
+
+/** Repo-relative path for command output. Falls back when the path is outside the project. */
+function displayRepoPath(projectRoot: string, absolutePath: string): string {
+  const rel = relative(projectRoot, absolutePath);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return absolutePath;
+  return rel.split(sep).join("/");
+}
 import { syncCmd } from "./sync-cmd.js";
 
 const init = defineCommand({
@@ -217,7 +224,7 @@ const newCmd = defineCommand({
       consola.success(`Created change ${pc.cyan(ctx.id)}`);
       consola.log(`Workflow: ${ctx.meta.workflow}`);
       consola.log(`Stage:    ${ctx.meta.stage}`);
-      consola.log(`Path:     ${ctx.path}`);
+      consola.log(`Path:     ${ctx.displayPath}`);
       consola.log("");
       consola.log(formatStatus(ctx));
       consola.log("");
@@ -225,9 +232,8 @@ const newCmd = defineCommand({
       const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
       const firstArt = stage?.artifacts.find((a) => a.required) ?? stage?.artifacts[0];
       if (firstArt) {
-        const artPath = join(ctx.path, firstArt.path);
         consola.log(pc.bold("Next steps:"));
-        consola.log(`  1. Open ${pc.cyan(artPath)}`);
+        consola.log(`  1. Open ${pc.cyan(`${ctx.displayPath}/${firstArt.path}`)}`);
         consola.log(
           `  2. Replace the template with real sentences (what’s wrong, what you’ll do, how you’ll know it worked)`,
         );
@@ -501,9 +507,9 @@ const verify = defineCommand({
         for (const item of result.checklist) consola.log(`  - [ ] ${item}`);
       }
       if (result.evidencePath) {
-        consola.info(`Evidence: ${result.evidencePath}`);
+        consola.info(`Evidence: ${displayRepoPath(root, result.evidencePath)}`);
       } else if (result.resultsPath) {
-        consola.info(`Results: ${result.resultsPath}`);
+        consola.info(`Results: ${displayRepoPath(root, result.resultsPath)}`);
       }
       if (result.status === "pass") {
         consola.success("Verify PASS — every command ran and exited 0.");
@@ -555,7 +561,7 @@ const complete = defineCommand({
       await writeAgentHandoff(root, config, id);
       const { archivedTo, ctx, promoted } = await completeChange(root, config, id);
       consola.success(`Completed ${ctx.id}`);
-      if (archivedTo) consola.info(`Archived to ${archivedTo}`);
+      if (archivedTo) consola.info(`Archived to ${displayRepoPath(root, archivedTo)}`);
       if (promoted?.length) {
         consola.success(`Promoted greenfield → memory: ${promoted.join(", ")}`);
         consola.log(
@@ -618,12 +624,14 @@ const greenfield = defineCommand({
       consola.success(`Started greenfield ${pc.cyan(ctx.id)}`);
       consola.log(`Workflow: ${ctx.meta.workflow}`);
       consola.log(`Stage:    ${ctx.meta.stage}`);
-      consola.log(`Path:     ${ctx.path}`);
+      consola.log(`Path:     ${ctx.displayPath}`);
       consola.log("");
       consola.log(formatStatus(ctx));
       consola.log("");
       consola.log(pc.bold("Next steps:"));
-      consola.log(`  1. Expand ${pc.cyan(visionPath)} (who, problem, MVP success)`);
+      consola.log(
+        `  1. Expand ${pc.cyan(displayRepoPath(root, visionPath))} (who, problem, MVP success)`,
+      );
       consola.log(`  2. ${pc.cyan("sdd next")} through requirements → features → architecture`);
       consola.log(
         `  3. ${pc.cyan("sdd complete")} promotes vision/requirements/features/architecture → memory/`,
@@ -655,7 +663,7 @@ const backlogList = defineCommand({
   async run() {
     await withProject(async ({ root, config }) => {
       const { path, features } = await listBacklogFeatures(root, config);
-      consola.log(pc.bold("Product backlog") + pc.dim(`  ${path}`));
+      consola.log(pc.bold("Product backlog") + pc.dim(`  ${displayRepoPath(root, path)}`));
       consola.log("");
       for (const f of features) {
         const st =
@@ -707,7 +715,7 @@ const backlogStart = defineCommand({
       consola.log(`Title:    ${ctx.meta.title}`);
       consola.log(`Workflow: ${ctx.meta.workflow}`);
       consola.log(`Stage:    ${ctx.meta.stage}`);
-      consola.log(`Path:     ${ctx.path}`);
+      consola.log(`Path:     ${ctx.displayPath}`);
       consola.log("");
       consola.log(formatStatus(ctx));
       consola.log("");
@@ -791,7 +799,7 @@ const agent = defineCommand({
         const body = await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8"));
         process.stdout.write(body);
         if (!body.endsWith("\n")) process.stdout.write("\n");
-        consola.info(pc.dim(`Written to ${path}`));
+        consola.info(pc.dim(`Written to ${displayRepoPath(root, path)}`));
         return;
       }
       const launch = await launchConfiguredAgent({
@@ -1044,7 +1052,9 @@ const contextCmd = defineCommand({
             result.markdown.endsWith("\n") ? result.markdown : `${result.markdown}\n`,
           );
         } else if (result.artifactPath) {
-          consola.success(`Wrote code context → ${pc.cyan(result.artifactPath)}`);
+          consola.success(
+            `Wrote code context → ${pc.cyan(displayRepoPath(root, result.artifactPath))}`,
+          );
           consola.log(
             pc.dim(
               `Files: ${result.summary.filesAnalyzed} · Symbols: ${result.summary.symbolsExtracted} · Slices: ${result.summary.slicesEmitted}${result.summary.truncated ? " · truncated" : ""}`,
@@ -1111,7 +1121,7 @@ const refine = defineCommand({
       await writeAgentHandoff(root, config, id);
 
       consola.success(
-        `Refine brief → ${pc.cyan(briefPath)} (stage ${pc.bold(plan.focusStageId)}, mode ${plan.mode})`,
+        `Refine brief → ${pc.cyan(displayRepoPath(root, briefPath))} (stage ${pc.bold(plan.focusStageId)}, mode ${plan.mode})`,
       );
       consola.log(
         pc.dim(`Focus artifacts: ${plan.focusArtifacts.map((a) => a.path).join(", ") || "(none)"}`),
@@ -1122,7 +1132,7 @@ const refine = defineCommand({
         ),
       );
       if (plan.mode === "analyze") {
-        consola.info(`Report target: ${plan.reportPath}`);
+        consola.info(`Report target: ${displayRepoPath(root, plan.reportPath)}`);
       }
       consola.log("");
 
@@ -1134,13 +1144,13 @@ const refine = defineCommand({
         noAgent: noAgentRequested(args),
         event: `${plan.mode} stage ${plan.focusStageId}`,
         kickoffInstructions: [
-          `Read first: ${briefPath}`,
+          `Read first: ${displayRepoPath(root, briefPath)}`,
           `Also: .sdd/protocol.md, .sdd/active-context.md`,
           plan.constitutionExists
-            ? `Constitution READ-ONLY: ${plan.constitutionPath}`
+            ? `Constitution READ-ONLY: ${displayRepoPath(root, plan.constitutionPath)}`
             : `No constitution.md (optional).`,
           plan.mode === "analyze"
-            ? `Mode ANALYZE: write findings to ${plan.reportPath} only — do not edit pack artifacts.`
+            ? `Mode ANALYZE: write findings to ${displayRepoPath(root, plan.reportPath)} only — do not edit pack artifacts.`
             : `Mode REFINE: improve focus-stage artifacts; impact-scan prior pack files (fix mechanical inconsistencies; highlight judgment). Never edit constitution. Do not run sdd next.`,
           plan.focusOnly
             ? `focusOnly=true: edit only focus-stage files.`
@@ -1201,8 +1211,7 @@ const doctor = defineCommand({
         const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
         const first = stage?.artifacts.find((a) => a.required) ?? stage?.artifacts[0];
         if (first) {
-          const p = join(ctx.path, first.path);
-          line("Open next", true, p);
+          line("Open next", true, `${ctx.displayPath}/${first.path}`);
         }
       } else {
         line("Active change", true, 'none — run: sdd new "My first change"');

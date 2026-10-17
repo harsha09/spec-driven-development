@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
@@ -20,6 +21,70 @@ async function freshProject() {
   await initProject({ projectRoot: root, agents: false });
   return root;
 }
+
+describe("per-machine gitignore (#11)", () => {
+  it("writes ignore files on fresh init and line-merges them on --force", async () => {
+    const root = await freshProject();
+    const sddIgnore = join(root, ".sdd/.gitignore");
+    const changesIgnore = join(root, "changes/.gitignore");
+    expect(await readFile(sddIgnore, "utf8")).toBe("handoff.md\nactive-context.md\n");
+    expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
+
+    await writeFile(sddIgnore, "# keep\nextra\nhandoff.md");
+    await initProject({ projectRoot: root, agents: false, force: true });
+    expect(await readFile(sddIgnore, "utf8")).toBe(
+      "# keep\nextra\nhandoff.md\nactive-context.md\n",
+    );
+    expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
+    expect(await readFile(sddIgnore, "utf8")).not.toContain("sdd:generated");
+  });
+
+  it("does not repair gitignore lines when re-init lacks --force", async () => {
+    const root = await freshProject();
+    const sddIgnore = join(root, ".sdd/.gitignore");
+    await writeFile(sddIgnore, "extra\n");
+    await expect(initProject({ projectRoot: root, agents: false })).rejects.toThrow(
+      /Already initialized/,
+    );
+    expect(await readFile(sddIgnore, "utf8")).toBe("extra\n");
+  });
+
+  it("warns when a per-machine file is already tracked and does not untrack it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-tracked-"));
+    temps.push(root);
+    const git = (...args: string[]) => {
+      const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout;
+    };
+    git("init");
+    git("config", "user.email", "sdd-test@example.com");
+    git("config", "user.name", "sdd test");
+    await initProject({ projectRoot: root, agents: false });
+    await writeFile(join(root, ".sdd/active-context.md"), "local notes\n");
+    git("add", "-f", ".sdd/active-context.md");
+    git("commit", "-m", "track active context");
+
+    const result = await initProject({ projectRoot: root, agents: false, force: true });
+    expect(result.warnings.some((warning) => warning.includes(".sdd/active-context.md"))).toBe(
+      true,
+    );
+    expect(git("ls-files", "--", ".sdd/active-context.md")).toContain(".sdd/active-context.md");
+    expect(await readFile(join(root, ".sdd/active-context.md"), "utf8")).toBe("local notes\n");
+  });
+
+  it("does not warn or throw when git cannot answer", async () => {
+    const root = await freshProject();
+    const result = await initProject({
+      projectRoot: root,
+      agents: false,
+      force: true,
+      indexLookup: async () => null,
+    });
+    expect(result.warnings.filter((warning) => /tracked/i.test(warning))).toEqual([]);
+    expect(await readFile(join(root, ".sdd/.gitignore"), "utf8")).toContain("handoff.md");
+  });
+});
 
 describe("sdd init --force preserves project customization", () => {
   it("merges nested config and custom paths over current defaults", async () => {
