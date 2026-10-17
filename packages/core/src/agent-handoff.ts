@@ -1,4 +1,3 @@
-import { join } from "pathe";
 import type { ChangeContext } from "./change-context.js";
 import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
@@ -10,7 +9,7 @@ export function formatStatus(ctx: ChangeContext): string {
   lines.push(`ID:     ${ctx.id}`);
   lines.push(`Status: ${ctx.meta.status}`);
   lines.push(`Workflow: ${ctx.meta.workflow}`);
-  lines.push(`Path: ${ctx.path}`);
+  lines.push(`Path: ${ctx.displayPath}`);
   lines.push("");
   lines.push("Stages:");
   for (const stage of ctx.stages) {
@@ -54,7 +53,7 @@ export async function buildAgentPrompt(
   parts.push(`- ID: ${ctx.id}`);
   parts.push(`- Workflow: ${ctx.meta.workflow}`);
   parts.push(`- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`);
-  parts.push(`- Change path: ${ctx.path}`);
+  parts.push(`- Change path: ${ctx.displayPath}`);
   parts.push("");
 
   if (stage?.summary) {
@@ -79,12 +78,11 @@ export async function buildAgentPrompt(
   parts.push("");
 
   parts.push(`## Artifacts to read`);
-  const memoryHint = join(projectRoot, config.memory_path);
-  parts.push(`- Documentation map (if present): \`${paths.memoryIndex}\` (${memoryHint}/index.md)`);
-  parts.push(`- Memory: \`${paths.memory}/\` (${memoryHint}/)`);
+  parts.push(`- Documentation map (if present): \`${paths.memoryIndex}\``);
+  parts.push(`- Memory: \`${paths.memory}/\``);
   for (const s of ctx.stages) {
     for (const a of s.artifacts) {
-      parts.push(`- ${join(ctx.path, a.path)}`);
+      parts.push(`- ${ctx.displayPath}/${a.path}`);
     }
   }
   parts.push("");

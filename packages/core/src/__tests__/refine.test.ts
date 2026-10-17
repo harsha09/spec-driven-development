@@ -67,11 +67,19 @@ describe("refine plan", () => {
     expect(planDesign.briefMarkdown).toMatch(/Prior stage artifacts/i);
     expect(planDesign.briefMarkdown).toMatch(/rg|grep|search/i);
 
+    expect(planDesign.briefMarkdown).not.toContain(root);
+    expect(planDesign.kickoff).not.toContain(root);
+    expect(planDesign.briefMarkdown).toContain(`changes/${ctx.id}/design.md`);
+
     const path = await writeRefineBrief(planDesign, root);
     expect(path).toBe(planDesign.briefPath);
     const body = await readFile(path, "utf8");
     expect(body).toContain("design");
     expect(body).toMatch(/READ-ONLY|read only/i);
+    expect(body).not.toContain(root);
+    const pointer = await readFile(join(root, ".sdd/refine-brief.md"), "utf8");
+    expect(pointer).toContain(`changes/${ctx.id}/refine-brief.md`);
+    expect(pointer).not.toContain(root);
   });
 
   it("analyze mode and focusOnly appear in brief", async () => {

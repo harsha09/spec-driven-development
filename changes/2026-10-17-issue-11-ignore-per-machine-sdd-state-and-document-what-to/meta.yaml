@@ -1,0 +1,15 @@
+id: 2026-10-17-issue-11-ignore-per-machine-sdd-state-and-document-what-to
+title: "Issue #11: ignore per-machine SDD state and document what to commit"
+workflow: patch
+created: 2026-10-17T10:43:27.875Z
+updated: 2026-10-17T11:09:26.464Z
+status: in_progress
+stage: implement
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results: {}
