@@ -60,7 +60,11 @@ export const searchCmd = defineCommand({
     await withProject(async ({ root, config }) => {
       try {
         const result = await executeSearch(root, config, query, args.scope as SearchScope, budget);
-        if (result.warning) consola.warn(result.warning);
+        if (result.warning) {
+          for (const line of result.warning.split("\n")) {
+            if (line) consola.warn(line);
+          }
+        }
         process.stdout.write(result.text);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Search failed.";

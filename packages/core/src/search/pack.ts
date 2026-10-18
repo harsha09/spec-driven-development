@@ -3,7 +3,15 @@ import type { RawHit, SearchHit } from "./types.js";
 
 const EN_DASH = "\u2013";
 
-export function searchPreamble(query: string, scope: string, budget: number): string {
+export function searchPreamble(
+  query: string,
+  scope: string,
+  budget: number,
+  hybrid = false,
+): string {
+  if (hybrid) {
+    return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: builtin\nMode: hybrid\nBudget: ${budget}\n\n`;
+  }
   return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: builtin\nBudget: ${budget}\n\n`;
 }
 

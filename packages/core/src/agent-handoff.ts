@@ -1,7 +1,7 @@
 import type { ChangeContext } from "./change-context.js";
 import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
-import { buildRetrievedInner } from "./search/index.js";
+import { type SearchRuntime, buildRetrievedInner } from "./search/index.js";
 import { getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
 export function formatStatus(ctx: ChangeContext): string {
@@ -43,6 +43,7 @@ export async function buildAgentPrompt(
   config: Config,
   projectRoot: string,
   budget?: number,
+  runtime?: SearchRuntime,
 ): Promise<string> {
   const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
   const parts: string[] = [];
@@ -152,6 +153,7 @@ export async function buildAgentPrompt(
     ctx.meta.title,
     ctx.meta.stage,
     budget,
+    runtime,
   );
   parts.push("## Retrieved context");
   parts.push("");

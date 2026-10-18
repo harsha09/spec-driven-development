@@ -14,7 +14,10 @@ export interface SearchHit {
   startLine: number;
   endLine: number;
   symbol: string;
-  /** Raw SQLite bm25(). More negative is a better match. */
+  /**
+   * Keyword hits store raw SQLite bm25() (more negative is better).
+   * Hybrid hits store the RRF score (higher is better).
+   */
   score: number;
   form: "full" | "signature";
   text: string;
@@ -40,6 +43,9 @@ export interface IndexStats {
   chunks: number;
   lastIndexFilesConsidered: number;
   lastIndexFilesReindexed: number;
+  lastIndexChunksReindexed: number;
+  lastIndexChunksEmbedded: number;
+  indexedCommit: string | null;
 }
 
 export interface SearchProvider {
@@ -59,4 +65,6 @@ export interface RawHit {
   signature: string;
   body: string;
   language: string;
+  /** Not printed. Keyword rows are bm25. Fused rows are rrf. */
+  rankedBy?: "bm25" | "rrf";
 }

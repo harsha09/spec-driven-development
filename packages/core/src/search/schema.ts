@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   start_line INTEGER NOT NULL,
   end_line INTEGER NOT NULL,
   signature TEXT NOT NULL,
-  body TEXT NOT NULL
+  body TEXT NOT NULL,
+  chunk_hash TEXT NOT NULL
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
@@ -35,4 +36,13 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS vec_meta (
+  chunk_id INTEGER PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+  chunk_hash TEXT NOT NULL,
+  scope TEXT NOT NULL CHECK (scope IN ('code', 'specs', 'memory'))
+);
 `;
+
+export const ADD_CHUNK_HASH_SQL =
+  "ALTER TABLE chunks ADD COLUMN chunk_hash TEXT NOT NULL DEFAULT ''";
