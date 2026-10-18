@@ -4,7 +4,7 @@
 > Each feature should fit **one PR**. Start implementation with:
 > `sdd backlog start F-001`
 
-Build in id order. Must items are the spine. Should items are the agent collaboration, modules, and the trace across code and documents.
+Build in id order. Must items are the spine a non-technical person can finish. Should items are run control, agent collaboration, modules, and the trace across code and documents. The 2026-10-18 review is applied. F-001 does not accept a spec, run an agent, or cut a release.
 
 ---
 
@@ -13,9 +13,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A person starts from scratch, from existing code, or from a bug, in their own words, and the original words stay as the intent.
-- **Requirements:** R-001, R-002
-- **Notes:** No command line. Scratch creates an empty product. Brownfield asks for the code location. A bug asks what happened and what they expected. Show the intent unchanged after a spec draft exists.
+- **Summary:** On a page, with no command, a person starts from scratch, from a folder of existing code, or from a bug, and their original words stay the intent.
+- **Requirements:** R-001
+- **Notes:** Scratch and brownfield ask them to pick a folder, including where a new product lives. A bug asks what happened and what they expected. Those words remain after any later draft. No agent runs, no spec is accepted, and no release is cut.
 
 ---
 
@@ -24,9 +24,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** Accepting a proposal stores a decision and updates the cited spec section. A replaced decision stays visible and points at the decision that replaced it.
-- **Requirements:** R-003, R-004, R-005
-- **Notes:** A decision has the choice, the options, who decided, when, and the spec section. The section stores the decision id. Do not store the decision only as a chat message.
+- **Summary:** The person accepts or corrects a short reading. That act stores a decision and updates the spec to their wording, and a replaced decision stays as its own row.
+- **Requirements:** R-002, R-003, R-004, R-005
+- **Notes:** The choice is their wording. The rejected option is the proposal. Intent text does not change. The section id is stable and is not a change-pack path. This works with no agent. Failure acceptance is a different decision kind and is not this feature.
 
 ---
 
@@ -35,9 +35,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** The person sees their decisions and the team's decisions, and can filter by who decided.
+- **Summary:** One person sees decisions they marked as theirs and decisions they marked as the team's, and each filter shows only that mark.
 - **Requirements:** R-006
-- **Notes:** Each row is plain language plus the feature it changed. Opening a row shows the rejected options and the spec text before and after.
+- **Notes:** No second account. Opening a row shows the rejected option and the wording before and after. The list is not a chat transcript.
 
 ---
 
@@ -46,9 +46,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A spec proposed from existing code stays a draft until the person accepts it, and that acceptance is the first decision.
+- **Summary:** A spec proposed from existing code stays a draft until the person accepts the short reading, and that acceptance is the first decision.
 - **Requirements:** R-008
-- **Notes:** Before acceptance, later work cannot treat the draft as the spec. After acceptance, new work starts from that spec.
+- **Notes:** Uses the folder picked in F-001 and the decision write from F-002. Before acceptance, later work cannot treat the draft as the spec.
 
 ---
 
@@ -57,9 +57,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A bug keeps what happened and what the person expected, and the fix has to cite that spec.
+- **Summary:** A bug keeps what happened and what the person expected as the intent, and the drafted spec stays a draft until they accept it.
 - **Requirements:** R-009
-- **Notes:** The bug appears later in the release that contains the fix. Do not describe the bug only as a commit message.
+- **Notes:** Acceptance is the first decision, same rule as brownfield. Code citation is F-006. Listing the fix on a release is F-009.
 
 ---
 
@@ -68,9 +68,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** Product code changes only from an accepted spec, and the change cites the spec section it followed.
+- **Summary:** The page lets the builder agent change code only from an accepted spec, shows that spec id, and refuses the builder in plain language when the spec is missing.
 - **Requirements:** R-007
-- **Notes:** Refuse a code change that has no accepted spec id. The citation is what release notes and QA use later.
+- **Notes:** The cited text is the accepted reading. An engineer's change pack stays outside this gate and is not described as a decision. A pack may cite the section as a work order. Completing a pack does not promote memory or mark the section current.
 
 ---
 
@@ -79,9 +79,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** Each accepted spec can produce scenarios in plain language, and each scenario cites the spec section it checks.
+- **Summary:** Scenarios are proposed from the accepted spec in plain language, and they count toward a release only after the person accepts them.
 - **Requirements:** R-010
-- **Notes:** The person can read a scenario without a test framework. Generating scenarios is a proposal until they accept it.
+- **Notes:** Each scenario cites the spec section. Acceptance is a decision. An accepted scenario is required unless a decision marks it not required.
 
 ---
 
@@ -90,9 +90,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A scenario shows pass or fail on a build, and a failure includes what was observed.
+- **Summary:** The person records pass or fail in their own words against the change they approved, and the result stores that change's git SHA.
 - **Requirements:** R-011
-- **Notes:** Results are per scenario and build. The latest result is what the release gate reads.
+- **Notes:** The page shows their words, not a build id. An agent may propose a result and cannot write it. A pass on an older SHA does not open the gate for a later SHA.
 
 ---
 
@@ -101,9 +101,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** The person opens a named release and sees the features and bug fixes that are in it.
+- **Summary:** The person names a release, chooses the accepted features and fixes in it, and the page lists only those.
 - **Requirements:** R-012
-- **Notes:** Work that is not in the release does not appear. Group rows by module once F-017 exists. Before that, a single list is enough.
+- **Notes:** The choice is a decision. Generate release does not make this choice. Group by module only after F-017.
 
 ---
 
@@ -112,9 +112,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** Release notes are generated from the release, in the person's words, and they cite the decisions that changed behavior.
+- **Summary:** Release notes are generated from the chosen release, in the person's words, and they cite the decisions that changed behavior.
 - **Requirements:** R-013
-- **Notes:** Do not generate notes from commit titles. Regenerating after a decision change updates the notes.
+- **Notes:** Do not generate notes from commit titles. This feature writes the notes. F-011 attaches them and does not write a second copy.
 
 ---
 
@@ -123,9 +123,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** The person can generate a release when required scenarios passed, or when a decision accepts a failure, and the release cites that decision.
+- **Summary:** The person generates a release for items they already chose. A failing required scenario blocks it until a failure decision, and a missing git tag does not fail the release.
 - **Requirements:** R-014
-- **Notes:** v1 writes the release record, the notes, and a git tag. It does not deploy. A failing required scenario blocks generation until an acceptance decision exists.
+- **Notes:** Attaches the notes from F-010. The failure decision does not rewrite the spec. The release says when the tag was not written. No deploy and no push.
 
 ---
 
@@ -134,9 +134,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** The person creates a named agent with one job, a durable description, the tools it may use, and an approval boundary.
+- **Summary:** The person creates a named agent with one job, a durable description, and an approval boundary in their words. An empty job is refused.
 - **Requirements:** R-015
-- **Notes:** Model this on a Grok Bot. The description holds lasting rules. The task message holds one assignment. A general helper with no job is allowed but the create screen asks for one job. Examples the person might create: spec steward, QA author, release editor, builder.
+- **Notes:** There is no tool form. The allow-list is derived from the boundary. The next task shows the saved job, description, and boundary. Examples they might create, each with a job, are spec steward, QA author, release editor, and builder.
 
 ---
 
@@ -145,9 +145,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A role agent runs a multi-step task on its own, shows progress, accepts a new instruction, and stops at the approval boundary with allow once, always allow, or deny.
-- **Requirements:** R-016, R-017, R-018
-- **Notes:** Ask-first wins when it overlaps an always-allow rule. Pause and resume are part of this feature. The approval shows the action and its inputs.
+- **Summary:** A role agent runs several steps on its own, then stops and shows the action in plain language so the person can allow it once or deny it.
+- **Requirements:** R-016
+- **Notes:** No message between the steps. The stop matches the accepted reading and is not a diff. Pause, a new instruction mid-run, always-allow, and ask-first are F-021.
 
 ---
 
@@ -156,9 +156,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** must
 - **Workflow:** feature
-- **Summary:** A role agent can propose a spec, a scenario, or a release, and only the person's acceptance writes the decision and changes the record.
+- **Summary:** An agent can propose a spec, a scenario, a result, or a release, and only the person principal can accept, record the result, or generate the release.
 - **Requirements:** R-019, R-020
-- **Notes:** Agent memory may store preferences. It must not be read as the spec. An agent-only run leaves drafts unaccepted.
+- **Notes:** The server rejects the agent principal for accept, replace, result write, generate, commit, and tag. Hiding a button is not enough. Agent memory does not change the spec or the QA result.
 
 ---
 
@@ -169,7 +169,7 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Workflow:** feature
 - **Summary:** One role agent hands a task to another, and both conversations show the handoff and the records involved.
 - **Requirements:** R-030
-- **Notes:** Same pattern as a Grok Bot messaging another bot. The receiving agent wakes and continues. The person is not the router.
+- **Notes:** Same pattern as a Grok Bot messaging another bot. The receiving agent wakes and continues. The person is not the router. Not part of the first demo.
 
 ---
 
@@ -180,7 +180,7 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Workflow:** feature
 - **Summary:** A role agent has a routine with a schedule, a next run, a history, and a pause control.
 - **Requirements:** R-031
-- **Notes:** A useful first routine is the QA author recording results after a build. Pausing the routine does not delete history.
+- **Notes:** A routine may propose a QA result and cannot write it. Pausing the routine does not delete history.
 
 ---
 
@@ -191,7 +191,7 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Workflow:** feature
 - **Summary:** The person groups specs, scenarios, and releases into modules, and a feature or bug names the modules it belongs to.
 - **Requirements:** R-032
-- **Notes:** This is the base for later integration. v1 of this feature is the map and the filter. It does not yet connect two modules.
+- **Notes:** This is the base for later integration. This feature is the map and the filter. It does not yet connect two modules.
 
 ---
 
@@ -211,9 +211,9 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Status:** planned
 - **Priority:** should
 - **Workflow:** feature
-- **Summary:** From a release-note line the person can open the decision, the spec, the scenario, the result, and the code citation.
+- **Summary:** From a release-note line the person can open the decision, the spec, the scenario, the result, and the code citation even if the local database is gone.
 - **Requirements:** R-034
-- **Notes:** This is how code, spec documentation, and release documentation stay one system. Ids are shared. The documents are renderings, not separate copies someone edits by hand.
+- **Notes:** Ids are shared. The documents are renderings of the committed projection, not separate copies someone edits by hand.
 
 ---
 
@@ -225,6 +225,17 @@ Build in id order. Must items are the spine. Should items are the agent collabor
 - **Summary:** The person duplicates an agent for a new scope and gets the job and the rules without the old conversation.
 - **Requirements:** R-035
 - **Notes:** Same idea as duplicating a Grok Bot. Credentials and conversation history stay behind.
+
+---
+
+## F-021: Run control and standing approval rules
+
+- **Status:** planned
+- **Priority:** should
+- **Workflow:** feature
+- **Summary:** The person can pause a run, send an instruction mid-run, always-allow one exact action, and set an ask-first rule that wins.
+- **Requirements:** R-017, R-018
+- **Notes:** The runner matches tool name plus the same input fields. The model does not decide the match. Depends on F-013. Not part of the first demo.
 
 ---
 

@@ -11,7 +11,7 @@ AIDLC where specs and decisions drive software for non-technical people.
 
 The person who knows what the software should do and does not write code. They start a product, continue a product that already has code, or report a bug. They decide what is correct. A coding agent writes and changes the code from the spec they accepted.
 
-A teammate can take part in the same decisions. The page shows which decisions were theirs and which were the team's.
+On one machine they can mark a decision as theirs or as the team's. That mark is a label, not a second account.
 
 ## Problem
 
@@ -29,27 +29,27 @@ This is the brainstorm for the greenfield. The greenfield workflow has no separa
 
 **Approach C. AIDLC records, chosen.** The person speaks in their own words. The product keeps that intent. An agent proposes a short reading and the spec text. The person accepts or corrects it. Acceptance is a decision, and the decision updates the spec. Code, QA scenarios, QA results, the release, and the release notes cite the same ids. Role agents do the drafting and the building. They run on their own and stop where the person set an approval boundary.
 
-**Agent shape inside approach C.** Copying Grok Bot's cloud computer, marketplace, and voice chat is out of the first version. The behavior to replicate is the bot model documented for Grok Bot: a named teammate with one job, a durable description, its own conversation, an autonomous multi-step run, a stop for approval, and a handoff to another bot. Working memory helps the agent. It is not the spec. The spec and the decisions remain the source of truth. Sources: Grok Bot overview and bot management at https://docs.x.ai/grok-bot/overview and https://docs.x.ai/grok-bot/bots, and approvals at https://docs.x.ai/grok-bot/approvals-security-and-privacy.
+**Agent shape inside approach C.** Copying Grok Bot's cloud computer, marketplace, and voice chat is out of the first version. The first version copies one job, a durable description, its own conversation, a multi-step run, and a stop where the person allows the action once or denies it. Handoff, routines, pause, and standing allow rules come after that. Working memory helps the agent. It is not the spec. Sources: Grok Bot overview and bot management at https://docs.x.ai/grok-bot/overview and https://docs.x.ai/grok-bot/bots, and approvals at https://docs.x.ai/grok-bot/approvals-security-and-privacy.
 
 ## Chosen approach
 
 Approach C. The smallest useful product lets one person do five things.
 
-1. Start from scratch, from existing code, or from a bug, in their own words.
-2. Accept or correct a proposed spec, and see that choice later as a decision.
-3. See QA scenarios that came from the spec, and the pass or fail on a build.
-4. See which features and fixes are in a release, generate the release notes, and generate the release when the required checks passed or they explicitly accept a failure.
-5. Create a role-specific agent, give it a job and an approval boundary, and let it run until it finishes or must ask.
+1. Start from scratch, from existing code, or from a bug, in their own words, and pick where the product lives.
+2. Accept or correct a short reading, and see that choice later as a decision.
+3. Accept QA scenarios that came from the spec, and record pass or fail in their own words.
+4. Choose which features and fixes are in a release, generate the notes, and generate the release when the required checks passed or they accept a failure.
+5. Create one role agent, give it a job and an approval boundary, and let it run until it finishes or must ask.
 
 ## MVP success (how we know it worked)
 
 A person who does not use a terminal can complete this path on one product.
 
-They describe a new capability in a sentence. They accept a short reading. The spec updates, and the decision lists their name and the options they did not take. A role agent they created proposes the code change and stops before writing it, because code changes are behind the approval boundary. They allow it. The code cites the spec. QA scenarios from that spec are visible. A result is recorded against a build. They generate release notes that mention the capability in their words, and they generate the release only after the required scenario passed.
+The first demo is one new product. They describe a capability in one sentence. They accept or correct a short reading, and that act is the decision. A role agent they created proposes the code change and stops before writing it. They allow it once. The code cites that same reading. They accept one scenario and record its result in their words. Generate release is refused while that scenario is failing. The notes use their sentence, not commit titles.
 
-The same path works for a bug. For existing code, a proposed spec is not treated as accepted until they accept it, and that acceptance is the first decision.
+A bug and a product that already has code follow the same rule. Their words stay the intent. A drafted spec is not current until they accept it, and that acceptance is the first decision.
 
-A second role agent can be asked to draft the scenarios. The handoff is visible. Neither agent can mark the spec accepted or ship the release by itself.
+The agent cannot mark the spec accepted, record the result, or ship the release. A second agent and a handoff are not part of this demo.
 
 ## Non-goals (explicitly out of v1)
 
@@ -61,14 +61,18 @@ A second role agent can be asked to draft the scenarios. The handoff is visible.
 
 ## Constraints
 
-- Time box: the first build is the record spine plus one autonomous role agent. Module integration and scheduled routines are specified now and built after the spine is demonstrable.
+- Time box: the first build is the record spine plus one autonomous role agent that stops for a single allow or deny. Pause, standing allow rules, routines, handoff, and modules are specified and built after that demo.
 - Platforms: a local web app in this TypeScript monorepo, bound to the person's machine for v1. Shared hosting is later.
 - Compliance / privacy: agent working memory is not an authority. Specs, decisions, and QA results are the records that can be reviewed. An approval shows the action and its inputs before the person allows it.
 
+## Review
+
+On 2026-10-18 the product manager, product owner, and architect accepted this direction with changes. Those changes are in the requirements, the backlog, and the architecture. The first demo does not include a second agent.
+
 ## Open questions
 
-- Open: whether v1 stores records only in git, or in a local database that publishes the spec into git. The architecture stage recommends a local database plus a git projection so the person can list decisions without reading files, and the code still sits next to the spec.
-- Open: whether "generate a release" in v1 tags a git version and writes the notes, or also deploys. v1 generates the release record, the notes, and the git tag. Deploy stays behind an approval and can be a later feature.
+- Closed: records live in a local database used as an index, and each acceptance is also committed as an append-only decision plus the spec text. The id resolves without the database.
+- Closed: v1 generates the release record and attaches the notes. A local git tag is written when it can be. A missing tag is reported and does not fail the release. Deploy is later.
 
 ---
 
