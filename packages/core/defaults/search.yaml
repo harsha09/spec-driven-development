@@ -1,0 +1,17 @@
+# Operator-owned search config. sdd does not refresh this file.
+# Keyword index only. Embeddings are a later phase.
+version: 1
+provider: builtin
+k: 20
+budgets:
+  default: 12000
+  intent: 4000
+  clarify_intent: 4000
+  brainstorm: 4000
+  design: 8000
+  clarify_design: 8000
+  tasks: 8000
+  clarify_tasks: 8000
+  implement: 12000
+  local_verify: 8000
+exclude: []

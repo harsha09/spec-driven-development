@@ -13,6 +13,7 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   clean: true,
+  external: ["better-sqlite3", "gpt-tokenizer", "web-tree-sitter", "ignore"],
   define: {
     __SDD_CORE_VERSION__: JSON.stringify(pkg.version),
   },

@@ -7,6 +7,7 @@ import {
   defaultMcpYamlPath,
   defaultMemoryDir,
   defaultPricesYamlPath,
+  defaultSearchYamlPath,
   defaultTemplatesDir,
   defaultWorkflowsDir,
 } from "./defaults.js";
@@ -170,6 +171,14 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
     if (wrote) created.push(pricesDest);
   }
 
+  // Operator-owned search config. Same write-if-missing rule as prices.yaml.
+  const searchSrc = defaultSearchYamlPath();
+  const searchDest = join(root, "search.yaml");
+  if (await pathExists(searchSrc)) {
+    const wrote = await writeTextIfMissing(searchDest, await readText(searchSrc));
+    if (wrote) created.push(searchDest);
+  }
+
   // memory — stable team docs; never overwrite on --force (constitution, product, …)
   const mDest = memoryDir(projectRoot, config);
   const existingMemoryFiles = await listRelativeFiles(mDest);
@@ -288,7 +297,16 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
 
   const sddIgnore = join(root, ".gitignore");
   const changesIgnore = join(changesDir(projectRoot, config), ".gitignore");
-  if (await ensureIgnoreEntries(sddIgnore, ["handoff.md", "active-context.md"])) {
+  if (
+    await ensureIgnoreEntries(sddIgnore, [
+      "handoff.md",
+      "active-context.md",
+      "index.db",
+      "index.db-journal",
+      "index.db-wal",
+      "index.db-shm",
+    ])
+  ) {
     created.push(sddIgnore);
   }
   if (await ensureIgnoreEntries(changesIgnore, [".active"])) {
@@ -297,6 +315,7 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
   const perMachine = [
     ".sdd/active-context.md",
     ".sdd/handoff.md",
+    ".sdd/index.db",
     `${changesPathRel(config)}/.active`,
   ];
   const tracked = await (opts.indexLookup ?? gitTrackedPaths)(projectRoot, perMachine);

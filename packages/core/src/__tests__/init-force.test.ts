@@ -27,13 +27,15 @@ describe("per-machine gitignore (#11)", () => {
     const root = await freshProject();
     const sddIgnore = join(root, ".sdd/.gitignore");
     const changesIgnore = join(root, "changes/.gitignore");
-    expect(await readFile(sddIgnore, "utf8")).toBe("handoff.md\nactive-context.md\n");
+    expect(await readFile(sddIgnore, "utf8")).toBe(
+      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
+    );
     expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
 
     await writeFile(sddIgnore, "# keep\nextra\nhandoff.md");
     await initProject({ projectRoot: root, agents: false, force: true });
     expect(await readFile(sddIgnore, "utf8")).toBe(
-      "# keep\nextra\nhandoff.md\nactive-context.md\n",
+      "# keep\nextra\nhandoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
     );
     expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
     expect(await readFile(sddIgnore, "utf8")).not.toContain("sdd:generated");
@@ -191,5 +193,37 @@ describe("sdd init --force preserves project customization", () => {
     await rm(prices);
     await initProject({ projectRoot: root, agents: false, force: true });
     expect(await readFile(prices, "utf8")).toBe(text);
+  });
+
+  it("writes search.yaml when missing, keeps an edit, and ignores the index", async () => {
+    const root = await freshProject();
+    const search = join(root, ".sdd/search.yaml");
+    const text = await readFile(search, "utf8");
+    expect(text).toContain("provider: builtin");
+    expect(text).not.toContain("sdd:generated");
+    const manifest = JSON.parse(await readFile(join(root, ".sdd/.generated.json"), "utf8")) as {
+      files: Record<string, string>;
+    };
+    expect(manifest.files[".sdd/search.yaml"]).toBeUndefined();
+    expect(await readFile(join(root, ".sdd/.gitignore"), "utf8")).toBe(
+      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
+    );
+
+    const edited = `${text}# user edit\n`;
+    await writeFile(search, edited);
+    await initProject({ projectRoot: root, agents: false, force: true });
+    expect(await readFile(search, "utf8")).toBe(edited);
+
+    await rm(search);
+    await initProject({ projectRoot: root, agents: false, force: true });
+    expect(await readFile(search, "utf8")).toBe(text);
+
+    const git = spawnSync("git", ["init"], { cwd: root, encoding: "utf8" });
+    expect(git.status, git.stderr).toBe(0);
+    const ignored = spawnSync("git", ["check-ignore", ".sdd/index.db"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(ignored.status, ignored.stderr).toBe(0);
   });
 });

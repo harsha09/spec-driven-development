@@ -12,18 +12,8 @@ export interface FormatInput {
   changeTitle?: string | null;
   maxOutputLines?: number;
   maxTokensApprox?: number;
-}
-
-function fenceLang(filePath: string): string {
-  const lower = filePath.toLowerCase();
-  if (lower.endsWith(".tsx") || lower.endsWith(".jsx")) return "tsx";
-  if (lower.endsWith(".ts") || lower.endsWith(".mts") || lower.endsWith(".cts")) {
-    return "ts";
-  }
-  if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) {
-    return "js";
-  }
-  return "";
+  /** Packed hit blocks. The frame above `## Slices` is outside the token budget. */
+  packedText?: string;
 }
 
 export function formatMarkdown(input: FormatInput): {
@@ -69,53 +59,9 @@ export function formatMarkdown(input: FormatInput): {
   lines.push("## Slices");
   lines.push("");
 
-  let truncated = input.summary.truncated;
-  const maxLines = input.maxOutputLines ?? 8000;
-  const maxTokens = input.maxTokensApprox ?? 12000;
-  let approxTokens = 0;
-
-  for (const slice of input.slices) {
-    if (lines.length >= maxLines) {
-      truncated = true;
-      break;
-    }
-    const header = `### \`${slice.filePath}\`${
-      slice.symbolName ? ` · \`${slice.symbolName}\`` : ""
-    } (lines ${slice.startLine}–${slice.endLine}) · ${slice.reason}`;
-    lines.push(header);
-    lines.push("```" + fenceLang(slice.filePath));
-    lines.push(slice.body);
-    lines.push("```");
-    lines.push("");
-    approxTokens += Math.ceil((header.length + slice.body.length) / 4);
-    if (approxTokens > maxTokens) {
-      truncated = true;
-      break;
-    }
-  }
-
-  if (!input.slices.length) {
-    lines.push("_No slices emitted._");
-    lines.push("");
-  }
-
-  lines.push("## Structural notes");
-  const topFiles = [...new Set(input.slices.map((s) => s.filePath))].slice(0, 15);
-  if (topFiles.length) {
-    lines.push(`- Ranked files (sample): ${topFiles.join(", ")}`);
-  } else {
-    lines.push("- No structural neighborhood (empty analysis set).");
-  }
-  lines.push("");
-
-  let markdown = lines.join("\n");
-  // Hard token budget on whole doc
-  if (Math.ceil(markdown.length / 4) > maxTokens) {
-    truncated = true;
-    markdown = markdown.slice(0, maxTokens * 4) + "\n\n…(truncated)\n";
-  }
-
-  return { markdown, truncated };
+  const packed = input.packedText ?? "";
+  const frame = `${lines.join("\n")}\n`;
+  return { markdown: packed ? frame + packed : frame, truncated: input.summary.truncated };
 }
 
 export function formatJsonSummary(
