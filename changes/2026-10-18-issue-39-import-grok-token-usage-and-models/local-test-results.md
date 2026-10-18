@@ -25,6 +25,6 @@ Node v20.19.3. `EBADENGINE` warnings are expected (`engines` wants Node >= 24).
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="3086eea77a625732ed845a036b25c35c0065855e" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="226e0d40bd5857eb5bd6c9b6c3bd29c8d5667320" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)
