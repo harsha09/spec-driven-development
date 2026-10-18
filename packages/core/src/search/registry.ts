@@ -1,7 +1,9 @@
 import type { Config } from "../schemas.js";
-import { createBuiltinProvider, keywordHits } from "./builtin.js";
+import { createBuiltinProvider, rankScope } from "./builtin.js";
 import { type SearchConfig, budgetForStage, loadSearchConfig } from "./config.js";
+import { type SearchRuntime, embedSearchQuery, resolveEmbedder } from "./embed.js";
 import { packHits } from "./pack.js";
+import { mergeRankedHits } from "./rrf.js";
 import type { RawHit, SearchProvider, SearchQuery, SearchResult, SearchScope } from "./types.js";
 
 const extra = new Map<string, SearchProvider>();
@@ -18,12 +20,18 @@ export function fallbackWarning(name: string): string {
   return `Search provider "${name}" is unavailable. Using built-in keyword search.`;
 }
 
+function joinWarning(left?: string, right?: string): string | undefined {
+  if (left && right) return `${left}\n${right}`;
+  return left || right;
+}
+
 export function resolveSearchProvider(
   projectRoot: string,
   config: Config,
   search: SearchConfig,
+  runtime?: SearchRuntime,
 ): SearchProvider {
-  const builtin = createBuiltinProvider(projectRoot, config);
+  const builtin = createBuiltinProvider(projectRoot, config, runtime);
   const name = search.provider || "builtin";
   if (name === "builtin") return builtin;
   const registered = extra.get(name);
@@ -47,7 +55,7 @@ export function resolveSearchProvider(
     async search(query, options) {
       try {
         const result = await active.search(query, options);
-        if (warning) result.warning = warning;
+        result.warning = joinWarning(warning, result.warning);
         result.provider = "builtin";
         return result;
       } catch (err) {
@@ -55,7 +63,7 @@ export function resolveSearchProvider(
         mark();
         await builtin.index();
         const result = await builtin.search(query, options);
-        result.warning = warning;
+        result.warning = joinWarning(warning, result.warning);
         result.provider = "builtin";
         return result;
       }
@@ -65,8 +73,6 @@ export function resolveSearchProvider(
     },
   };
 }
-
-const SCOPE_ORDER: Record<SearchScope, number> = { specs: 0, memory: 1, code: 2 };
 
 function safeMessage(err: unknown, projectRoot: string): string {
   const raw = err instanceof Error ? err.message : "Search failed.";
@@ -81,6 +87,7 @@ export async function buildRetrievedInner(
   title: string,
   stage: string | undefined,
   budget: number | undefined,
+  runtime?: SearchRuntime,
 ): Promise<string> {
   let search: SearchConfig;
   try {
@@ -89,7 +96,7 @@ export async function buildRetrievedInner(
     return `Retrieved context skipped: ${safeMessage(err, projectRoot)}.`;
   }
   const limit = budget ?? budgetForStage(search, stage);
-  const provider = resolveSearchProvider(projectRoot, config, search);
+  const provider = resolveSearchProvider(projectRoot, config, search, runtime);
   try {
     await provider.index();
   } catch (err) {
@@ -98,19 +105,18 @@ export async function buildRetrievedInner(
     return `Retrieved context skipped: ${message}.`;
   }
   try {
+    const embedder = await resolveEmbedder(projectRoot, search.embeddings, runtime);
+    const embedded = await embedSearchQuery(embedder, search.embeddings, title);
     const hits: RawHit[] = [];
     for (const scope of ["specs", "memory", "code"] as const) {
-      hits.push(...(await keywordHits(projectRoot, title, scope, search.k)));
+      const ranked = await rankScope(projectRoot, title, scope, search.k, {
+        embeddings: search.embeddings,
+        queryVec: embedded.queryVec,
+        failure: embedded.failure,
+      });
+      hits.push(...ranked.hits);
     }
-    hits.sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      const scopeDelta = SCOPE_ORDER[a.scope] - SCOPE_ORDER[b.scope];
-      if (scopeDelta !== 0) return scopeDelta;
-      if (a.path !== b.path) return a.path < b.path ? -1 : 1;
-      if (a.startLine !== b.startLine) return a.startLine - b.startLine;
-      return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0;
-    });
-    return packHits({ preamble: "", hits, budget: limit }).text;
+    return packHits({ preamble: "", hits: mergeRankedHits(hits), budget: limit }).text;
   } catch (err) {
     const message =
       search.provider === "builtin"

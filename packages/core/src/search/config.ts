@@ -19,6 +19,7 @@ const SearchConfigSchema = z.object({
   version: z.literal(1).default(1),
   provider: z.string().min(1).default("builtin"),
   k: z.number().int().min(1).max(100).default(20),
+  embeddings: z.boolean().default(false),
   budgets: BudgetSchema.default({ default: 12000 }),
   exclude: z.array(z.string().min(1)).default([]),
 });
