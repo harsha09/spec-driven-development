@@ -1,0 +1,18 @@
+id: 2026-10-18-greenfield-aidlc-where-specs-and-decisions-drive-software
+title: "Greenfield: AIDLC where specs and decisions drive software for non-technical people"
+workflow: greenfield
+created: 2026-10-18T05:46:50.022Z
+updated: 2026-10-18T05:49:14.611Z
+status: completed
+stage: architecture
+flags:
+  greenfield: true
+  idea: AIDLC where specs and decisions drive software for non-technical people
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results: {}
+completed_at: 2026-10-18T05:49:14.611Z
