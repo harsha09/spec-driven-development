@@ -72,7 +72,7 @@ export interface RenderChangeReportInput {
 }
 
 const TOKEN_HEADER =
-  "source  phase  provider  requests  input  cache_read  cache_write  output  usd  inr";
+  "source  phase  provider  model  requests  input  cache_read  cache_write  output  usd  inr";
 
 function finiteMs(startIso: string, endMs: number): number {
   const start = Date.parse(startIso);
@@ -195,9 +195,13 @@ export async function loadPrices(projectRoot: string): Promise<Prices | null> {
   }
 }
 
-function cardFor(prices: Prices, provider: string): PriceCard {
-  const models: Record<string, PriceCard> = prices.models;
-  return models[provider] ?? prices.models.default;
+function cardFor(prices: Prices, provider: string, model?: string | null): PriceCard {
+  if (model && prices.models[model]) return prices.models[model];
+  return prices.models[provider] ?? prices.models.default;
+}
+
+function modelCell(model: string | null | undefined): string {
+  return model ? model : "n/a";
 }
 
 interface Totals extends TokenCounts {
@@ -229,6 +233,7 @@ function tokenLine(
   source: string,
   phase: string,
   provider: string,
+  model: string,
   totals: Totals,
   prices: Prices | null,
   card: PriceCard | null,
@@ -239,6 +244,7 @@ function tokenLine(
     source,
     phase,
     provider,
+    model,
     String(totals.requests),
     cell(totals.input),
     cell(totals.cacheRead),
@@ -252,16 +258,18 @@ function tokenLine(
 interface RequestGroup {
   phase: string;
   provider: string;
+  model: string | null;
   totals: Totals;
 }
 
 function groupRequests(metrics: ChangeMetrics): RequestGroup[] {
   const groups = new Map<string, RequestGroup>();
   for (const request of metrics.requests) {
-    const key = `${request.phase}\0${request.provider}`;
+    const model = request.model ?? null;
+    const key = `${request.phase}\0${request.provider}\0${model ?? ""}`;
     let group = groups.get(key);
     if (!group) {
-      group = { phase: request.phase, provider: request.provider, totals: emptyTotals() };
+      group = { phase: request.phase, provider: request.provider, model, totals: emptyTotals() };
       groups.set(key, group);
     }
     addRequest(group.totals, request);
@@ -276,7 +284,9 @@ function groupRequests(metrics: ChangeMetrics): RequestGroup[] {
   return [...groups.values()].sort((left, right) => {
     const phaseDelta = phaseOrder.indexOf(left.phase) - phaseOrder.indexOf(right.phase);
     if (phaseDelta !== 0) return phaseDelta;
-    return left.provider.localeCompare(right.provider);
+    const providerDelta = left.provider.localeCompare(right.provider);
+    if (providerDelta !== 0) return providerDelta;
+    return (left.model ?? "").localeCompare(right.model ?? "");
   });
 }
 
@@ -312,6 +322,7 @@ export function renderChangeReport(input: RenderChangeReportInput): string {
           "estimated (handoff code points / 4)",
           "n/a",
           "default",
+          "n/a",
           {
             requests: 1,
             input: estimated,
@@ -326,9 +337,17 @@ export function renderChangeReport(input: RenderChangeReportInput): string {
     }
   } else {
     for (const group of groupRequests(input.metrics)) {
-      const card = input.prices ? cardFor(input.prices, group.provider) : null;
+      const card = input.prices ? cardFor(input.prices, group.provider, group.model) : null;
       lines.push(
-        `  ${tokenLine("measured", group.phase, group.provider, group.totals, input.prices, card)}`,
+        `  ${tokenLine(
+          "measured",
+          group.phase,
+          group.provider,
+          modelCell(group.model),
+          group.totals,
+          input.prices,
+          card,
+        )}`,
       );
     }
     const total = emptyTotals();
@@ -363,15 +382,15 @@ function requestHasNumericToken(request: ChangeMetrics["requests"][number]): boo
   );
 }
 
-/** Total cost sums each request at its own provider card. Token cells stay a plain sum. */
+/** Total cost uses each request's model, provider, or default card. Token cells stay a plain sum. */
 function totalLine(totals: Totals, metrics: ChangeMetrics, prices: Prices | null): string {
-  if (!prices) return tokenLine("measured", "total", "all", totals, null, null);
+  if (!prices) return tokenLine("measured", "total", "all", "all", totals, null, null);
   let numerator = 0n;
   let any = false;
   for (const request of metrics.requests) {
     if (!requestHasNumericToken(request)) continue;
     any = true;
-    numerator += requestUsdNumerator(request, cardFor(prices, request.provider));
+    numerator += requestUsdNumerator(request, cardFor(prices, request.provider, request.model));
   }
   const cost = !any
     ? { usd: "n/a", inr: "n/a" }
@@ -382,6 +401,7 @@ function totalLine(totals: Totals, metrics: ChangeMetrics, prices: Prices | null
   return [
     "measured",
     "total",
+    "all",
     "all",
     String(totals.requests),
     cell(totals.input),
