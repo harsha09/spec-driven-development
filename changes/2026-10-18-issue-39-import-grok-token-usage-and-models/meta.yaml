@@ -1,0 +1,39 @@
+id: 2026-10-18-issue-39-import-grok-token-usage-and-models
+title: "Issue #39: import Grok token usage and models"
+workflow: feature
+created: 2026-10-18T08:40:34.934Z
+updated: 2026-10-18T08:56:00.915Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: intent is clear
+    at: 2026-10-18T08:40:37.080Z
+  - stage: brainstorm
+    reason: single approach is clear
+    at: 2026-10-18T08:40:38.007Z
+  - stage: clarify_design
+    reason: design locks are in design.md
+    at: 2026-10-18T08:41:58.963Z
+  - stage: clarify_tasks
+    reason: tasks are listed
+    at: 2026-10-18T08:41:59.893Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 3086eea77a625732ed845a036b25c35c0065855e
+    at: 2026-10-18T08:56:00.915Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

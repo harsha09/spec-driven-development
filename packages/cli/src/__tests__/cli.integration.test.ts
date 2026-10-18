@@ -235,6 +235,75 @@ stages:
     expect(JSON.parse(stored).requests).toHaveLength(1);
   });
 
+  it("imports a Grok usage.json per model and warns when usage is incomplete", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-grok-usage-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Grok usage", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const metricsPath = join(root, "changes", changeId, "metrics.json");
+    const startedAt = JSON.parse(await readFile(metricsPath, "utf8")).phases[0].startedAt as string;
+    const sessionDir = join(root, "grok-session");
+    await mkdir(sessionDir);
+    const usagePath = join(sessionDir, "usage.json");
+    await writeFile(
+      usagePath,
+      JSON.stringify({
+        sessionId: "sess",
+        session: { usageIsIncomplete: true, inputTokens: 999999, prompt: "PRIVATE PROMPT CONTENT" },
+        turns: [
+          {
+            turnNumber: 1,
+            endedAt: "1999-01-01T00:00:00.000Z",
+            modelUsage: {
+              "grok-4": {
+                inputTokens: 100,
+                cachedReadTokens: 40,
+                cacheCreationTokens: 10,
+                outputTokens: 7,
+              },
+            },
+          },
+        ],
+      }),
+    );
+    await writeFile(
+      join(sessionDir, "events.jsonl"),
+      `${JSON.stringify({
+        type: "turn_started",
+        turn_number: 1,
+        ts: startedAt,
+        text: "PRIVATE PROMPT CONTENT",
+      })}\n`,
+    );
+
+    const imported = runSdd(root, ["metrics", "import", sessionDir, "--change", changeId]);
+    expect(imported.status, imported.stderr + imported.stdout).toBe(0);
+    expect(imported.stdout + imported.stderr).toContain("Imported 1 measured request");
+    expect(imported.stdout + imported.stderr).toContain(
+      "Grok usage is incomplete; recorded tokens may under-count.",
+    );
+    const stored = JSON.parse(await readFile(metricsPath, "utf8")) as {
+      requests: Array<{ model?: string; inputTokens: number; requestId: string }>;
+    };
+    expect(stored.requests).toEqual([
+      expect.objectContaining({
+        provider: "grok",
+        model: "grok-4",
+        requestId: "sess:1:grok-4",
+        inputTokens: 50,
+        cacheReadTokens: 40,
+        cacheWriteTokens: 10,
+        outputTokens: 7,
+      }),
+    ]);
+    const raw = await readFile(metricsPath, "utf8");
+    expect(raw).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(raw).not.toContain(usagePath);
+    expect(raw).not.toContain("999999");
+  });
+
   it("sdd init --here --ai grok sets up agents without separate agents install", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-grok-"));
     temps.push(root);
@@ -902,7 +971,7 @@ stages:
     const estimated = runSdd(root, ["report"]);
     expect(estimated.status, estimated.stderr + estimated.stdout).toBe(0);
     expect(estimated.stdout).toContain("estimated (handoff code points / 4)");
-    expect(estimated.stdout).toContain("default  1  1  n/a");
+    expect(estimated.stdout).toContain("default  n/a  1  1  n/a");
 
     await chmod(handoff, 0o000);
     const unreadable = runSdd(root, ["report"]);
@@ -927,7 +996,7 @@ stages:
     expect(runSdd(root, ["metrics", "import", logPath]).status).toBe(0);
     const reported = runSdd(root, ["report"]);
     expect(reported.status, reported.stderr + reported.stdout).toBe(0);
-    expect(reported.stdout).toContain("measured  total  all  1  12");
+    expect(reported.stdout).toContain("measured  total  all  all  1  12");
     expect(reported.stdout).not.toContain("PRIVATE PROMPT CONTENT");
     expect(reported.stdout).not.toContain(logPath);
     expect(reported.stdout).not.toContain("estimated");

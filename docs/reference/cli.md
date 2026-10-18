@@ -70,7 +70,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd status` | Progress (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
 | `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
-| `sdd metrics import <session-log>` | Import measured Claude Code or Codex tokens into the active change; use `--change <id>` for another change | Review token use |
+| `sdd metrics import <session-log>` | Import measured Claude Code or Codex JSONL, a Grok `usage.json`, or a Grok session directory into the active change; use `--change <id>` for another change | Review token use |
 | `sdd report` | Print active time, human wait, measured tokens, and cost for the active change. Use `--change <id>` to select one change. | After metrics exist |
 | `sdd report --all` | Print that report for every change that has a metrics.json, sorted by first phase start. | Compare changes |
 | `sdd cost` | Print the same one-change report as `sdd report`, including the same cost figures. Use `--change <id>` to select one change. | Check cost |
@@ -125,11 +125,11 @@ metrics:
 
 When metrics are disabled, `sdd report` and `sdd cost` print `Metrics are disabled` and exit 0.
 
-Session imports store measured token counts, request IDs, phase names, and timestamps only. The session-log path and prompt/response content are not stored.
+Session imports store measured token counts, request IDs, phase names, timestamps, and, for Grok, the model id. The session-log path and prompt/response content are not stored. A Grok usage.json stores one request per turn and model. inputTokens in that file includes cache reads; sdd stores the uncached remainder as input and the cache buckets separately. The model id is stored. Server cost ticks are not imported. When a sibling events.jsonl has turn_started for that turn, that timestamp is the request time; otherwise the turn endedAt is used.
 
 Tools without session logs can use a local proxy that the operator runs; sdd does not read proxy logs in this version.
 
-`.sdd/prices.yaml` holds USD rates per one million tokens and `usd_to_inr` (default 84). `sdd init` writes it only when missing. Cost uses `models.<provider>` when that key exists, otherwise `models.default`. If the file is missing, every cost is `n/a` and the report says `prices.yaml is missing`. Costs are not written into `metrics.json`.
+`.sdd/prices.yaml` holds USD rates per one million tokens and `usd_to_inr` (default 84). `sdd init` writes it only when missing. Cost uses `models.<model>` when the request has a model id and that key exists, otherwise `models.<provider>`, otherwise `models.default`. If the file is missing, every cost is `n/a` and the report says `prices.yaml is missing`. Costs are not written into `metrics.json`.
 
 If a change has no measured requests, the report adds one `estimated (handoff code points / 4)` row from `.sdd/handoff.md` and labels it as an estimate, not a model tokenizer. This version does not include a BPE tokenizer.
 

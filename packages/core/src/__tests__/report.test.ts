@@ -36,13 +36,19 @@ function card(input: number, output = 15): PriceCard {
   };
 }
 
-function prices(overrides?: { usdToInr?: number; claude?: PriceCard; codex?: PriceCard }): Prices {
+function prices(overrides?: {
+  usdToInr?: number;
+  claude?: PriceCard;
+  codex?: PriceCard;
+  models?: Record<string, PriceCard>;
+}): Prices {
   return {
     usd_to_inr: overrides?.usdToInr ?? 84,
     models: {
       default: card(3),
       ...(overrides?.claude ? { "claude-code": overrides.claude } : {}),
       ...(overrides?.codex ? { codex: overrides.codex } : {}),
+      ...overrides?.models,
     },
   };
 }
@@ -160,10 +166,14 @@ describe("token cost report", () => {
       { prices: table, handoffCodePoints: 99 },
     );
     expect(text).toContain(
-      "measured  intent  claude-code  1  1000000  n/a  n/a  n/a  9.0000  756.00",
+      "measured  intent  claude-code  n/a  1  1000000  n/a  n/a  n/a  9.0000  756.00",
     );
-    expect(text).toContain("measured  intent  codex  1  1000000  n/a  n/a  n/a  3.0000  252.00");
-    expect(text).toContain("measured  total  all  2  2000000  n/a  n/a  n/a  12.0000  1008.00");
+    expect(text).toContain(
+      "measured  intent  codex  n/a  1  1000000  n/a  n/a  n/a  3.0000  252.00",
+    );
+    expect(text).toContain(
+      "measured  total  all  all  2  2000000  n/a  n/a  n/a  12.0000  1008.00",
+    );
     expect(text).not.toContain("estimated");
     expect(
       costFor({ input: 1_000_000, cacheRead: null, cacheWrite: null, output: null }, card(9), 84),
@@ -171,6 +181,44 @@ describe("token cost report", () => {
       usd: "9.0000",
       inr: "756.00",
     });
+  });
+
+  it("prices the model card, then the provider card, then default", () => {
+    const table = prices({ models: { "grok-4": card(9), grok: card(4) } });
+    const text = render(
+      metrics(
+        [phase("intent", "2026-01-01T00:00:00.000Z", "2026-01-01T00:10:00.000Z")],
+        [
+          request({
+            provider: "grok",
+            model: "grok-4",
+            requestId: "model-card",
+            inputTokens: 1_000_000,
+          }),
+          request({
+            provider: "grok",
+            model: "grok-4.7-build",
+            requestId: "provider-card",
+            inputTokens: 1_000_000,
+          }),
+          request({ provider: "codex", requestId: "default-card", inputTokens: 1_000_000 }),
+        ],
+      ),
+      { prices: table, handoffCodePoints: 99 },
+    );
+    expect(text).toContain("source  phase  provider  model  requests");
+    expect(text).toContain(
+      "measured  intent  grok  grok-4  1  1000000  n/a  n/a  n/a  9.0000  756.00",
+    );
+    expect(text).toContain(
+      "measured  intent  grok  grok-4.7-build  1  1000000  n/a  n/a  n/a  4.0000  336.00",
+    );
+    expect(text).toContain(
+      "measured  intent  codex  n/a  1  1000000  n/a  n/a  n/a  3.0000  252.00",
+    );
+    expect(text).toContain(
+      "measured  total  all  all  3  3000000  n/a  n/a  n/a  16.0000  1344.00",
+    );
   });
 
   it("shows n/a for a missing prices file and does not write metrics or prices", async () => {
@@ -254,10 +302,12 @@ describe("token cost report", () => {
       { prices: table },
     );
     expect(text).toContain(
-      "measured  intent  claude-code  1  1500000  n/a  n/a  n/a  1.5000  126.00",
+      "measured  intent  claude-code  n/a  1  1500000  n/a  n/a  n/a  1.5000  126.00",
     );
-    expect(text).toContain("measured  implement  claude-code  1  n/a  n/a  n/a  n/a  n/a  n/a");
-    expect(text).toContain("measured  implement  codex  1  0  n/a  n/a  n/a  0.0000  0.00");
+    expect(text).toContain(
+      "measured  implement  claude-code  n/a  1  n/a  n/a  n/a  n/a  n/a  n/a",
+    );
+    expect(text).toContain("measured  implement  codex  n/a  1  0  n/a  n/a  n/a  0.0000  0.00");
   });
 
   it("rounds USD half away from zero before showing INR from the unrounded sum", () => {
@@ -272,12 +322,12 @@ describe("token cost report", () => {
   it("estimates from handoff code points only when nothing was measured", () => {
     const unmeasured = render(metrics([]), { handoffCodePoints: Array.from("abcd😀").length });
     expect(unmeasured).toContain("estimated (handoff code points / 4)");
-    expect(unmeasured).toContain("n/a  default  1  1  n/a  n/a  n/a");
+    expect(unmeasured).toContain("n/a  default  n/a  1  1  n/a  n/a  n/a");
     expect(unmeasured).not.toContain("measured  total");
     expect(unmeasured).not.toContain("No estimate:");
 
     const zero = render(metrics([]), { handoffCodePoints: Array.from("abc").length });
-    expect(zero).toContain("n/a  default  1  0  n/a  n/a  n/a  0.0000  0.00");
+    expect(zero).toContain("n/a  default  n/a  1  0  n/a  n/a  n/a  0.0000  0.00");
 
     const measured = render(
       metrics(
@@ -287,7 +337,7 @@ describe("token cost report", () => {
       { handoffCodePoints: Array.from("abcd😀").length },
     );
     expect(measured).not.toContain("estimated");
-    expect(measured).toContain("measured  total  all  1  n/a  n/a  n/a  n/a  n/a  n/a");
+    expect(measured).toContain("measured  total  all  all  1  n/a  n/a  n/a  n/a  n/a  n/a");
 
     const missing = render(metrics([]), { handoffCodePoints: null });
     expect(missing).toContain("  (none)");
