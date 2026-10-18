@@ -41,3 +41,7 @@ export function defaultMcpYamlPath(): string {
 export function defaultPricesYamlPath(): string {
   return join(defaultsRoot(), "prices.yaml");
 }
+
+export function defaultSearchYamlPath(): string {
+  return join(defaultsRoot(), "search.yaml");
+}

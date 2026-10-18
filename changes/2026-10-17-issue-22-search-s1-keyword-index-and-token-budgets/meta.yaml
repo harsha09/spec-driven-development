@@ -1,0 +1,31 @@
+id: 2026-10-17-issue-22-search-s1-keyword-index-and-token-budgets
+title: "Issue #22: search S1 keyword index and token budgets"
+workflow: feature
+created: 2026-10-17T13:54:14.068Z
+updated: 2026-10-18T05:40:24.985Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: PO approved the spec; intent is clear
+    at: 2026-10-17T21:54:06.638Z
+  - stage: brainstorm
+    reason: single approach is locked in the approved design
+    at: 2026-10-17T21:54:07.114Z
+  - stage: clarify_design
+    reason: PO approved the design
+    at: 2026-10-17T21:54:07.605Z
+  - stage: clarify_tasks
+    reason: tasks are clear
+    at: 2026-10-17T21:54:08.073Z
+gates: {}
+verify_results: {}

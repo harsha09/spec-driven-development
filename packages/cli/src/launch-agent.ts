@@ -46,6 +46,8 @@ export interface LaunchAgentOptions {
    * (e.g. sdd refine mode).
    */
   kickoffInstructions?: string;
+  /** Overrides the stage token budget for the retrieved-context section. */
+  budget?: number;
 }
 
 export interface LaunchAgentResult {
@@ -109,7 +111,7 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
   let handoffPath: string | null = null;
   if (!opts.reuseHandoff) {
     try {
-      handoffPath = await writeAgentHandoff(opts.projectRoot, opts.config, changeId);
+      handoffPath = await writeAgentHandoff(opts.projectRoot, opts.config, changeId, opts.budget);
     } catch (err) {
       return {
         handoffPath: null,

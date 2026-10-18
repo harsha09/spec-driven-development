@@ -4,6 +4,7 @@ export * from "./config.js";
 export * from "./git-head.js";
 export * from "./metrics.js";
 export * from "./report.js";
+export * from "./search/index.js";
 export * from "./sync.js";
 export * from "./workflow.js";
 export * from "./change.js";
