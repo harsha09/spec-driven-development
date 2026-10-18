@@ -2,7 +2,7 @@ id: 2026-10-18-issue-39-import-grok-token-usage-and-models
 title: "Issue #39: import Grok token usage and models"
 workflow: feature
 created: 2026-10-18T08:40:34.934Z
-updated: 2026-10-18T08:56:00.915Z
+updated: 2026-10-18T09:00:40.243Z
 status: in_progress
 stage: local_verify
 flags: {}
@@ -32,7 +32,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: 3086eea77a625732ed845a036b25c35c0065855e
+    head_sha: 226e0d40bd5857eb5bd6c9b6c3bd29c8d5667320
     at: 2026-10-18T08:56:00.915Z
     results:
       - name: Workspace tests
