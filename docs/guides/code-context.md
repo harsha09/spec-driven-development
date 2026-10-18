@@ -1,11 +1,11 @@
 ---
 title: Code context (local AST)
-description: Use sdd context for structure-aware TypeScript/JavaScript slices — symbols and imports under a token budget, without dumping the monorepo.
+description: Use sdd context for keyword slices across TypeScript, JavaScript, Rust, and Python under a token budget.
 ---
 
-# Code context (local AST)
+# Code context (local keyword index)
 
-For **this repo’s TypeScript/JavaScript**, sdd can build **ranked symbol slices** with a local AST:
+Keyword search covers TypeScript, JavaScript, Rust, and Python. A budget keeps the top hit whole and demotes a later hit to a one-line signature instead of cutting a function.
 
 ```bash
 sdd context --path src/app.ts --symbol main --stdout

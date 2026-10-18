@@ -10,7 +10,7 @@ Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@s
 Learn by doing: [Start in 10 minutes](../tutorials/first-change).
 One command’s flags: `sdd <command> --help`.
 
-Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init --force` appends any missing ignore line and does not replace the file. `sdd status` prints the change path relative to the repo.
+Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init --force` appends any missing ignore line and does not replace the file. `sdd status` prints the change path relative to the repo.
 
 ---
 
@@ -84,7 +84,8 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
-| `sdd context` | Focused AST code slices | Implement |
+| `sdd context` | Focused code slices under a token budget | Implement |
+| `sdd search "<query>"` | Keyword search (`--scope code\|specs\|memory`, optional `--budget`) | Find a symbol without opening AI |
 | `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
@@ -107,7 +108,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 ## About the AI opening
 
 Most process commands refresh a short handoff and may open your AI.
-**Never open AI:** `status`, `report`, `cost`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
+**Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
@@ -131,6 +132,8 @@ Tools without session logs can use a local proxy that the operator runs; sdd doe
 `.sdd/prices.yaml` holds USD rates per one million tokens and `usd_to_inr` (default 84). `sdd init` writes it only when missing. Cost uses `models.<provider>` when that key exists, otherwise `models.default`. If the file is missing, every cost is `n/a` and the report says `prices.yaml is missing`. Costs are not written into `metrics.json`.
 
 If a change has no measured requests, the report adds one `estimated (handoff code points / 4)` row from `.sdd/handoff.md` and labels it as an estimate, not a model tokenizer. This version does not include a BPE tokenizer.
+
+Search, context packing, and the handoff retrieved section count tokens with `cl100k_base`. That count is separate from the report estimate.
 
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
 

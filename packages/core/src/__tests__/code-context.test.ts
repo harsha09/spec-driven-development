@@ -132,20 +132,22 @@ describe("generateCodeContext", () => {
     expect(result.slices[0]?.symbolName).toBe("buildAgentPrompt");
   });
 
-  it("enforces maxLinesPerSlice and maxSlices", async () => {
+  it("packs a whole symbol or a one-line signature", async () => {
     const root = await tempProject();
     await copyFixtures(root);
     const result = await generateCodeContext({
       projectRoot: root,
       paths: ["packages/demo/src"],
+      query: "function",
       caps: { maxSlices: 1, maxLinesPerSlice: 3 },
     });
     expect(result.ok).toBe(true);
     expect(result.slices.length).toBeLessThanOrEqual(1);
-    if (result.slices[0]) {
-      const lines = result.slices[0].body.split("\n").length;
-      expect(lines).toBeLessThanOrEqual(3);
-    }
+    const body = result.slices[0]?.body ?? "";
+    const oneLine = body.split("\n").length === 1;
+    const whole = body.includes("{") && body.trimEnd().endsWith("}");
+    expect(oneLine || whole).toBe(true);
+    expect(result.markdown).not.toContain("…(truncated)");
   });
 
   it("never includes .env body in slices", async () => {
@@ -167,16 +169,44 @@ describe("generateCodeContext", () => {
     }
   });
 
-  it("soft-skips unsupported language with ok true", async () => {
+  it("indexes Python and reports unsupported_language for Go", async () => {
     const root = await tempProject();
     await copyFixtures(root);
+    const go = join(root, "packages/demo/src/skip.go");
+    await writeFile(go, "package main\n", "utf8");
     const result = await generateCodeContext({
       projectRoot: root,
-      paths: ["packages/demo/src/gamma.py", "packages/demo/src/alpha.ts"],
+      paths: [
+        "packages/demo/src/gamma.py",
+        "packages/demo/src/alpha.ts",
+        "packages/demo/src/skip.go",
+      ],
     });
     expect(result.ok).toBe(true);
-    expect(result.gaps.some((g) => g.code === "unsupported_language")).toBe(true);
+    expect(result.slices.some((s) => s.symbolName === "hello")).toBe(true);
     expect(result.slices.some((s) => s.filePath.endsWith("alpha.ts"))).toBe(true);
+    expect(
+      result.gaps.some((g) => g.code === "unsupported_language" && g.path?.endsWith("gamma.py")),
+    ).toBe(false);
+    expect(
+      result.gaps.some((g) => g.code === "unsupported_language" && g.path?.endsWith("skip.go")),
+    ).toBe(true);
+  });
+
+  it("reports parse_error when a requested Python file has a NUL byte", async () => {
+    const root = await tempProject();
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src/broken.py"), "def hello():\n    return 1\n\0");
+    const result = await generateCodeContext({
+      projectRoot: root,
+      paths: ["src/broken.py"],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.gaps.some((g) => g.code === "unsupported_language")).toBe(false);
+    expect(result.gaps.some((g) => g.code === "parse_error" && g.path === "src/broken.py")).toBe(
+      true,
+    );
+    expect(result.markdown).not.toContain("\0");
   });
 
   it("returns no_focus hard failure when empty", async () => {

@@ -47,6 +47,7 @@ import { metricsCmd } from "./metrics-cmd.js";
 import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
+import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
@@ -788,15 +789,24 @@ const agent = defineCommand({
       description: "Only write/print handoff — do not launch agent",
       default: false,
     },
+    budget: {
+      type: "string",
+      description: "Token budget for the retrieved-context section",
+    },
     "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
+      const budget = parsePositiveInt(args.budget);
+      if (budget === null) {
+        process.stderr.write("Budget must be a positive integer.\n");
+        process.exit(1);
+      }
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       if (args.print || noAgentRequested(args)) {
         await refreshActiveAgentContext(root);
-        const path = await writeAgentHandoff(root, config, id);
+        const path = await writeAgentHandoff(root, config, id, budget);
         const body = await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8"));
         process.stdout.write(body);
         if (!body.endsWith("\n")) process.stdout.write("\n");
@@ -807,6 +817,7 @@ const agent = defineCommand({
         projectRoot: root,
         config,
         ctx,
+        budget,
         event: `explicit sdd agent · stage ${ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
@@ -984,7 +995,11 @@ const contextCmd = defineCommand({
     },
     "max-tokens": {
       type: "string",
-      description: "Cap: approx token budget (default 12000)",
+      description: "Cap: token budget (alias of --budget)",
+    },
+    budget: {
+      type: "string",
+      description: "Token budget for packed slices. Wins over --max-tokens.",
     },
   },
   async run({ args }) {
@@ -1025,6 +1040,13 @@ const contextCmd = defineCommand({
           const n = Number(v);
           return Number.isFinite(n) && n > 0 ? n : undefined;
         };
+        const budgetArg =
+          args.budget != null && args.budget !== "" ? args.budget : args["max-tokens"];
+        const budget = parsePositiveInt(budgetArg);
+        if (budget === null) {
+          process.stderr.write("Budget must be a positive integer.\n");
+          process.exit(1);
+        }
 
         const result = await generateCodeContext({
           projectRoot: root,
@@ -1038,7 +1060,7 @@ const contextCmd = defineCommand({
             maxFiles: num(args["max-files"]),
             maxSlices: num(args["max-slices"]),
             maxLinesPerSlice: num(args["max-lines-per-slice"]),
-            maxTokensApprox: num(args["max-tokens"]),
+            maxTokensApprox: budget,
           },
         });
 
@@ -1307,6 +1329,7 @@ export const commands = {
   agents,
   checkout: useChange,
   context: contextCmd,
+  search: searchCmd,
   mcp: mcpCmd,
   metrics: metricsCmd,
   report: reportCmd,
