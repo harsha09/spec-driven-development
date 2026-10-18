@@ -10,6 +10,7 @@ import { type KeptFile, generatedState, markGenerated } from "./generated.js";
 import { refreshConfiguredGuidance } from "./guidance.js";
 import { configPath, guidancePaths, sddRoot } from "./paths.js";
 import type { Config } from "./schemas.js";
+import type { SearchRuntime } from "./search/index.js";
 
 /**
  * AI coding agents (not IDEs).
@@ -825,9 +826,10 @@ export async function writeAgentHandoff(
   config: Config,
   changeId: string,
   budget?: number,
+  runtime?: SearchRuntime,
 ): Promise<string> {
   const ctx = await buildContext(projectRoot, config, changeId);
-  const body = await buildAgentPrompt(ctx, config, projectRoot, budget);
+  const body = await buildAgentPrompt(ctx, config, projectRoot, budget, runtime);
   const outPath = join(sddRoot(projectRoot), "handoff.md");
   const header = `# SDD handoff (auto)
 

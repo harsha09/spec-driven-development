@@ -9,13 +9,17 @@ import { loadConfig } from "../config.js";
 import { pathExists, readYaml, writeText } from "../fs.js";
 import { changePath } from "../paths.js";
 import {
+  EMBEDDINGS_UNAVAILABLE,
   type SearchConfig,
+  type SearchRuntime,
   budgetForStage,
   createBuiltinProvider,
-  keywordHits,
+  embedSearchQuery,
   listScopeHits,
   loadSearchConfig,
   packHits,
+  rankScope,
+  resolveEmbedder,
 } from "../search/index.js";
 import type { RawHit } from "../search/types.js";
 import type { LanguageAdapter } from "./adapters/types.js";
@@ -47,10 +51,12 @@ export { DEFAULT_CODE_CONTEXT_CAPS, mergeCaps } from "./types.js";
 export type { LanguageAdapter, AdapterExtractResult } from "./adapters/types.js";
 export { formatJsonSummary } from "./formatter.js";
 
-/** Optional deps for tests (inject adapters). */
+/** Optional deps for tests (inject adapters or an embedder). */
 export type GenerateCodeContextDeps = {
   adapters?: LanguageAdapter[];
   now?: () => Date;
+  embedder?: SearchRuntime["embedder"];
+  embedderFactory?: SearchRuntime["embedderFactory"];
 };
 
 function emptySummary(partial?: Partial<CodeContextSummary>): CodeContextSummary {
@@ -124,7 +130,6 @@ export async function generateCodeContext(
   request: CodeContextRequest,
   deps?: GenerateCodeContextDeps,
 ): Promise<CodeContextResult> {
-  void deps;
   const projectRoot = request.projectRoot;
   const gaps: CodeContextGap[] = [];
   const { plan, gaps: focusGaps } = await resolveFocus(request);
@@ -173,7 +178,11 @@ export async function generateCodeContext(
     }
   }
 
-  await createBuiltinProvider(projectRoot, config).index();
+  const runtime: SearchRuntime = {
+    embedder: deps?.embedder,
+    embedderFactory: deps?.embedderFactory,
+  };
+  await createBuiltinProvider(projectRoot, config, runtime).index();
 
   const budget = request.caps?.maxTokensApprox ?? budgetForStage(searchConfig, stage);
   const k = request.caps?.maxSlices ?? searchConfig.k;
@@ -181,9 +190,22 @@ export async function generateCodeContext(
   if (!query && request.symbols?.length) query = request.symbols.join(" ");
   if (!query && changeTitle && request.changeId) query = changeTitle;
 
-  let hits: RawHit[] = query.trim()
-    ? await keywordHits(projectRoot, query, "code", k)
-    : await listScopeHits(projectRoot, "code");
+  let hits: RawHit[];
+  if (query.trim()) {
+    const embedder = await resolveEmbedder(projectRoot, searchConfig.embeddings, runtime);
+    const embedded = await embedSearchQuery(embedder, searchConfig.embeddings, query);
+    const ranked = await rankScope(projectRoot, query, "code", k, {
+      embeddings: searchConfig.embeddings,
+      queryVec: embedded.queryVec,
+      failure: embedded.failure,
+    });
+    hits = ranked.hits;
+    if (ranked.warning) {
+      gaps.push({ code: "embeddings_unavailable", message: EMBEDDINGS_UNAVAILABLE });
+    }
+  } else {
+    hits = await listScopeHits(projectRoot, "code");
+  }
 
   const fileArgs: string[] = [];
   const dirArgs: string[] = [];

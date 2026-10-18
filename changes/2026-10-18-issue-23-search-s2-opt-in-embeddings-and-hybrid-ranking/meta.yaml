@@ -1,0 +1,39 @@
+id: 2026-10-18-issue-23-search-s2-opt-in-embeddings-and-hybrid-ranking
+title: "Issue #23: search S2 opt-in embeddings and hybrid ranking"
+workflow: feature
+created: 2026-10-18T05:59:01.645Z
+updated: 2026-10-18T07:38:17.352Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: PO approved the spec; intent is clear
+    at: 2026-10-18T06:40:10.639Z
+  - stage: brainstorm
+    reason: single approach is locked in the approved design
+    at: 2026-10-18T06:40:11.616Z
+  - stage: clarify_design
+    reason: PO approved the design
+    at: 2026-10-18T06:40:12.523Z
+  - stage: clarify_tasks
+    reason: tasks are clear
+    at: 2026-10-18T06:40:13.447Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: c5456af4f75b19d2bf26a30767677f50490d8a8d
+    at: 2026-10-18T07:38:17.352Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

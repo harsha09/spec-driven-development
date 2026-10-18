@@ -28,14 +28,14 @@ describe("per-machine gitignore (#11)", () => {
     const sddIgnore = join(root, ".sdd/.gitignore");
     const changesIgnore = join(root, "changes/.gitignore");
     expect(await readFile(sddIgnore, "utf8")).toBe(
-      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
+      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\nmodels/\n",
     );
     expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
 
     await writeFile(sddIgnore, "# keep\nextra\nhandoff.md");
     await initProject({ projectRoot: root, agents: false, force: true });
     expect(await readFile(sddIgnore, "utf8")).toBe(
-      "# keep\nextra\nhandoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
+      "# keep\nextra\nhandoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\nmodels/\n",
     );
     expect(await readFile(changesIgnore, "utf8")).toBe(".active\n");
     expect(await readFile(sddIgnore, "utf8")).not.toContain("sdd:generated");
@@ -206,7 +206,7 @@ describe("sdd init --force preserves project customization", () => {
     };
     expect(manifest.files[".sdd/search.yaml"]).toBeUndefined();
     expect(await readFile(join(root, ".sdd/.gitignore"), "utf8")).toBe(
-      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\n",
+      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\nmodels/\n",
     );
 
     const edited = `${text}# user edit\n`;

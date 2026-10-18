@@ -10,7 +10,7 @@ Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@s
 Learn by doing: [Start in 10 minutes](../tutorials/first-change).
 One command’s flags: `sdd <command> --help`.
 
-Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init --force` appends any missing ignore line and does not replace the file. `sdd status` prints the change path relative to the repo.
+Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, `models/`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init --force` appends any missing ignore line and does not replace the file. `sdd status` prints the change path relative to the repo.
 
 ---
 
@@ -134,6 +134,8 @@ Tools without session logs can use a local proxy that the operator runs; sdd doe
 If a change has no measured requests, the report adds one `estimated (handoff code points / 4)` row from `.sdd/handoff.md` and labels it as an estimate, not a model tokenizer. This version does not include a BPE tokenizer.
 
 Search, context packing, and the handoff retrieved section count tokens with `cl100k_base`. That count is separate from the report estimate.
+
+Embeddings are off by default. Set `embeddings: true` in `.sdd/search.yaml` to download `BAAI/bge-small-en-v1.5` once into `.sdd/models/` and rank with hybrid fusion. A missing model falls back to keyword search.
 
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
 
