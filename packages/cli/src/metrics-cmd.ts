@@ -7,12 +7,12 @@ import { withProject } from "./project.js";
 const importUsage = defineCommand({
   meta: {
     name: "import",
-    description: "Import measured token usage from a Claude Code or Codex session log",
+    description: "Import measured token usage from a Claude Code, Codex, or Grok session log",
   },
   args: {
     sessionLog: {
       type: "positional",
-      description: "Claude Code or Codex JSONL session log",
+      description: "Claude Code or Codex JSONL, a Grok usage.json, or a Grok session directory",
       required: true,
     },
     change: { type: "string", description: "Change id (default: active change)", alias: "c" },
@@ -22,7 +22,12 @@ const importUsage = defineCommand({
       const changeId = await resolveChangeId(root, config, args.change);
       const result = await importSessionMetrics(root, config, changeId, args.sessionLog);
       if (!result.providers.length) {
-        throw new Error("No Claude Code or Codex token usage records found in the session log.");
+        throw new Error(
+          "No Claude Code, Codex, or Grok token usage records found in the session log.",
+        );
+      }
+      if (result.incomplete) {
+        consola.warn("Grok usage is incomplete; recorded tokens may under-count.");
       }
       consola.success(`Imported ${result.imported} measured request(s) into ${pc.cyan(changeId)}.`);
       consola.log(
