@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { z } from "zod";
 import { pathExists, readText, writeText } from "./fs.js";
@@ -17,7 +18,8 @@ export const PhaseMetricSchema = z
   .refine((phase) => !phase.endedAt || Date.parse(phase.endedAt) >= Date.parse(phase.startedAt));
 
 export const TokenUsageMetricSchema = z.object({
-  provider: z.enum(["claude-code", "codex"]),
+  provider: z.enum(["claude-code", "codex", "grok"]),
+  model: z.string().min(1).nullable().optional(),
   requestId: z.string().min(1),
   phase: z.string().min(1),
   startedAt: UtcTimestampSchema,
@@ -44,10 +46,12 @@ export interface MetricsImportResult {
   ignored: number;
   unmatched: number;
   providers: string[];
+  incomplete: boolean;
 }
 
 interface ParsedRequest {
-  provider: "claude-code" | "codex";
+  provider: "claude-code" | "codex" | "grok";
+  model?: string;
   requestId: string;
   startedAt: string;
   inputTokens: number | null;
@@ -55,6 +59,8 @@ interface ParsedRequest {
   cacheWriteTokens: number | null;
   outputTokens: number | null;
 }
+
+const MODEL_ID = /^[A-Za-z0-9._:/-]+$/;
 
 function metricsPath(projectRoot: string, config: Config, changeId: string): string {
   return `${changePath(projectRoot, config, changeId)}/metrics.json`;
@@ -286,29 +292,160 @@ export function assertSessionLogAllowed(
   }
 }
 
-export async function importSessionMetrics(
-  projectRoot: string,
-  config: Config,
-  changeId: string,
-  sessionLogPath: string,
-): Promise<MetricsImportResult> {
-  if (!config.metrics.enabled) throw new Error("Metrics are disabled in .sdd/config.yaml.");
-  assertSessionLogAllowed(projectRoot, config.metrics.exclude, sessionLogPath);
-
-  const metrics = await readChangeMetrics(projectRoot, config, changeId);
-  const requestIds = new Set(
-    metrics.requests.map((request) => `${request.provider}\0${request.requestId}`),
-  );
-  const codexState: { turnStartedAt?: string; messageId?: string } = {};
-  const providers = new Set<string>();
-  const result: MetricsImportResult = {
-    imported: 0,
-    duplicates: 0,
-    ignored: 0,
-    unmatched: 0,
-    providers: [],
+function recordParsed(
+  metrics: ChangeMetrics,
+  requestIds: Set<string>,
+  result: MetricsImportResult,
+  parsed: ParsedRequest,
+): void {
+  const phase = phaseAt(metrics, parsed.startedAt);
+  if (!phase) {
+    result.unmatched += 1;
+    return;
+  }
+  const key = `${parsed.provider}\0${parsed.requestId}`;
+  if (requestIds.has(key)) {
+    result.duplicates += 1;
+    return;
+  }
+  requestIds.add(key);
+  const request: TokenUsageMetric = {
+    provider: parsed.provider,
+    requestId: parsed.requestId,
+    phase: phase.phase,
+    startedAt: parsed.startedAt,
+    inputTokens: parsed.inputTokens,
+    cacheReadTokens: parsed.cacheReadTokens,
+    cacheWriteTokens: parsed.cacheWriteTokens,
+    outputTokens: parsed.outputTokens,
+    measured: true,
   };
+  if (parsed.model) request.model = parsed.model;
+  metrics.requests.push(request);
+  result.imported += 1;
+}
 
+async function readTurnStarts(directory: string): Promise<Map<number, string>> {
+  const starts = new Map<number, string>();
+  const path = join(directory, "events.jsonl");
+  if (!(await pathExists(path))) return starts;
+  const lines = createInterface({
+    input: createReadStream(path),
+    crlfDelay: Number.POSITIVE_INFINITY,
+  });
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    let record: Record<string, unknown> | null = null;
+    try {
+      record = asObject(JSON.parse(line));
+    } catch {
+      continue;
+    }
+    if (!record || record.type !== "turn_started") continue;
+    const turnNumber = tokenCount(record.turn_number);
+    const timestamp = isoTimestamp(record.ts);
+    if (turnNumber === null || turnNumber < 1 || !timestamp || starts.has(turnNumber)) continue;
+    starts.set(turnNumber, timestamp);
+  }
+  return starts;
+}
+
+function grokBucket(value: unknown): {
+  input: number;
+  cacheRead: number;
+  cacheWrite: number;
+  output: number;
+} | null {
+  const bucket = asObject(value);
+  if (!bucket) return null;
+  const input = tokenCount(bucket.inputTokens);
+  const cacheRead = tokenCount(bucket.cachedReadTokens);
+  const cacheWrite = tokenCount(bucket.cacheCreationTokens);
+  const output = tokenCount(bucket.outputTokens);
+  if (input === null || cacheRead === null || cacheWrite === null || output === null) return null;
+  return { input, cacheRead, cacheWrite, output };
+}
+
+async function importGrokUsage(
+  filePath: string,
+  metrics: ChangeMetrics,
+  requestIds: Set<string>,
+  providers: Set<string>,
+  result: MetricsImportResult,
+): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readText(filePath));
+  } catch {
+    throw new Error("usage.json is not a Grok usage file.");
+  }
+  const document = asObject(parsed);
+  const sessionId = document?.sessionId;
+  const turns = document?.turns;
+  if (
+    !document ||
+    typeof sessionId !== "string" ||
+    sessionId.length === 0 ||
+    !Array.isArray(turns)
+  ) {
+    throw new Error("usage.json is not a Grok usage file.");
+  }
+  providers.add("grok");
+  const session = asObject(document.session);
+  if (session?.usageIsIncomplete === true) result.incomplete = true;
+  const turnStarts = await readTurnStarts(dirname(filePath));
+
+  for (const turnValue of turns) {
+    const turn = asObject(turnValue);
+    if (!turn) {
+      result.ignored += 1;
+      continue;
+    }
+    if (turn.usageIsIncomplete === true) result.incomplete = true;
+    const turnNumber = tokenCount(turn.turnNumber);
+    const modelUsage = asObject(turn.modelUsage);
+    const entries = modelUsage ? Object.entries(modelUsage) : [];
+    if (turnNumber === null || turnNumber < 1) {
+      result.ignored += 1;
+      continue;
+    }
+    const startedAt = turnStarts.get(turnNumber) ?? isoTimestamp(turn.endedAt);
+    if (!startedAt) {
+      result.ignored += entries.length;
+      continue;
+    }
+    for (const [model, bucketValue] of entries) {
+      if (!MODEL_ID.test(model)) {
+        result.ignored += 1;
+        continue;
+      }
+      const bucket = grokBucket(bucketValue);
+      if (!bucket) {
+        result.ignored += 1;
+        continue;
+      }
+      recordParsed(metrics, requestIds, result, {
+        provider: "grok",
+        model,
+        requestId: `${sessionId}:${turnNumber}:${model}`,
+        startedAt,
+        inputTokens: Math.max(0, bucket.input - bucket.cacheRead - bucket.cacheWrite),
+        cacheReadTokens: bucket.cacheRead,
+        cacheWriteTokens: bucket.cacheWrite,
+        outputTokens: bucket.output,
+      });
+    }
+  }
+}
+
+async function importJsonlUsage(
+  sessionLogPath: string,
+  metrics: ChangeMetrics,
+  requestIds: Set<string>,
+  providers: Set<string>,
+  result: MetricsImportResult,
+): Promise<void> {
+  const codexState: { turnStartedAt?: string; messageId?: string } = {};
   const lines = createInterface({
     input: createReadStream(sessionLogPath),
     crlfDelay: Number.POSITIVE_INFINITY,
@@ -328,7 +465,7 @@ export async function importSessionMetrics(
     }
 
     const message = asObject(record.message);
-    const claudeCandidate = record.type === "assistant" && asObject(message?.usage);
+    const claudeCandidate = record.type === "assistant" && Boolean(asObject(message?.usage));
     const codexCandidate =
       record.type === "event_msg" && asObject(record.payload)?.type === "token_count";
     const parsed = claudeCandidate ? parseClaudeUsage(record) : parseCodexUsage(record, codexState);
@@ -338,21 +475,46 @@ export async function importSessionMetrics(
       if (claudeCandidate || codexCandidate) result.ignored += 1;
       continue;
     }
-
-    const phase = phaseAt(metrics, parsed.startedAt);
-    if (!phase) {
-      result.unmatched += 1;
-      continue;
-    }
-    const key = `${parsed.provider}\0${parsed.requestId}`;
-    if (requestIds.has(key)) {
-      result.duplicates += 1;
-      continue;
-    }
-    requestIds.add(key);
-    metrics.requests.push({ ...parsed, phase: phase.phase, measured: true });
-    result.imported += 1;
+    recordParsed(metrics, requestIds, result, parsed);
   }
+}
+
+async function grokUsagePath(sessionLogPath: string): Promise<string | null> {
+  const info = await stat(sessionLogPath);
+  if (info.isDirectory()) {
+    const filePath = join(sessionLogPath, "usage.json");
+    if (!(await pathExists(filePath))) throw new Error("Grok usage.json is missing.");
+    return filePath;
+  }
+  return basename(sessionLogPath) === "usage.json" ? sessionLogPath : null;
+}
+
+export async function importSessionMetrics(
+  projectRoot: string,
+  config: Config,
+  changeId: string,
+  sessionLogPath: string,
+): Promise<MetricsImportResult> {
+  if (!config.metrics.enabled) throw new Error("Metrics are disabled in .sdd/config.yaml.");
+  assertSessionLogAllowed(projectRoot, config.metrics.exclude, sessionLogPath);
+
+  const metrics = await readChangeMetrics(projectRoot, config, changeId);
+  const requestIds = new Set(
+    metrics.requests.map((request) => `${request.provider}\0${request.requestId}`),
+  );
+  const providers = new Set<string>();
+  const result: MetricsImportResult = {
+    imported: 0,
+    duplicates: 0,
+    ignored: 0,
+    unmatched: 0,
+    providers: [],
+    incomplete: false,
+  };
+
+  const grokPath = await grokUsagePath(sessionLogPath);
+  if (grokPath) await importGrokUsage(grokPath, metrics, requestIds, providers, result);
+  else await importJsonlUsage(sessionLogPath, metrics, requestIds, providers, result);
 
   result.providers = [...providers].sort();
   if (result.imported) await writeChangeMetrics(projectRoot, config, changeId, metrics);

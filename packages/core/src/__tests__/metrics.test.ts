@@ -321,4 +321,212 @@ stages:
     expect(stored).not.toContain(secretLog);
     expect(stored).not.toContain("excluded-request");
   });
+
+  it("imports one Grok request per model and dedupes a second import", async () => {
+    const { root, config, change } = await setup();
+    const startedAt = (await readChangeMetrics(root, config, change.id)).phases[0]!.startedAt;
+    const logPath = join(root, "usage.json");
+    const bucket = (input: number, cacheRead: number, cacheWrite: number, output: number) => ({
+      inputTokens: input,
+      cachedReadTokens: cacheRead,
+      cacheCreationTokens: cacheWrite,
+      outputTokens: output,
+      reasoningTokens: 9,
+      costUsdTicks: 123,
+      prompt: "PRIVATE PROMPT CONTENT",
+    });
+    await writeFile(
+      logPath,
+      JSON.stringify({
+        sessionId: "sess",
+        session: { inputTokens: 999999 },
+        turns: [
+          {
+            turnNumber: 1,
+            endedAt: startedAt,
+            modelUsage: {
+              "grok-4": bucket(100, 40, 10, 7),
+              "grok-4.7-build": bucket(5, 0, 0, 2),
+            },
+          },
+        ],
+      }),
+    );
+
+    const first = await importSessionMetrics(root, config, change.id, logPath);
+    const second = await importSessionMetrics(root, config, change.id, logPath);
+    const metrics = await readChangeMetrics(root, config, change.id);
+    const serialized = await readFile(join(change.path, "metrics.json"), "utf8");
+
+    expect(first).toMatchObject({
+      imported: 2,
+      duplicates: 0,
+      unmatched: 0,
+      incomplete: false,
+      providers: ["grok"],
+    });
+    expect(second).toMatchObject({ imported: 0, duplicates: 2 });
+    expect(metrics.requests).toEqual([
+      {
+        provider: "grok",
+        model: "grok-4",
+        requestId: "sess:1:grok-4",
+        phase: "intent",
+        startedAt,
+        inputTokens: 50,
+        cacheReadTokens: 40,
+        cacheWriteTokens: 10,
+        outputTokens: 7,
+        measured: true,
+      },
+      {
+        provider: "grok",
+        model: "grok-4.7-build",
+        requestId: "sess:1:grok-4.7-build",
+        phase: "intent",
+        startedAt,
+        inputTokens: 5,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 2,
+        measured: true,
+      },
+    ]);
+    expect(serialized).not.toContain("999999");
+    expect(serialized).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(serialized).not.toContain(logPath);
+    expect(serialized).not.toContain("costUsdTicks");
+  });
+
+  it("leaves a Grok turn unmatched when only endedAt falls outside the phase", async () => {
+    const { root, config, change } = await setup();
+    const logPath = join(root, "usage.json");
+    await writeFile(
+      logPath,
+      JSON.stringify({
+        sessionId: "sess",
+        turns: [
+          {
+            turnNumber: 1,
+            endedAt: "1999-01-01T00:00:00.000Z",
+            modelUsage: {
+              "grok-4": {
+                inputTokens: 4,
+                cachedReadTokens: 0,
+                cacheCreationTokens: 0,
+                outputTokens: 1,
+              },
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await importSessionMetrics(root, config, change.id, logPath);
+    const metrics = await readChangeMetrics(root, config, change.id);
+    expect(result).toMatchObject({ imported: 0, unmatched: 1, providers: ["grok"] });
+    expect(metrics.requests).toEqual([]);
+  });
+
+  it("uses a sibling turn_started timestamp and floors a negative uncached input", async () => {
+    const { root, config, change } = await setup();
+    const startedAt = (await readChangeMetrics(root, config, change.id)).phases[0]!.startedAt;
+    const sessionDir = join(root, "session");
+    await mkdir(sessionDir);
+    await writeFile(
+      join(sessionDir, "usage.json"),
+      JSON.stringify({
+        sessionId: "sess",
+        turns: [
+          {
+            turnNumber: 1,
+            endedAt: "1999-01-01T00:00:00.000Z",
+            modelUsage: {
+              "grok-4": {
+                inputTokens: 5,
+                cachedReadTokens: 9,
+                cacheCreationTokens: 1,
+                outputTokens: 2,
+              },
+            },
+          },
+        ],
+      }),
+    );
+    await writeFile(
+      join(sessionDir, "events.jsonl"),
+      `${JSON.stringify({ type: "turn_started", turn_number: 1, ts: startedAt })}\nnot-json\n`,
+    );
+
+    const result = await importSessionMetrics(root, config, change.id, sessionDir);
+    const metrics = await readChangeMetrics(root, config, change.id);
+    expect(result).toMatchObject({ imported: 1, providers: ["grok"] });
+    expect(metrics.requests[0]).toMatchObject({
+      startedAt,
+      inputTokens: 0,
+      cacheReadTokens: 9,
+      cacheWriteTokens: 1,
+      outputTokens: 2,
+    });
+  });
+
+  it("ignores a bad Grok model row and still imports a valid sibling", async () => {
+    const { root, config, change } = await setup();
+    const startedAt = (await readChangeMetrics(root, config, change.id)).phases[0]!.startedAt;
+    const logPath = join(root, "usage.json");
+    const valid = {
+      inputTokens: 3,
+      cachedReadTokens: 1,
+      cacheCreationTokens: 0,
+      outputTokens: 1,
+    };
+    await writeFile(
+      logPath,
+      JSON.stringify({
+        sessionId: "sess",
+        session: { usageIsIncomplete: true, prompt: "PRIVATE PROMPT CONTENT" },
+        turns: [
+          {
+            turnNumber: 1,
+            endedAt: startedAt,
+            modelUsage: {
+              "bad model": valid,
+              "grok-4": { ...valid, inputTokens: 1.5 },
+              "grok-4.7": valid,
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await importSessionMetrics(root, config, change.id, logPath);
+    const serialized = await readFile(join(change.path, "metrics.json"), "utf8");
+    expect(result).toMatchObject({
+      imported: 1,
+      ignored: 2,
+      incomplete: true,
+      providers: ["grok"],
+    });
+    expect(JSON.parse(serialized).requests).toEqual([
+      expect.objectContaining({ model: "grok-4.7", inputTokens: 2 }),
+    ]);
+    expect(serialized).not.toContain("PRIVATE PROMPT CONTENT");
+    expect(serialized).not.toContain(logPath);
+  });
+
+  it("rejects a usage.json that is not a Grok document and a directory without one", async () => {
+    const { root, config, change } = await setup();
+    const logPath = join(root, "usage.json");
+    await writeFile(logPath, `${JSON.stringify({ type: "assistant" })}\n`);
+    await expect(importSessionMetrics(root, config, change.id, logPath)).rejects.toThrow(
+      "usage.json is not a Grok usage file.",
+    );
+    const sessionDir = join(root, "empty-session");
+    await mkdir(sessionDir);
+    await expect(importSessionMetrics(root, config, change.id, sessionDir)).rejects.toThrow(
+      "Grok usage.json is missing.",
+    );
+    const metrics = await readChangeMetrics(root, config, change.id);
+    expect(metrics.requests).toEqual([]);
+  });
 });
