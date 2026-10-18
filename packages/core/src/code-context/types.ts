@@ -61,7 +61,8 @@ export type CodeContextGapCode =
   | "cap_truncated"
   | "no_active_change"
   | "change_not_found"
-  | "adapter_unavailable";
+  | "adapter_unavailable"
+  | "embeddings_unavailable";
 
 export interface CodeContextGap {
   code: CodeContextGapCode;

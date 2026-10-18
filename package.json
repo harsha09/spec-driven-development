@@ -61,7 +61,9 @@
       "bundle-require>esbuild": "0.28.1",
       "vite": "6.4.3",
       "hono": "^4.12.34",
-      "@hono/node-server": "^2.0.5"
+      "@hono/node-server": "^2.0.5",
+      "@huggingface/hub": "2.7.1",
+      "@anush008/tokenizers": "0.6.0"
     }
   }
 }
