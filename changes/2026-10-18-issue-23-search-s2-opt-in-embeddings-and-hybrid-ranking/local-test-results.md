@@ -80,6 +80,6 @@ Node v20.19.3. The `EBADENGINE` warning for `engines.node >= 24` is expected on 
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="c5456af4f75b19d2bf26a30767677f50490d8a8d" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="a1f2f09108fd3e00d70dda80bbe7b2d492663887" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)

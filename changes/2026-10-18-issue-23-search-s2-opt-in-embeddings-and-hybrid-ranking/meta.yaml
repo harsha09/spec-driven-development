@@ -2,7 +2,7 @@ id: 2026-10-18-issue-23-search-s2-opt-in-embeddings-and-hybrid-ranking
 title: "Issue #23: search S2 opt-in embeddings and hybrid ranking"
 workflow: feature
 created: 2026-10-18T05:59:01.645Z
-updated: 2026-10-18T07:38:17.352Z
+updated: 2026-10-18T07:55:16.521Z
 status: in_progress
 stage: local_verify
 flags: {}
@@ -32,7 +32,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: c5456af4f75b19d2bf26a30767677f50490d8a8d
+    head_sha: a1f2f09108fd3e00d70dda80bbe7b2d492663887
     at: 2026-10-18T07:38:17.352Z
     results:
       - name: Workspace tests
