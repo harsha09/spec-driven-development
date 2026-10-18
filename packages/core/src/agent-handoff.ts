@@ -1,6 +1,7 @@
 import type { ChangeContext } from "./change-context.js";
 import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
+import { buildRetrievedInner } from "./search/index.js";
 import { getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
 export function formatStatus(ctx: ChangeContext): string {
@@ -41,6 +42,7 @@ export async function buildAgentPrompt(
   ctx: ChangeContext,
   config: Config,
   projectRoot: string,
+  budget?: number,
 ): Promise<string> {
   const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
   const parts: string[] = [];
@@ -143,6 +145,20 @@ export async function buildAgentPrompt(
     parts.push(`_MCP auto-fetch skipped (non-fatal): ${msg}_`);
     parts.push("");
   }
+
+  const inner = await buildRetrievedInner(
+    projectRoot,
+    config,
+    ctx.meta.title,
+    ctx.meta.stage,
+    budget,
+  );
+  parts.push("## Retrieved context");
+  parts.push("");
+  parts.push("<!-- retrieved-context:start -->");
+  parts.push(inner);
+  parts.push("<!-- retrieved-context:end -->");
+  parts.push("");
 
   parts.push(
     `When done with this stage, the human will run \`sdd next\` or \`sdd verify\` / \`sdd complete\`.`,

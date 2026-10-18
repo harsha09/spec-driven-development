@@ -90,3 +90,11 @@ export function changeMetaPath(projectRoot: string, config: Config, changeId: st
 export function activePointerPath(projectRoot: string, config: Config): string {
   return join(changesDir(projectRoot, config), ".active");
 }
+
+export function searchConfigPath(projectRoot: string): string {
+  return join(sddRoot(projectRoot), "search.yaml");
+}
+
+export function indexDbPath(projectRoot: string): string {
+  return join(sddRoot(projectRoot), "index.db");
+}

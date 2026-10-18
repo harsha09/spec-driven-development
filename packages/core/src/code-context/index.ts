@@ -3,23 +3,32 @@
  * Public entry: generateCodeContext
  */
 
-import { extname, join, normalize } from "pathe";
-import { pathExists, readText, writeText } from "../fs.js";
-import { AdapterRegistry } from "./adapters/registry.js";
+import { stat } from "node:fs/promises";
+import { extname, isAbsolute, join, relative } from "pathe";
+import { loadConfig } from "../config.js";
+import { pathExists, readYaml, writeText } from "../fs.js";
+import { changePath } from "../paths.js";
+import {
+  type SearchConfig,
+  budgetForStage,
+  createBuiltinProvider,
+  keywordHits,
+  listScopeHits,
+  loadSearchConfig,
+  packHits,
+} from "../search/index.js";
+import type { RawHit } from "../search/types.js";
 import type { LanguageAdapter } from "./adapters/types.js";
-import { isTypescriptAdapterAvailable } from "./adapters/typescript.js";
 import { resolveFocus } from "./focus.js";
 import { formatMarkdown } from "./formatter.js";
-import { GraphLite } from "./graph.js";
-import { classifyPath } from "./ignore.js";
-import { rankSymbols } from "./ranker.js";
-import { emitSlices } from "./slicer.js";
-import {
-  type CodeContextGap,
-  type CodeContextRequest,
-  type CodeContextResult,
-  type CodeContextSummary,
-  mergeCaps,
+import { isIgnoredPath } from "./ignore.js";
+import { isSecretPath } from "./secrets.js";
+import type {
+  CodeContextGap,
+  CodeContextRequest,
+  CodeContextResult,
+  CodeContextSummary,
+  CodeSlice,
 } from "./types.js";
 
 export type {
@@ -91,6 +100,22 @@ function hardFailure(
   };
 }
 
+function toRepoPath(projectRoot: string, input: string): string {
+  const abs = isAbsolute(input) ? input : join(projectRoot, input);
+  let rel = relative(projectRoot, abs).replaceAll("\\", "/");
+  while (rel.startsWith("./")) rel = rel.slice(2);
+  return rel;
+}
+
+function pathKept(rel: string, fileArgs: string[], dirArgs: string[]): boolean {
+  if (fileArgs.includes(rel)) return true;
+  return dirArgs.some((dir) => rel.startsWith(`${dir}/`));
+}
+
+function symbolKept(symbol: string, names: string[]): boolean {
+  return names.some((name) => symbol === name || symbol.endsWith(`.${name}`));
+}
+
 /**
  * Main entry: on-demand pipeline. Partial success returns ok:true with gaps.
  * Hard failures return ok:false with gaps and minimal markdown explaining failure.
@@ -99,109 +124,88 @@ export async function generateCodeContext(
   request: CodeContextRequest,
   deps?: GenerateCodeContextDeps,
 ): Promise<CodeContextResult> {
-  const caps = mergeCaps(request.caps);
+  void deps;
   const projectRoot = request.projectRoot;
   const gaps: CodeContextGap[] = [];
-
-  // Adapter availability (hard if TS cannot load and no custom adapters)
-  if (!deps?.adapters?.length && !isTypescriptAdapterAvailable()) {
-    return hardFailure(
-      [
-        {
-          code: "adapter_unavailable",
-          message:
-            "TypeScript language adapter could not be loaded; ensure `typescript` is installed with @structured-vibe-coding/core.",
-        },
-      ],
-      "Language adapter unavailable",
-    );
-  }
-
-  const registry = new AdapterRegistry(deps?.adapters);
-
-  // Focus
   const { plan, gaps: focusGaps } = await resolveFocus(request);
   gaps.push(...focusGaps);
 
-  const hasFocus =
+  const hasExplicit =
+    Boolean(request.paths?.length) ||
+    Boolean(request.query?.trim()) ||
+    Boolean(request.symbols?.length) ||
+    Boolean(request.changeId) ||
     plan.seedPaths.length > 0 ||
     plan.candidatePaths.length > 0 ||
-    plan.seedSymbols.length > 0 ||
-    plan.keywords.length > 0 ||
-    Boolean(request.paths?.length) ||
-    Boolean(request.query) ||
-    Boolean(request.symbols?.length);
+    plan.keywords.length > 0;
 
-  // Hard no_focus when nothing to analyze
-  if (
-    !plan.seedPaths.length &&
-    !plan.candidatePaths.length &&
-    !plan.seedSymbols.length &&
-    !request.paths?.length &&
-    !request.query &&
-    !request.symbols?.length
-  ) {
-    // Still might have keywords from change title — if candidates empty and no seeds
-    if (!plan.keywords.length) {
-      gaps.push({
-        code: "no_focus",
-        message:
-          "No focus resolved. Pass --path, --symbol, and/or --query, or run with an active change.",
-      });
-      return hardFailure(gaps, "No focus resolved", {
-        focusSymbols: plan.seedSymbols,
-        keywords: plan.keywords,
-      });
-    }
-  }
-
-  // If symbols-only but zero candidates after search, still hard fail
-  if (!plan.candidatePaths.length && !plan.seedPaths.length) {
-    if (!hasFocus) {
-      gaps.push({
-        code: "no_focus",
-        message:
-          "No focus resolved. Pass --path, --symbol, and/or --query, or run with an active change.",
-      });
-      return hardFailure(gaps, "No focus resolved", {
-        focusSymbols: plan.seedSymbols,
-        keywords: plan.keywords,
-      });
-    }
-    // Had focus signals but nothing found — soft empty ok? Prefer hard no_focus
+  if (!hasExplicit) {
     gaps.push({
       code: "no_focus",
       message:
-        "Focus signals present but no candidate source files resolved. Pass --path to a file or directory.",
+        "No focus resolved. Pass --path, --symbol, and/or --query, or run with an active change.",
     });
-    return hardFailure(gaps, "No candidate files", {
+    return hardFailure(gaps, "No focus resolved", {
       focusSymbols: plan.seedSymbols,
       keywords: plan.keywords,
-      focusPaths: plan.seedPaths,
     });
   }
 
-  // Cap candidates
-  let candidates = [...plan.candidatePaths];
-  if (!candidates.length) candidates = [...plan.seedPaths];
-  let truncated = false;
-  if (candidates.length > caps.maxFiles) {
-    candidates = candidates.slice(0, caps.maxFiles);
-    truncated = true;
-    gaps.push({
-      code: "cap_truncated",
-      message: `Candidate files capped at maxFiles=${caps.maxFiles}.`,
-    });
+  let searchConfig: SearchConfig;
+  try {
+    searchConfig = await loadSearchConfig(projectRoot);
+  } catch {
+    return hardFailure(
+      [{ code: "parse_error", message: "search.yaml is invalid" }],
+      "search.yaml is invalid",
+    );
   }
 
-  // Parse / extract
-  const graph = new GraphLite();
-  let filesAnalyzed = 0;
-  let symbolsExtracted = 0;
+  const config = await loadConfig(projectRoot);
+  let changeTitle: string | null = plan.changeId;
+  let stage: string | undefined;
+  if (request.changeId) {
+    const mp = join(changePath(projectRoot, config, request.changeId), "meta.yaml");
+    if (await pathExists(mp)) {
+      const meta = (await readYaml(mp)) as { title?: string; stage?: string };
+      changeTitle = meta.title ?? request.changeId;
+      stage = meta.stage;
+    }
+  }
 
-  for (const rel of candidates) {
-    const kind = classifyPath(rel);
-    if (kind === "secret") {
+  await createBuiltinProvider(projectRoot, config).index();
+
+  const budget = request.caps?.maxTokensApprox ?? budgetForStage(searchConfig, stage);
+  const k = request.caps?.maxSlices ?? searchConfig.k;
+  let query = request.query?.trim() ? request.query : "";
+  if (!query && request.symbols?.length) query = request.symbols.join(" ");
+  if (!query && changeTitle && request.changeId) query = changeTitle;
+
+  let hits: RawHit[] = query.trim()
+    ? await keywordHits(projectRoot, query, "code", k)
+    : await listScopeHits(projectRoot, "code");
+
+  const fileArgs: string[] = [];
+  const dirArgs: string[] = [];
+  for (const input of request.paths ?? []) {
+    const rel = toRepoPath(projectRoot, input);
+    let info: Awaited<ReturnType<typeof stat>> | null = null;
+    try {
+      info = await stat(join(projectRoot, rel));
+    } catch {
+      info = null;
+    }
+    if (!info) {
+      gaps.push({ code: "path_missing", message: `Path not found: ${rel}`, path: rel });
+      continue;
+    }
+    if (info.isDirectory()) {
+      dirArgs.push(rel);
+      continue;
+    }
+    fileArgs.push(rel);
+    const ext = extname(rel).toLowerCase();
+    if (isSecretPath(rel)) {
       gaps.push({
         code: "path_denied_secret",
         message: `Skipped potential secret path: ${rel}`,
@@ -209,183 +213,95 @@ export async function generateCodeContext(
       });
       continue;
     }
-    if (kind === "ignored") {
-      gaps.push({
-        code: "path_ignored",
-        message: `Skipped ignored path: ${rel}`,
-        path: rel,
-      });
+    if (isIgnoredPath(rel)) {
+      gaps.push({ code: "path_ignored", message: `Skipped ignored path: ${rel}`, path: rel });
       continue;
     }
-
-    const abs = join(projectRoot, rel);
-    if (!(await pathExists(abs))) {
-      gaps.push({
-        code: "path_missing",
-        message: `Path not found: ${rel}`,
-        path: rel,
-      });
-      continue;
-    }
-
-    const adapter = registry.getByPath(rel);
-    if (!adapter) {
+    if (ext === ".go") {
       gaps.push({
         code: "unsupported_language",
-        message: `No structure adapter for ${extname(rel) || rel}; skipped.`,
-        path: rel,
-      });
-      continue;
-    }
-
-    let source: string;
-    try {
-      source = await readText(abs);
-    } catch (err) {
-      gaps.push({
-        code: "parse_error",
-        message: `Could not read ${rel}`,
-        path: rel,
-        detail: err instanceof Error ? err.message : String(err),
-      });
-      continue;
-    }
-
-    let extract: Awaited<ReturnType<LanguageAdapter["extract"]>>;
-    try {
-      extract = await adapter.extract({
-        filePath: normalize(rel).replace(/\\/g, "/"),
-        source,
-        projectRoot,
-      });
-    } catch (err) {
-      gaps.push({
-        code: "parse_error",
-        message: `Parse failed for ${rel} (continuing with other files).`,
-        path: rel,
-        detail: err instanceof Error ? err.message : String(err),
-      });
-      continue;
-    }
-
-    if (!extract.ok) {
-      gaps.push({
-        code: "parse_error",
-        message: `Parse failed for ${rel} (continuing with other files).`,
-        path: rel,
-        detail: extract.errors?.join("; "),
-      });
-      // still add if any symbols
-      if (!extract.symbols.length) continue;
-    }
-
-    // Normalize symbol paths to repo-relative
-    extract.symbols = extract.symbols.map((s) => ({
-      ...s,
-      filePath: normalize(rel).replace(/\\/g, "/"),
-    }));
-
-    if (!extract.symbols.length && extract.ok) {
-      gaps.push({
-        code: "empty_extract",
-        message: `No symbols extracted from ${rel}.`,
+        message: `No structure adapter for ${ext}; skipped.`,
         path: rel,
       });
     }
-
-    graph.add(normalize(rel).replace(/\\/g, "/"), source, extract);
-    filesAnalyzed++;
-    symbolsExtracted += extract.symbols.length;
   }
 
-  // Rank + slice
-  const ranked = rankSymbols(graph, plan, caps);
-  const sliceResult = emitSlices(ranked, graph, caps, {
-    includeNeighbors: request.includeNeighbors,
-  });
-  gaps.push(...sliceResult.gaps);
-  truncated = truncated || sliceResult.truncated;
+  if (request.paths?.length) {
+    hits = hits.filter((hit) => pathKept(hit.path, fileArgs, dirArgs));
+  }
+  const names = request.symbols ?? [];
+  if (names.length) {
+    hits = hits.filter((hit) => symbolKept(hit.symbol, names));
+    hits.sort((a, b) => {
+      const aExact = names.some((name) => a.symbol === name) ? 0 : 1;
+      const bExact = names.some((name) => b.symbol === name) ? 0 : 1;
+      return aExact - bExact;
+    });
+  }
+  if (!query.trim()) hits = hits.slice(0, k);
 
+  const indexed = new Set((await listScopeHits(projectRoot, "code")).map((hit) => hit.path));
+  for (const rel of fileArgs) {
+    const ext = extname(rel).toLowerCase();
+    if (ext === ".go") continue;
+    if (isSecretPath(rel) || isIgnoredPath(rel)) continue;
+    if (!indexed.has(rel) && ext) {
+      gaps.push({
+        code: "parse_error",
+        message: `Parse failed for ${rel} (continuing with other files).`,
+        path: rel,
+      });
+    }
+  }
+
+  const packed = packHits({ preamble: "", hits, budget });
+  const truncated =
+    hits.length > packed.hits.length || packed.hits.some((hit) => hit.form === "signature");
+  if (truncated) {
+    gaps.push({
+      code: "cap_truncated",
+      message: "Packed under the token budget. Lower hits are signatures.",
+    });
+  }
+
+  const slices: CodeSlice[] = packed.hits.map((hit) => ({
+    id: `${hit.path}:${hit.startLine}-${hit.endLine}:${hit.symbol}`,
+    filePath: hit.path,
+    startLine: hit.startLine,
+    endLine: hit.endLine,
+    symbolName: hit.symbol,
+    reason: hit.form === "full" ? "keyword full" : "keyword signature",
+    body: hit.form === "full" ? hit.body : hit.signature,
+  }));
   const summary: CodeContextSummary = {
     focusPaths: plan.seedPaths,
     focusSymbols: plan.seedSymbols,
     keywords: plan.keywords,
-    filesAnalyzed,
-    symbolsExtracted,
-    slicesEmitted: sliceResult.slices.length,
+    filesAnalyzed: new Set(hits.map((hit) => hit.path)).size,
+    symbolsExtracted: hits.length,
+    slicesEmitted: slices.length,
     truncated,
   };
-
-  let changeTitle: string | null = plan.changeId;
-  if (plan.changeId) {
-    try {
-      const { readYaml } = await import("../fs.js");
-      const metaPath = join(
-        projectRoot,
-        // best-effort: changes/<id>/meta.yaml via relative walk
-        // Prefer using change path from resolve — re-read lightly
-        "changes",
-        plan.changeId,
-        "meta.yaml",
-      );
-      // try config-aware path
-      const { loadConfig } = await import("../config.js");
-      const { changePath } = await import("../paths.js");
-      const config = await loadConfig(projectRoot);
-      const mp = join(changePath(projectRoot, config, plan.changeId), "meta.yaml");
-      if (await pathExists(mp)) {
-        const meta = (await readYaml(mp)) as { title?: string };
-        changeTitle = meta.title ?? plan.changeId;
-      } else if (await pathExists(metaPath)) {
-        const meta = (await readYaml(metaPath)) as { title?: string };
-        changeTitle = meta.title ?? plan.changeId;
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   const formatted = formatMarkdown({
     plan,
     summary,
-    slices: sliceResult.slices,
+    slices,
     gaps,
     changeTitle,
-    maxOutputLines: caps.maxOutputLines,
-    maxTokensApprox: caps.maxTokensApprox,
-  });
-  if (formatted.truncated && !summary.truncated) {
-    summary.truncated = true;
-    if (!gaps.some((g) => g.code === "cap_truncated")) {
-      gaps.push({
-        code: "cap_truncated",
-        message: "Output truncated at configured caps (maxOutputLines/maxTokensApprox).",
-      });
-    }
-  }
-
-  // Re-format if we added truncation gap so Gaps section stays accurate
-  const finalFormat = formatMarkdown({
-    plan,
-    summary,
-    slices: sliceResult.slices,
-    gaps,
-    changeTitle,
-    maxOutputLines: caps.maxOutputLines,
-    maxTokensApprox: caps.maxTokensApprox,
+    packedText: packed.text,
   });
 
   let artifactPath: string | undefined;
   if (request.writeArtifactTo) {
-    await writeText(request.writeArtifactTo, finalFormat.markdown);
+    await writeText(request.writeArtifactTo, formatted.markdown);
     artifactPath = request.writeArtifactTo;
   }
 
   return {
     ok: true,
-    markdown: finalFormat.markdown,
+    markdown: formatted.markdown,
     summary,
-    slices: sliceResult.slices,
+    slices,
     gaps,
     artifactPath,
   };

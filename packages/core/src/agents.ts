@@ -824,9 +824,10 @@ export async function writeAgentHandoff(
   projectRoot: string,
   config: Config,
   changeId: string,
+  budget?: number,
 ): Promise<string> {
   const ctx = await buildContext(projectRoot, config, changeId);
-  const body = await buildAgentPrompt(ctx, config, projectRoot);
+  const body = await buildAgentPrompt(ctx, config, projectRoot, budget);
   const outPath = join(sddRoot(projectRoot), "handoff.md");
   const header = `# SDD handoff (auto)
 
