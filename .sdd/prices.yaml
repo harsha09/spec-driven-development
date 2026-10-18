@@ -1,0 +1,9 @@
+# Operator-owned token prices. sdd does not refresh this file.
+# Rates are USD per 1,000,000 tokens. Edit them; init will not overwrite.
+usd_to_inr: 84
+models:
+  default:
+    input_per_million_usd: 3
+    cache_read_per_million_usd: 0.3
+    cache_write_per_million_usd: 3.75
+    output_per_million_usd: 15

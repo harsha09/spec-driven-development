@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "files": {
+    ".sdd/templates/acceptance.md": "c61fee7560ae53be19c8a4dc9a59224941e62a5f9801e856089860cf66535053",
+    ".sdd/templates/arb-decision.md": "8e9bd01c2a1da351e904f734a048593dc96584f3dc221ce02c621c38ba32c20d",
+    ".sdd/templates/arb-packet.md": "a4dfdbf722358ae217161392b6571cacbc81ae0e6f0d9f1de25b40ec31d7e537",
+    ".sdd/templates/brainstorm.md": "40cf9db0e8bf3c2deb80bbc03beb5bb89cd5e50ad7fd573ec0d1101986cd529f",
+    ".sdd/templates/clarify.md": "fddfbc8d5cbe2127a1b9562362ee291d98a9ef48d780d8e97e99eb2abb2be546",
+    ".sdd/templates/code-research.md": "26f13a2bdcc16a8a8115537cb9396f9104cd43595e9feebb6d4a42e27658787e",
+    ".sdd/templates/db-design.md": "0bc6288932fe96c170c0e2683d8eeae46b1bc304bf87b380beca5ac66c78464b",
+    ".sdd/templates/design.md": "3fc0ec86ab6b56d9d844209c4c619e8b03058890a00c9b531653525f95bdf830",
+    ".sdd/templates/feature.md": "d0af01bed59962db2f367fdfc55f2b05bb30f176eee89d03aeb2cab3cbb6763e",
+    ".sdd/templates/features.md": "5cc84a3d0f7e8ddc5bf17eb33ada064c350435b223af5358ecbf272f8a56d61b",
+    ".sdd/templates/greenfield-architecture.md": "bac09883f49b84feb33a54dc999a27525e70e688a18b34471e674ebf1d5323ad",
+    ".sdd/templates/hl-design.md": "8ccaed23cf0f4e86aa8342e803593ce8f296415a412189400026f2a17b88b10e",
+    ".sdd/templates/intent.md": "0abc27f90cda512e6171f8542941e001e1a76bc1024becbf3b7fa076fde878a3",
+    ".sdd/templates/lld.md": "fcc9a1ec226da4f70d2d3d8489280356d9a05a7269cd8c754ff75d39803deff4",
+    ".sdd/templates/local-test-plan.md": "075b18fbca94a8546c53151fc0bf04abb4688719467d0e3e594bb050d69f2a77",
+    ".sdd/templates/local-test-results.md": "b204e8582641bd1e9a13f2cdca23ddb4d1147d7b259c65624e7102ca67320dd8",
+    ".sdd/templates/outcome.md": "ccd6d05c75babbb26e4b06fe307c6e4541c3326ef832e2d11efce82b0e922f32",
+    ".sdd/templates/requirements.md": "433bea7b4b4a2f752e1567fa360633bfeeda216d29bbb78f937c759f622f8da7",
+    ".sdd/templates/stories.md": "3e01178ac4f810923640924aeefe2d2f70c940059a03dd1639403ca1879d79d3",
+    ".sdd/templates/tasks.md": "114d09b1a49650b82eb1c2e9ba2e407270f7cabc7524241743928ff14743476a",
+    ".sdd/templates/vision.md": "a4841ab90438711c5785958d88d2b856589f72ce8dac6f61b4effb15009f5751",
+    ".sdd/workflows/enterprise-feature.yaml": "3bab4366a3e08311ee14e731535e224ffaf808308bbba945a06460e03cace178",
+    ".sdd/workflows/feature.yaml": "1c24489c56042654ef2835c59c8672535e38e89789f2b16b4b14c49ef60ed989",
+    ".sdd/workflows/greenfield.yaml": "9cc0564ac9bce11991e9c2279884c695dbb28966f9358bab0e1d16cbbc8baa15",
+    ".sdd/workflows/hotfix.yaml": "06d1a4f56f2487100ef7422690012f17d1b0f903bb88e26e260482d15b2e9d3f",
+    ".sdd/workflows/patch.yaml": "cd61d98f38629286e5238e8e5ada0cca58d8116991946ac1acdfe49c3f88786d",
+    ".sdd/workflows/spike.yaml": "d21fa786c542c601ec16ca22f814a2f5e9eac26ff01b056d3a9aa53bcacd5c64"
+  }
+}

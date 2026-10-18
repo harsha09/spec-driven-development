@@ -1,0 +1,22 @@
+version: 1
+metrics:
+  enabled: true
+  exclude: []
+memory_path: memory
+changes_path: changes
+archive_path: archive
+domains_path: domains
+default_workflow: recommend
+per_change:
+  allow_skip: true
+  allow_gate_override: soft_only
+  allow_custom_stages: true
+  require_reason_on_skip: true
+persistence:
+  default: change_only
+  archive_on_complete: false
+  domain_sync:
+    mode: never
+    anchored_domains: []
+policy:
+  gates: soft
