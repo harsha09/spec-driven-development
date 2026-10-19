@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -41,14 +41,37 @@ describe("per-machine gitignore (#11)", () => {
     expect(await readFile(sddIgnore, "utf8")).not.toContain("sdd:generated");
   });
 
-  it("does not repair gitignore lines when re-init lacks --force", async () => {
+  it("appends missing gitignore lines without --force and does not rewrite config", async () => {
     const root = await freshProject();
     const sddIgnore = join(root, ".sdd/.gitignore");
+    const configPath = join(root, ".sdd/config.yaml");
+    const workflowPath = join(root, ".sdd/workflows/feature.yaml");
+    const configBefore = await readFile(configPath, "utf8");
+    const workflowBefore = await readFile(workflowPath, "utf8");
     await writeFile(sddIgnore, "extra\n");
-    await expect(initProject({ projectRoot: root, agents: false })).rejects.toThrow(
-      /Already initialized/,
-    );
-    expect(await readFile(sddIgnore, "utf8")).toBe("extra\n");
+    await initProject({ projectRoot: root, agents: false });
+    const ignore = await readFile(sddIgnore, "utf8");
+    expect(ignore.startsWith("extra\n")).toBe(true);
+    expect(ignore).toContain("role-runs/\n");
+    expect(await readFile(configPath, "utf8")).toBe(configBefore);
+    expect(await readFile(workflowPath, "utf8")).toBe(workflowBefore);
+    await initProject({ projectRoot: root, agents: false });
+    expect(await readFile(sddIgnore, "utf8")).toBe(ignore);
+  });
+
+  it("appends .active under a custom changes_path and does not rewrite config", async () => {
+    const root = await freshProject();
+    const configPath = join(root, ".sdd/config.yaml");
+    const original = await readFile(configPath, "utf8");
+    const edited = original.replace(/^changes_path: changes$/m, "changes_path: .sdd/changes");
+    await writeFile(configPath, edited);
+    const customIgnore = join(root, ".sdd/changes/.gitignore");
+    await mkdir(join(root, ".sdd/changes"), { recursive: true });
+    await writeFile(customIgnore, "extra\n");
+    await initProject({ projectRoot: root, agents: false });
+    expect(await readFile(configPath, "utf8")).toBe(edited);
+    expect(await readFile(customIgnore, "utf8")).toBe("extra\n.active\n");
+    expect(await readFile(join(root, "changes/.gitignore"), "utf8")).toBe(".active\n");
   });
 
   it("warns when a per-machine file is already tracked and does not untrack it", async () => {

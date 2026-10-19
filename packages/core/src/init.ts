@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { lstat } from "node:fs/promises";
 import { join } from "pathe";
 import { type AgentTarget, assertAgentInstallable, installAgentIntegration } from "./agents.js";
-import { defaultConfig, mergeConfigDefaults, saveConfig } from "./config.js";
+import { defaultConfig, loadConfig, mergeConfigDefaults, saveConfig } from "./config.js";
 import {
   defaultMcpYamlPath,
   defaultMemoryDir,
@@ -80,9 +80,8 @@ export async function initProject(opts: InitOptions): Promise<InitResult> {
   const configFile = join(root, "config.yaml");
 
   if ((await pathExists(configFile)) && !force) {
-    throw new Error(
-      `Already initialized (${configFile}). Use --force to merge defaults and refresh unchanged generated files.`,
-    );
+    await repairRequiredIgnores(projectRoot);
+    return { created, config: await loadConfig(projectRoot), kept, warnings };
   }
 
   // Check before writing anything, so a bad path cannot leave .sdd/ half-written.
@@ -297,21 +296,10 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
 
   const sddIgnore = join(root, ".gitignore");
   const changesIgnore = join(changesDir(projectRoot, config), ".gitignore");
-  if (
-    await ensureIgnoreEntries(sddIgnore, [
-      "handoff.md",
-      "active-context.md",
-      "index.db",
-      "index.db-journal",
-      "index.db-wal",
-      "index.db-shm",
-      "models/",
-      "role-runs/",
-    ])
-  ) {
+  if ((await ensureIgnoreEntries(sddIgnore, SDD_IGNORE_LINES)).created) {
     created.push(sddIgnore);
   }
-  if (await ensureIgnoreEntries(changesIgnore, [".active"])) {
+  if ((await ensureIgnoreEntries(changesIgnore, [".active"])).created) {
     created.push(changesIgnore);
   }
   const perMachine = [
@@ -356,8 +344,33 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
   return { created, config, kept, warnings, agents: agentsResult };
 }
 
-/** Append missing ignore lines. Returns true when the file did not exist before. */
-async function ensureIgnoreEntries(filePath: string, required: string[]): Promise<boolean> {
+const SDD_IGNORE_LINES = [
+  "handoff.md",
+  "active-context.md",
+  "index.db",
+  "index.db-journal",
+  "index.db-wal",
+  "index.db-shm",
+  "models/",
+  "role-runs/",
+];
+
+/** Append missing required ignore lines. Does not rewrite config, memory, or workflows. */
+export async function repairRequiredIgnores(projectRoot: string): Promise<boolean> {
+  const config = await loadConfig(projectRoot);
+  const root = sddRoot(projectRoot);
+  const sdd = await ensureIgnoreEntries(join(root, ".gitignore"), SDD_IGNORE_LINES);
+  const changes = await ensureIgnoreEntries(join(changesDir(projectRoot, config), ".gitignore"), [
+    ".active",
+  ]);
+  return sdd.added || changes.added;
+}
+
+/** Append missing ignore lines. `created` is true when the file did not exist before. */
+async function ensureIgnoreEntries(
+  filePath: string,
+  required: string[],
+): Promise<{ created: boolean; added: boolean }> {
   const existed = await pathExists(filePath);
   const original = existed ? await readText(filePath) : "";
   const present = new Set(
@@ -367,12 +380,12 @@ async function ensureIgnoreEntries(filePath: string, required: string[]): Promis
       .filter((line) => line.length > 0 && !line.startsWith("#")),
   );
   const missing = required.filter((line) => !present.has(line));
-  if (existed && missing.length === 0) return false;
+  if (existed && missing.length === 0) return { created: false, added: false };
   let next = original;
   if (next.length > 0 && !next.endsWith("\n")) next += "\n";
   next += missing.map((line) => `${line}\n`).join("");
   await writeText(filePath, next);
-  return !existed;
+  return { created: !existed, added: missing.length > 0 };
 }
 
 function gitTrackedPaths(projectRoot: string, relativePaths: string[]): Promise<string[] | null> {
