@@ -149,7 +149,9 @@ Related change specs and memory pages can be packed as a short extractive summar
 
 ## sdd role
 
-A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors are not in this slice.
+A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors and routines are not in this slice.
+
+`sdd role messaging off` stops a handoff before any model call. `sdd role handoff <from> --to <role> --change <id> --section <id> --task "..."` writes the same handoff record on both conversations and calls only the receiver. `sdd role group --change <id>` lists accepted owners. `sdd role network` prints one service, a connection with the lead absent, or asks the lead for a plan of depth at most 2. Nobody writes until `sdd role network accept`. `sdd role network run` runs a node only after its prerequisites, and the parent stays open until every node has a result.
 
 A local adapter shows the three passes. It reads `{"roleId","prompt"}` and writes one JSON object. It does not call a network.
 

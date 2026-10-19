@@ -85,6 +85,22 @@ process.stdin.on("end", () => {
     expect(missing.stdout.trim()).toBe("No role model is configured.");
   });
 
+  it("turns messaging off and refuses a handoff to the same role", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-role-handoff-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    expect(
+      runSdd(root, ["role", "create", "--name", "builder", "--label", "Builder", "--job", "Build"])
+        .status,
+    ).toBe(0);
+    const off = runSdd(root, ["role", "messaging", "off"]);
+    expect(off.status).toBe(0);
+    expect(off.stdout.trim()).toBe("Messaging between roles is off.");
+    const same = runSdd(root, ["role", "handoff", "builder", "--to", "builder", "--task", "draft"]);
+    expect(same.status).toBe(1);
+    expect(same.stdout.trim()).toBe("A role cannot hand off to itself.");
+  });
+
   it("describes agents install as one host", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-role-help-"));
     temps.push(root);
