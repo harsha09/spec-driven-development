@@ -1,6 +1,8 @@
 import { appendFile } from "node:fs/promises";
 import { isAbsolute, join } from "pathe";
+import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
+import { changesDir, configPath } from "../paths.js";
 import {
   allowFilePath,
   canonicalRoleName,
@@ -321,6 +323,12 @@ function revisionPrompt(
   ].join("\n");
 }
 
+async function acceptedFile(root: string, changeId: string): Promise<string> {
+  if (!(await pathExists(configPath(root)))) return join(root, "changes", changeId, "accepted.md");
+  const config = await loadConfig(root);
+  return join(changesDir(root, config), changeId, "accepted.md");
+}
+
 async function callModel(
   model: RoleModel,
   file: string,
@@ -475,7 +483,7 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     const changeId = input.change?.trim() ?? "";
     const sectionId = input.section?.trim() ?? "";
     if (!safeChangeId(changeId) || !sectionId) return fail(ROLE_TEXT.needsSection);
-    const acceptedPath = join(root, "changes", changeId, "accepted.md");
+    const acceptedPath = await acceptedFile(root, changeId);
     if (!(await pathExists(acceptedPath))) return fail(ROLE_TEXT.needsSection);
     const parsed = parseSection(await readText(acceptedPath), sectionId);
     if (!parsed) return fail(ROLE_TEXT.needsSection);
