@@ -19,7 +19,7 @@ export interface SearchHit {
    * Hybrid hits store the RRF score (higher is better).
    */
   score: number;
-  form: "full" | "signature";
+  form: "full" | "signature" | "summary";
   text: string;
   signature: string;
   body: string;
@@ -67,4 +67,6 @@ export interface RawHit {
   language: string;
   /** Not printed. Keyword rows are bm25. Fused rows are rrf. */
   rankedBy?: "bm25" | "rrf";
+  /** Pack-time extract. Absent for code and for the active change. */
+  summary?: string;
 }

@@ -79,6 +79,8 @@ This protection covers **`AGENTS.md`, host agent files and folders, `.sdd/protoc
 
 Real process rules: **`.sdd/protocol.md`**. Live task: **`.sdd/active-context.md`** / **`.sdd/handoff.md`**.
 
+The handoff prompt puts the change title, id, workflow, path, constraints, and the artifact list before the stage, its instructions, MCP, and retrieved context. That leading text is the same on every stage of the change.
+
 ## Process commands vs agent launch
 
 Most process commands refresh handoff and **launch** the configured agent.  

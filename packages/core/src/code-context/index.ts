@@ -19,9 +19,11 @@ import {
   loadSearchConfig,
   packHits,
   rankScope,
+  resolveActiveDirectory,
   resolveEmbedder,
 } from "../search/index.js";
-import type { RawHit } from "../search/types.js";
+import { readPackedCache, writePackedCache } from "../search/result-cache.js";
+import type { RawHit, SearchHit } from "../search/types.js";
 import type { LanguageAdapter } from "./adapters/types.js";
 import { resolveFocus } from "./focus.js";
 import { formatMarkdown } from "./formatter.js";
@@ -189,8 +191,30 @@ export async function generateCodeContext(
   let query = request.query?.trim() ? request.query : "";
   if (!query && request.symbols?.length) query = request.symbols.join(" ");
   if (!query && changeTitle && request.changeId) query = changeTitle;
+  const activeChange = await resolveActiveDirectory(projectRoot, config);
+  const cacheRequest = {
+    projectRoot,
+    query: query.trim() ? query : "",
+    channel: "context" as const,
+    scope: "code",
+    k,
+    budget,
+    embeddings: searchConfig.embeddings,
+    activeChange,
+    filterPaths: request.paths ?? [],
+    filterSymbols: request.symbols ?? [],
+    scopes: ["code" as const],
+  };
+  try {
+    const cached = readPackedCache(cacheRequest);
+    if (cached) return finishContext(cached.hits, cached.text, cached.warning);
+  } catch {
+    // A broken cache uses the uncached pack.
+  }
 
   let hits: RawHit[];
+  let mode: "bm25" | "rrf" = "bm25";
+  let hybridScopes = "";
   if (query.trim()) {
     const embedder = await resolveEmbedder(projectRoot, searchConfig.embeddings, runtime);
     const embedded = await embedSearchQuery(embedder, searchConfig.embeddings, query);
@@ -200,6 +224,8 @@ export async function generateCodeContext(
       failure: embedded.failure,
     });
     hits = ranked.hits;
+    if (ranked.hybrid) hybridScopes = "code";
+    if (ranked.hits.some((hit) => hit.rankedBy === "rrf")) mode = "rrf";
     if (ranked.warning) {
       gaps.push({ code: "embeddings_unavailable", message: EMBEDDINGS_UNAVAILABLE });
     }
@@ -277,6 +303,11 @@ export async function generateCodeContext(
   }
 
   const packed = packHits({ preamble: "", hits, budget });
+  try {
+    writePackedCache(cacheRequest, packed, hits, mode, hybridScopes);
+  } catch {
+    // The markdown is still returned when the cache write fails.
+  }
   const truncated =
     hits.length > packed.hits.length || packed.hits.some((hit) => hit.form === "signature");
   if (truncated) {
@@ -327,6 +358,58 @@ export async function generateCodeContext(
     gaps,
     artifactPath,
   };
+
+  async function finishContext(packedHits: SearchHit[], packedText: string, warning?: string) {
+    if (warning) {
+      gaps.push({ code: "embeddings_unavailable", message: EMBEDDINGS_UNAVAILABLE });
+    }
+    const truncated = packedHits.some((hit) => hit.form === "signature");
+    if (truncated) {
+      gaps.push({
+        code: "cap_truncated",
+        message: "Packed under the token budget. Lower hits are signatures.",
+      });
+    }
+    const slices: CodeSlice[] = packedHits.map((hit) => ({
+      id: `${hit.path}:${hit.startLine}-${hit.endLine}:${hit.symbol}`,
+      filePath: hit.path,
+      startLine: hit.startLine,
+      endLine: hit.endLine,
+      symbolName: hit.symbol,
+      reason: hit.form === "full" ? "keyword full" : "keyword signature",
+      body: hit.form === "full" ? hit.body : hit.signature,
+    }));
+    const summary: CodeContextSummary = {
+      focusPaths: plan.seedPaths,
+      focusSymbols: plan.seedSymbols,
+      keywords: plan.keywords,
+      filesAnalyzed: new Set(packedHits.map((hit) => hit.path)).size,
+      symbolsExtracted: packedHits.length,
+      slicesEmitted: slices.length,
+      truncated,
+    };
+    const formatted = formatMarkdown({
+      plan,
+      summary,
+      slices,
+      gaps,
+      changeTitle,
+      packedText,
+    });
+    let artifactPath: string | undefined;
+    if (request.writeArtifactTo) {
+      await writeText(request.writeArtifactTo, formatted.markdown);
+      artifactPath = request.writeArtifactTo;
+    }
+    return {
+      ok: true as const,
+      markdown: formatted.markdown,
+      summary,
+      slices,
+      gaps,
+      artifactPath,
+    };
+  }
 }
 
 export { resolveFocus, tokenizeKeywords, extractPathLikeTokens } from "./focus.js";

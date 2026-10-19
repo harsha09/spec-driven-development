@@ -42,6 +42,38 @@ CREATE TABLE IF NOT EXISTS vec_meta (
   chunk_hash TEXT NOT NULL,
   scope TEXT NOT NULL CHECK (scope IN ('code', 'specs', 'memory'))
 );
+
+CREATE TABLE IF NOT EXISTS spec_summaries (
+  path TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  start_line INTEGER NOT NULL,
+  summary TEXT NOT NULL,
+  PRIMARY KEY (path, content_hash, symbol, start_line)
+);
+
+CREATE TABLE IF NOT EXISTS result_cache (
+  cache_key TEXT PRIMARY KEY,
+  query TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  k INTEGER NOT NULL,
+  budget INTEGER NOT NULL,
+  embeddings INTEGER NOT NULL,
+  active_change TEXT NOT NULL,
+  filter TEXT NOT NULL,
+  index_version TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  hybrid_scopes TEXT NOT NULL,
+  payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS result_cache_files (
+  cache_key TEXT NOT NULL,
+  path TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  PRIMARY KEY (cache_key, path)
+);
 `;
 
 export const ADD_CHUNK_HASH_SQL =
