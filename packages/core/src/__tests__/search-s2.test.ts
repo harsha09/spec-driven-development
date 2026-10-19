@@ -697,7 +697,7 @@ describe("search S2", () => {
     await initProject({ projectRoot: root, agents: false });
     const ignore = await readFile(join(root, ".sdd/.gitignore"), "utf8");
     expect(ignore).toBe(
-      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\nmodels/\n",
+      "handoff.md\nactive-context.md\nindex.db\nindex.db-journal\nindex.db-wal\nindex.db-shm\nmodels/\nrole-runs/\n",
     );
     await expect(stat(join(root, ".sdd/models"))).rejects.toThrow();
     const search = await readFile(join(root, ".sdd/search.yaml"), "utf8");

@@ -89,6 +89,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
+| `sdd role` | Create, list, and run a product role | One job and one stop |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List paths | Discover |
 | `sdd help` | Short overview | First run |
@@ -142,6 +143,10 @@ Related change specs and memory pages can be packed as a short extractive summar
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
 
 ---
+
+## sdd role
+
+A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors are not in this slice.
 
 ## Related
 

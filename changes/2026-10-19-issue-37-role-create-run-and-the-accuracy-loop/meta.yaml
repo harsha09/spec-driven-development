@@ -1,0 +1,39 @@
+id: 2026-10-19-issue-37-role-create-run-and-the-accuracy-loop
+title: "Issue #37: role create, run, and the accuracy loop"
+workflow: feature
+created: 2026-10-19T06:44:59.559Z
+updated: 2026-10-19T07:20:55.046Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the approved issue names this slice
+    at: 2026-10-19T06:45:21.259Z
+  - stage: brainstorm
+    reason: slice 1 is one approach
+    at: 2026-10-19T06:45:21.975Z
+  - stage: clarify_design
+    reason: the approved design has no open product choice
+    at: 2026-10-19T07:05:35.584Z
+  - stage: clarify_tasks
+    reason: the approved design is the task list
+    at: 2026-10-19T07:05:36.395Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 050e0b768e8a77c372bcc0f4617855f448ff958b
+    at: 2026-10-19T07:20:55.046Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
