@@ -1,0 +1,71 @@
+name: publish cli 0.18.0
+
+# One-shot. Core 0.18.0 is already on npm. This publishes the matching cli only.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-cli:
+    name: Publish cli 0.18.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: a50ab7bcd7759b6b4e5b0867d7ad9ede2ee49646
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+          package-manager-cache: false
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Bump to the release version
+        run: |
+          set -euo pipefail
+          node scripts/bump-version.mjs
+          version="$(node -e "process.stdout.write(require('./packages/cli/package.json').version)")"
+          echo "bumped ${version}"
+          test "$version" = "0.18.0"
+
+      - name: Publish cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if npm view @structured-vibe-coding/cli@0.18.0 version >/dev/null 2>&1; then
+            echo "cli 0.18.0 is already on npm"
+            exit 0
+          fi
+          core="$(npm view @structured-vibe-coding/core@0.18.0 version)"
+          test "$core" = "0.18.0"
+          cd packages/cli
+          pnpm publish --access public --no-git-checks --tag latest
+          ok=0
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if npm view @structured-vibe-coding/cli@0.18.0 version 2>/dev/null | grep -q '0.18.0'; then
+              ok=1
+              break
+            fi
+            echo "Waiting for cli@0.18.0 (attempt ${i})..."
+            sleep 10
+          done
+          test "$ok" = "1"
+          echo "CLI_PUBLISHED"
