@@ -2,7 +2,7 @@ id: 2026-10-19-hand-off-work-and-the-task-network
 title: Hand off work and the task network
 workflow: feature
 created: 2026-10-19T14:41:11.398Z
-updated: 2026-10-19T15:25:08.732Z
+updated: 2026-10-19T15:31:01.809Z
 status: in_progress
 stage: local_verify
 branch: story/issue-37/S-004
@@ -36,7 +36,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: f6dd94b4ab8cf453a78372743512d04b10b79ab3
+    head_sha: 75d256bbb99119a59028d22af2e982445be97b26
     at: 2026-10-19T15:25:08.732Z
     results:
       - name: Workspace tests
