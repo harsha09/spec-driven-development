@@ -675,17 +675,28 @@ stages:
     expect(await exists(join(root, "AGENTS.md"))).toBe(false);
   });
 
-  it("re-running init --no-agent explains safe --force behavior (#15)", async () => {
+  it("re-running init --no-agent adds missing ignore lines and leaves config alone (#45)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-noagent-reinit-"));
     temps.push(root);
     expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const configPath = join(root, ".sdd/config.yaml");
+    const workflowPath = join(root, ".sdd/workflows/feature.yaml");
+    const ignorePath = join(root, ".sdd/.gitignore");
+    const configBefore = await readFile(configPath, "utf8");
+    const workflowBefore = await readFile(workflowPath, "utf8");
+    await writeFile(ignorePath, "extra\n");
     const again = runSdd(root, ["init", "--here", "--no-agent"]);
-    expect(again.status).toBe(1);
-    const out = again.stderr + again.stdout;
-    expect(out).toContain("already initialized");
-    expect(out).toContain("preserves supported config values");
-    expect(out).toContain("refreshes only unchanged SDD-generated workflows/templates");
-    expect(out).toContain("edited or untracked files are kept");
+    expect(again.status, again.stderr + again.stdout).toBe(0);
+    expect(again.stdout).toContain("Added missing ignore lines.");
+    const ignore = await readFile(ignorePath, "utf8");
+    expect(ignore).toContain("role-runs/");
+    expect(ignore.startsWith("extra\n")).toBe(true);
+    expect(await readFile(configPath, "utf8")).toBe(configBefore);
+    expect(await readFile(workflowPath, "utf8")).toBe(workflowBefore);
+    const third = runSdd(root, ["init", "--here", "--no-agent"]);
+    expect(third.status, third.stderr + third.stdout).toBe(0);
+    expect(third.stdout).toContain("Ignore lines are already present.");
+    expect(await readFile(ignorePath, "utf8")).toBe(ignore);
   });
 
   it("init --force preserves custom config paths and lists edited workflows/templates (#15)", async () => {

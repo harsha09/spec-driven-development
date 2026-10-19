@@ -20,6 +20,7 @@ import {
   optionForTarget,
   parseIntegration,
   refreshActiveAgentContext,
+  repairRequiredIgnores,
 } from "@structured-vibe-coding/core";
 import pc from "picocolors";
 
@@ -272,6 +273,12 @@ export async function runSpeckitStyleInit(args: InitCliArgs): Promise<void> {
 
   const { projectRoot, here } = await resolveProjectPath(args);
   const force = Boolean(args.force);
+
+  if (!force && (await isInitialized(projectRoot)) && !isInteractive()) {
+    const added = await repairRequiredIgnores(projectRoot);
+    console.log(added ? "Added missing ignore lines." : "Ignore lines are already present.");
+    return;
+  }
 
   await maybeConfirmNonEmpty(projectRoot, force, here);
 

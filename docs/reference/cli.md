@@ -10,7 +10,7 @@ Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@s
 Learn by doing: [Start in 10 minutes](../tutorials/first-change).
 One command’s flags: `sdd <command> --help`.
 
-Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, `models/`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init --force` appends any missing ignore line and does not replace the file. `sdd status` prints the change path relative to the repo.
+Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, `models/`, `role-runs/`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init` without `--force` appends any missing ignore line and does not rewrite config, memory, or workflows. `sdd init --force` still refreshes unchanged generated files. `sdd status` prints the change path relative to the repo.
 
 ---
 
