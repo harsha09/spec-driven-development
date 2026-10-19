@@ -1,0 +1,51 @@
+name: npm token probe
+
+# Temporary check. Do not merge. Publishes nothing new: it retries the
+# version already on npm and expects the duplicate-version refusal.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Check publish permission
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Probe existing version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN is empty"
+            exit 1
+          fi
+          echo "npm whoami:"
+          npm whoami
+          dir="$(mktemp -d)"
+          node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({name:"@structured-vibe-coding/core",version:"0.17.2",description:"auth probe",license:"MIT"}))' "$dir/package.json"
+          set +e
+          log="$(cd "$dir" && npm publish --access public 2>&1)"
+          code=$?
+          set -e
+          printf '%s\n' "$log" | sed -E 's/(npm_[A-Za-z0-9]+)/[redacted]/g'
+          if printf '%s\n' "$log" | grep -qi 'bypass 2fa\|Two-factor authentication'; then
+            echo "::error::Token still cannot publish. Bypass two-factor authentication is off, or the token is not allowed to publish this package."
+            exit 1
+          fi
+          if printf '%s\n' "$log" | grep -qi 'previously published\|cannot publish over'; then
+            echo "TOKEN_CAN_PUBLISH"
+            exit 0
+          fi
+          echo "::error::Unexpected npm publish result (exit ${code})."
+          exit 1
