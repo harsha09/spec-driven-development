@@ -32,7 +32,7 @@
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="f6dd94b4ab8cf453a78372743512d04b10b79ab3" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="75d256bbb99119a59028d22af2e982445be97b26" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)
 
@@ -42,6 +42,6 @@
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="f6dd94b4ab8cf453a78372743512d04b10b79ab3" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="75d256bbb99119a59028d22af2e982445be97b26" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)
