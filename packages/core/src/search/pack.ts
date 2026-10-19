@@ -15,9 +15,10 @@ export function searchPreamble(
   return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: builtin\nBudget: ${budget}\n\n`;
 }
 
-export function renderBlock(hit: RawHit, form: "full" | "signature"): string {
+export function renderBlock(hit: RawHit, form: "full" | "signature" | "summary"): string {
   const fence = hit.language ? `\`\`\`${hit.language}` : "```";
-  const body = form === "full" ? hit.body : hit.signature;
+  const body =
+    form === "full" ? hit.body : form === "summary" ? (hit.summary ?? "") : hit.signature;
   return (
     `### \`${hit.path}\` · \`${hit.symbol}\` (lines ${hit.startLine}${EN_DASH}${hit.endLine}) · ${form}\n` +
     `${fence}\n${body}\n\`\`\`\n`
@@ -45,9 +46,23 @@ export function packHits(input: {
   let text = preamble;
   const packed: SearchHit[] = [];
   const full: RawHit[] = [];
+  const seen = new Set<string>();
 
   for (const hit of hits) {
+    const id = `${hit.path}\0${hit.symbol}\0${hit.startLine}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
     if (full.some((outer) => contains(outer, hit))) continue;
+    const summary = hit.summary;
+    if (summary && summary !== hit.body) {
+      const summaryBlock = renderBlock(hit, "summary");
+      const summaryText = text + summaryBlock;
+      if (countTokens(summaryText) <= budget) {
+        text = summaryText;
+        packed.push({ ...hit, form: "summary", text: summaryBlock });
+        continue;
+      }
+    }
     const fullBlock = renderBlock(hit, "full");
     const fullText = text + fullBlock;
     if (countTokens(fullText) <= budget) {

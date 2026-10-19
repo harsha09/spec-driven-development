@@ -834,7 +834,7 @@ export async function writeAgentHandoff(
   const header = `# SDD handoff (auto)
 
 > Generated for the AI coding agent configured at init.  
-> Change: **${ctx.meta.title}** · \`${ctx.id}\` · stage **${ctx.meta.stage}**
+> Change: **${ctx.meta.title}** · \`${ctx.id}\`
 
 Also read: \`.sdd/active-context.md\`, \`.sdd/protocol.md\`, \`${guidancePaths(config).constitution}\` if present.
 

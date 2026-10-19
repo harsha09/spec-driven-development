@@ -55,21 +55,8 @@ export async function buildAgentPrompt(
   parts.push(`- Title: ${ctx.meta.title}`);
   parts.push(`- ID: ${ctx.id}`);
   parts.push(`- Workflow: ${ctx.meta.workflow}`);
-  parts.push(`- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`);
   parts.push(`- Change path: ${ctx.displayPath}`);
   parts.push("");
-
-  if (stage?.summary) {
-    parts.push(`## Stage goal`);
-    parts.push(stage.summary);
-    parts.push("");
-  }
-
-  if (stage?.agent_context?.instructions) {
-    parts.push(`## Instructions`);
-    parts.push(stage.agent_context.instructions);
-    parts.push("");
-  }
 
   const paths = guidancePaths(config);
   parts.push(`## Constraints`);
@@ -89,6 +76,23 @@ export async function buildAgentPrompt(
     }
   }
   parts.push("");
+
+  parts.push(`## Stage`);
+  parts.push(`- Current stage: ${ctx.meta.stage}${stage?.title ? ` (${stage.title})` : ""}`);
+  parts.push("");
+
+  if (stage?.summary) {
+    parts.push(`## Stage goal`);
+    parts.push(stage.summary);
+    parts.push("");
+  }
+
+  if (stage?.agent_context?.instructions) {
+    parts.push(`## Instructions`);
+    parts.push(stage.agent_context.instructions);
+    parts.push("");
+  }
+
   parts.push(`## Current stage artifacts`);
   if (stage) {
     for (const a of stage.artifacts) {
@@ -154,6 +158,7 @@ export async function buildAgentPrompt(
     ctx.meta.stage,
     budget,
     runtime,
+    ctx.displayPath,
   );
   parts.push("## Retrieved context");
   parts.push("");

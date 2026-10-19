@@ -3,6 +3,7 @@ import { createBuiltinProvider, rankScope } from "./builtin.js";
 import { type SearchConfig, budgetForStage, loadSearchConfig } from "./config.js";
 import { type SearchRuntime, embedSearchQuery, resolveEmbedder } from "./embed.js";
 import { packHits } from "./pack.js";
+import { attachSummaries, readPackedCache, writePackedCache } from "./result-cache.js";
 import { mergeRankedHits } from "./rrf.js";
 import type { RawHit, SearchProvider, SearchQuery, SearchResult, SearchScope } from "./types.js";
 
@@ -88,6 +89,7 @@ export async function buildRetrievedInner(
   stage: string | undefined,
   budget: number | undefined,
   runtime?: SearchRuntime,
+  activeChange = "",
 ): Promise<string> {
   let search: SearchConfig;
   try {
@@ -104,19 +106,52 @@ export async function buildRetrievedInner(
       provider.id === "builtin" ? safeMessage(err, projectRoot) : fallbackWarning(search.provider);
     return `Retrieved context skipped: ${message}.`;
   }
+  const request = {
+    projectRoot,
+    query: title,
+    channel: "handoff" as const,
+    scope: "merged",
+    k: search.k,
+    budget: limit,
+    embeddings: search.embeddings,
+    activeChange,
+    scopes: ["specs", "memory", "code"] as const,
+  };
+  try {
+    const cached = readPackedCache(request);
+    if (cached) return cached.text;
+  } catch {
+    // A broken cache uses the uncached pack.
+  }
   try {
     const embedder = await resolveEmbedder(projectRoot, search.embeddings, runtime);
     const embedded = await embedSearchQuery(embedder, search.embeddings, title);
     const hits: RawHit[] = [];
+    const hybridScopes: string[] = [];
     for (const scope of ["specs", "memory", "code"] as const) {
       const ranked = await rankScope(projectRoot, title, scope, search.k, {
         embeddings: search.embeddings,
         queryVec: embedded.queryVec,
         failure: embedded.failure,
       });
+      if (ranked.hybrid) hybridScopes.push(scope);
       hits.push(...ranked.hits);
     }
-    return packHits({ preamble: "", hits: mergeRankedHits(hits), budget: limit }).text;
+    const merged = mergeRankedHits(hits);
+    let prepared = merged;
+    try {
+      prepared = attachSummaries(projectRoot, merged, activeChange);
+    } catch {
+      prepared = merged;
+    }
+    const packed = packHits({ preamble: "", hits: prepared, budget: limit });
+    const mode = merged.some((hit) => hit.rankedBy === "rrf") ? "rrf" : "bm25";
+    try {
+      writePackedCache(request, packed, merged, mode, hybridScopes.join(","));
+    } catch {
+      // The inner text is still returned when the cache write fails.
+    }
+    return packed.text;
   } catch (err) {
     const message =
       search.provider === "builtin"

@@ -4,6 +4,8 @@ export type { SearchConfig } from "./config.js";
 export { packHits, renderBlock, searchPreamble } from "./pack.js";
 export { loadExcluder, isHardDenied, isPrunedDir } from "./exclude.js";
 export { chunkMarkdown } from "./chunk-markdown.js";
+export { SUMMARY_TOKEN_CAP, extractiveSummary } from "./summarize.js";
+export { resolveActiveDirectory } from "./result-cache.js";
 export { chunkCode } from "./chunk-code.js";
 export {
   createBuiltinProvider,
