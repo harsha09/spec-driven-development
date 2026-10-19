@@ -90,9 +90,7 @@ export function runIdFrom(date: Date): string {
 
 /** Case-sensitive mention ban. A hit rejects the task wherever the text appears. */
 function mentionsX(task: string): boolean {
-  return (
-    task.indexOf("@X") !== -1 || task.indexOf("x.com") !== -1 || task.indexOf("twitter.com") !== -1
-  );
+  return /@X|x\.com|twitter\.com/.test(task);
 }
 
 function safeChangeId(id: string): boolean {
