@@ -2,7 +2,7 @@ id: 2026-10-19-document-a-local-sdd-role-model-example
 title: Document a local SDD_ROLE_MODEL example
 workflow: feature
 created: 2026-10-19T11:52:38.659Z
-updated: 2026-10-19T12:07:15.438Z
+updated: 2026-10-19T12:07:31.493Z
 status: in_progress
 stage: local_verify
 branch: story/issue-37/S-003
@@ -36,7 +36,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: cb20443d5b0c143f2175d53c56cbcbe4f643a977
+    head_sha: ad83790093c224c8bb7f075f0fd573ef04661b4c
     at: 2026-10-19T12:07:15.438Z
     results:
       - name: Workspace tests
