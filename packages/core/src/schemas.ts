@@ -130,6 +130,11 @@ export const ChangeMetaSchema = z.object({
   status: z.enum(["in_progress", "blocked", "completed", "abandoned"]).default("in_progress"),
   stage: z.string(),
   branch: z.string().optional(),
+  /** Epic key such as issue-37. Stories in one epic share a dependency graph. */
+  epic: z.string().optional(),
+  /** Story id such as S-001. */
+  story: z.string().optional(),
+  depends: z.array(z.string()).optional(),
   domain: z.string().optional(),
   flags: z.record(z.union([z.boolean(), z.string(), z.number()])).default({}),
   overrides: z
