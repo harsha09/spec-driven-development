@@ -151,6 +151,14 @@ Related change specs and memory pages can be packed as a short extractive summar
 
 A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors are not in this slice.
 
+A local adapter shows the three passes. It reads `{"roleId","prompt"}` and writes one JSON object. It does not call a network.
+
+```bash
+SDD_ROLE_MODEL="node docs/examples/role-model.mjs" sdd role run builder --kind code --change <id> --section <section> --task "..."
+```
+
+A prompt that contains `changed must list every gap cite.` is the revision. Its `text` is `Revised draft.`, `changed` lists every gap cite, and `action` is `write_file` on `notes/draft.md`. A prompt that contains `Draft:` and `Cite:` is the critique. Its `text` is `Checked the draft.`, and the gap `text` is `The draft misses this check.` The gap cite is the first check id under `Check ids:`. Any other prompt is the author pass and returns `Draft from the local example.` The `write_file` action stops for Allow once, Always allow, or Deny.
+
 ## Epic stories
 
 `sdd new --epic issue-37 --story S-001` records one vertical slice. `--depends S-001` names a story that must be completed first. `sdd graph --epic issue-37` prints the waves. Stories in one wave can run at the same time. A later wave waits. `sdd branch <name>` creates that branch from `main` when every dependency is completed. `sdd pr` pushes it and opens the pull request. The body does not close an issue unless `--closes` is set. `sdd backlog` remains the greenfield `F-001` list.
