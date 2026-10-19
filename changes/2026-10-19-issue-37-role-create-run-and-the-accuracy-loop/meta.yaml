@@ -2,7 +2,7 @@ id: 2026-10-19-issue-37-role-create-run-and-the-accuracy-loop
 title: "Issue #37: role create, run, and the accuracy loop"
 workflow: feature
 created: 2026-10-19T06:44:59.559Z
-updated: 2026-10-19T07:20:55.046Z
+updated: 2026-10-19T07:44:04.381Z
 status: in_progress
 stage: local_verify
 flags: {}
@@ -32,7 +32,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: 050e0b768e8a77c372bcc0f4617855f448ff958b
+    head_sha: 5bfa19dc0eb90dcd9e7aa5c7aedb64eaafe700ea
     at: 2026-10-19T07:20:55.046Z
     results:
       - name: Workspace tests
