@@ -306,6 +306,7 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
       "index.db-wal",
       "index.db-shm",
       "models/",
+      "role-runs/",
     ])
   ) {
     created.push(sddIgnore);
