@@ -2,7 +2,7 @@ id: 2026-10-19-plan-an-epic-as-vertical-stories-with-a-dependency-graph
 title: Plan an epic as vertical stories with a dependency graph
 workflow: feature
 created: 2026-10-19T10:53:17.915Z
-updated: 2026-10-19T11:46:07.546Z
+updated: 2026-10-19T11:46:36.270Z
 status: in_progress
 stage: local_verify
 flags: {}
@@ -32,7 +32,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: aecf4128e7a9da19d015b14d285a069741de1321
+    head_sha: f105a3fa037ce16571d2ec70c18ab8ddcfa09207
     at: 2026-10-19T11:46:07.546Z
     results:
       - name: Workspace tests
