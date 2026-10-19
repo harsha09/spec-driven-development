@@ -2,7 +2,7 @@ id: 2026-10-19-role-run-reads-changes-path
 title: Role run reads changes_path
 workflow: feature
 created: 2026-10-19T11:52:37.771Z
-updated: 2026-10-19T12:03:36.218Z
+updated: 2026-10-19T12:05:01.165Z
 status: in_progress
 stage: local_verify
 branch: story/issue-37/S-002
@@ -36,7 +36,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: cb20443d5b0c143f2175d53c56cbcbe4f643a977
+    head_sha: 65deacf7af9573e529a4fdb8acc450f1b2ccc9ef
     at: 2026-10-19T12:03:36.218Z
     results:
       - name: Workspace tests
