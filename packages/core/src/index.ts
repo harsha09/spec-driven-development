@@ -74,3 +74,4 @@ export type {
   StartFeatureInput,
 } from "./greenfield.js";
 export * from "./mcp/index.js";
+export * from "./role/index.js";

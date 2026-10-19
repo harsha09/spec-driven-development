@@ -47,6 +47,7 @@ import { metricsCmd } from "./metrics-cmd.js";
 import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
+import { roleCmd } from "./role-cmd.js";
 import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 
@@ -1327,6 +1328,7 @@ export const commands = {
   workflows,
   agent,
   agents,
+  role: roleCmd,
   checkout: useChange,
   context: contextCmd,
   search: searchCmd,
