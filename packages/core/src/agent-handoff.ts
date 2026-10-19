@@ -11,6 +11,12 @@ export function formatStatus(ctx: ChangeContext): string {
   lines.push(`Status: ${ctx.meta.status}`);
   lines.push(`Workflow: ${ctx.meta.workflow}`);
   lines.push(`Path: ${ctx.displayPath}`);
+  if (ctx.meta.epic) lines.push(`Epic: ${ctx.meta.epic}`);
+  if (ctx.meta.story) {
+    const depends = ctx.meta.depends?.length ? ctx.meta.depends.join(", ") : "none";
+    lines.push(`Story: ${ctx.meta.story}`);
+    lines.push(`Depends: ${depends}`);
+  }
   lines.push("");
   lines.push("Stages:");
   for (const stage of ctx.stages) {
@@ -54,6 +60,10 @@ export async function buildAgentPrompt(
   parts.push(`## Change`);
   parts.push(`- Title: ${ctx.meta.title}`);
   parts.push(`- ID: ${ctx.id}`);
+  if (ctx.meta.epic && ctx.meta.story) {
+    const depends = ctx.meta.depends?.length ? ctx.meta.depends.join(", ") : "none";
+    parts.push(`Epic ${ctx.meta.epic} story ${ctx.meta.story}. Depends: ${depends}.`);
+  }
   parts.push(`- Workflow: ${ctx.meta.workflow}`);
   parts.push(`- Change path: ${ctx.displayPath}`);
   parts.push("");

@@ -21,6 +21,7 @@ import {
   loadConfig,
   loadInstalledAgent,
   loadWorkflow,
+  parseStoryDraft,
   readChangeMetrics,
   recommendWorkflow,
   refreshActiveAgentContext,
@@ -30,6 +31,7 @@ import {
   skipStage,
   startFeatureFromBacklog,
   startGreenfield,
+  storyIdTaken,
   switchWorkflow,
   writeAgentHandoff,
   writeRefineBrief,
@@ -50,6 +52,7 @@ import { costCmd, reportCmd } from "./report-cmd.js";
 import { roleCmd } from "./role-cmd.js";
 import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
+import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
 function displayRepoPath(projectRoot: string, absolutePath: string): string {
@@ -134,6 +137,9 @@ const newCmd = defineCommand({
     title: { type: "positional", description: "Change title", required: false },
     workflow: { type: "string", description: "Workflow pack name (skip recommend)", alias: "w" },
     domain: { type: "string", description: "Optional domain id" },
+    epic: { type: "string", description: "Epic key, for example issue-37" },
+    story: { type: "string", description: "Story id, for example S-001" },
+    depends: { type: "string", description: "Story id this waits on (repeatable)" },
     flag: {
       type: "string",
       description: "Set flag key=value (repeatable)",
@@ -215,6 +221,26 @@ const newCmd = defineCommand({
         consola.info(`Using recommended workflow: ${rec.name} (${rec.reason})`);
       }
 
+      const dependsArg = args.depends;
+      const dependsList =
+        dependsArg == null ? [] : Array.isArray(dependsArg) ? dependsArg : [dependsArg];
+      const parsed = parseStoryDraft({
+        epic: args.epic,
+        story: args.story,
+        depends: dependsList.map(String),
+      });
+      if (!parsed.ok) {
+        process.stdout.write(`${parsed.stdout}\n`);
+        process.exit(1);
+      }
+      if (parsed.draft.story && parsed.draft.epic) {
+        const taken = await storyIdTaken(root, config, parsed.draft.epic, parsed.draft.story);
+        if (taken) {
+          process.stdout.write(`Story ${parsed.draft.story} already exists.\n`);
+          process.exit(1);
+        }
+      }
+
       const ctx = await createChange({
         projectRoot: root,
         config,
@@ -222,6 +248,9 @@ const newCmd = defineCommand({
         workflowName,
         domain: args.domain,
         flags,
+        epic: parsed.draft.epic,
+        story: parsed.draft.story,
+        depends: parsed.draft.depends,
       });
 
       consola.success(`Created change ${pc.cyan(ctx.id)}`);
@@ -288,8 +317,12 @@ const status = defineCommand({
         for (const id of ids) {
           try {
             const ctx = await buildContext(root, config, id);
+            const story =
+              ctx.meta.epic || ctx.meta.story
+                ? ` ${[ctx.meta.epic, ctx.meta.story].filter(Boolean).join(" ")}`
+                : "";
             consola.log(
-              `${ctx.meta.status === "in_progress" ? pc.green("●") : "○"} ${id}  ${pc.dim(ctx.meta.workflow)}  ${ctx.meta.stage}`,
+              `${ctx.meta.status === "in_progress" ? pc.green("●") : "○"} ${id}  ${pc.dim(ctx.meta.workflow)}  ${ctx.meta.stage}${story}`,
             );
           } catch (err) {
             consola.log(
@@ -1329,6 +1362,9 @@ export const commands = {
   agent,
   agents,
   role: roleCmd,
+  graph: graphCmd,
+  branch: branchCmd,
+  pr: prCmd,
   checkout: useChange,
   context: contextCmd,
   search: searchCmd,

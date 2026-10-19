@@ -90,6 +90,9 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
 | `sdd role` | Create, list, and run a product role | One job and one stop |
+| `sdd graph --epic <key>` | Print which stories can run together and which must wait | Epic planning |
+| `sdd branch <name>` | Create that story branch from `main` | Start one story |
+| `sdd pr` | Push the change branch and open a pull request | Story is ready |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List paths | Discover |
 | `sdd help` | Short overview | First run |
@@ -147,6 +150,10 @@ Related change specs and memory pages can be packed as a short extractive summar
 ## sdd role
 
 A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors are not in this slice.
+
+## Epic stories
+
+`sdd new --epic issue-37 --story S-001` records one vertical slice. `--depends S-001` names a story that must be completed first. `sdd graph --epic issue-37` prints the waves. Stories in one wave can run at the same time. A later wave waits. `sdd branch <name>` creates that branch from `main` when every dependency is completed. `sdd pr` pushes it and opens the pull request. The body does not close an issue unless `--closes` is set. `sdd backlog` remains the greenfield `F-001` list.
 
 ## Related
 

@@ -1,0 +1,39 @@
+id: 2026-10-19-plan-an-epic-as-vertical-stories-with-a-dependency-graph
+title: Plan an epic as vertical stories with a dependency graph
+workflow: feature
+created: 2026-10-19T10:53:17.915Z
+updated: 2026-10-19T11:46:07.546Z
+status: in_progress
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the approved spec has no open product choice
+    at: 2026-10-19T11:14:45.722Z
+  - stage: brainstorm
+    reason: one approach is enough
+    at: 2026-10-19T11:14:46.460Z
+  - stage: clarify_design
+    reason: the approved design has no open product choice
+    at: 2026-10-19T11:14:48.105Z
+  - stage: clarify_tasks
+    reason: the approved design is the task list
+    at: 2026-10-19T11:14:49.700Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: aecf4128e7a9da19d015b14d285a069741de1321
+    at: 2026-10-19T11:46:07.546Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
