@@ -33,6 +33,6 @@ No network call was made. Issue #37 stays open.
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="050e0b768e8a77c372bcc0f4617855f448ff958b" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="5bfa19dc0eb90dcd9e7aa5c7aedb64eaafe700ea" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)
