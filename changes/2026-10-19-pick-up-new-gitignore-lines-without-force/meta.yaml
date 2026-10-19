@@ -1,0 +1,43 @@
+id: 2026-10-19-pick-up-new-gitignore-lines-without-force
+title: Pick up new gitignore lines without --force
+workflow: feature
+created: 2026-10-19T11:52:36.779Z
+updated: 2026-10-19T12:14:39.495Z
+status: in_progress
+stage: local_verify
+branch: story/issue-37/S-001
+epic: issue-37
+story: S-001
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the approved spec has no open product choice
+    at: 2026-10-19T12:00:27.871Z
+  - stage: brainstorm
+    reason: one approach is enough
+    at: 2026-10-19T12:00:28.613Z
+  - stage: clarify_design
+    reason: the approved design has no open product choice
+    at: 2026-10-19T12:00:30.171Z
+  - stage: clarify_tasks
+    reason: the approved design is the task list
+    at: 2026-10-19T12:00:31.738Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: cb20443d5b0c143f2175d53c56cbcbe4f643a977
+    at: 2026-10-19T12:14:39.495Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
