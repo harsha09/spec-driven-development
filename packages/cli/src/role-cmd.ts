@@ -1,14 +1,21 @@
 import { spawn } from "node:child_process";
 import {
   type RoleModel,
+  acceptNetwork,
   allowRole,
   createRole,
   deleteRole,
   duplicateRole,
   editRole,
+  handoffRole,
   hideRole,
   pinRole,
+  planNetwork,
+  rebuildNetwork,
+  runNetwork,
   runRole,
+  setRoleMessaging,
+  showRoleGroup,
   showRoles,
 } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
@@ -179,6 +186,138 @@ const run = defineCommand({
   },
 });
 
+const messagingOn = defineCommand({
+  meta: { name: "on", description: "Allow roles to hand work to each other" },
+  async run() {
+    await withProject(async ({ root }) => {
+      emit(await setRoleMessaging(root, true));
+    });
+  },
+});
+
+const messagingOff = defineCommand({
+  meta: { name: "off", description: "Stop roles from handing work to each other" },
+  async run() {
+    await withProject(async ({ root }) => {
+      emit(await setRoleMessaging(root, false));
+    });
+  },
+});
+
+const messaging = defineCommand({
+  meta: { name: "messaging", description: "Turn handoff between roles on or off" },
+  subCommands: { on: messagingOn, off: messagingOff },
+});
+
+const handoff = defineCommand({
+  meta: { name: "handoff", description: "Hand one accepted section to another role" },
+  args: {
+    from: { type: "positional", description: "Role that hands off", required: true },
+    to: { type: "string", description: "Role that receives the task", required: true },
+    task: { type: "string", description: "What to ask the receiver" },
+    change: { type: "string", description: "Change id that owns accepted.md" },
+    section: { type: "string", description: "Section id in accepted.md" },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await handoffRole(root, {
+          from: args.from,
+          to: textArg(args.to) ?? "",
+          task: textArg(args.task),
+          change: textArg(args.change),
+          section: textArg(args.section),
+          model: modelFromEnv(),
+        }),
+      );
+    });
+  },
+});
+
+const group = defineCommand({
+  meta: { name: "group", description: "List accepted owners for one change" },
+  args: {
+    change: { type: "string", description: "Change id that owns accepted.md", required: true },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await showRoleGroup(root, textArg(args.change) ?? ""));
+    });
+  },
+});
+
+function networkArgs() {
+  return {
+    change: { type: "string" as const, description: "Change id that owns accepted.md" },
+    section: { type: "string" as const, description: "Section id in accepted.md" },
+    task: { type: "string" as const, description: "Task for the lead or the owners" },
+  };
+}
+
+const networkAccept = defineCommand({
+  meta: { name: "accept", description: "Accept a pending task-network plan" },
+  args: networkArgs(),
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await acceptNetwork(root, { change: textArg(args.change), section: textArg(args.section) }),
+      );
+    });
+  },
+});
+
+const networkRun = defineCommand({
+  meta: { name: "run", description: "Run ready nodes in an accepted plan" },
+  args: networkArgs(),
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await runNetwork(root, {
+          change: textArg(args.change),
+          section: textArg(args.section),
+          model: modelFromEnv(),
+        }),
+      );
+    });
+  },
+});
+
+const networkRebuild = defineCommand({
+  meta: { name: "rebuild", description: "Ask the lead for one new plan" },
+  args: networkArgs(),
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await rebuildNetwork(root, {
+          change: textArg(args.change),
+          section: textArg(args.section),
+          model: modelFromEnv(),
+        }),
+      );
+    });
+  },
+});
+
+const network = defineCommand({
+  meta: { name: "network", description: "Classify a change or store a lead plan" },
+  args: networkArgs(),
+  subCommands: { accept: networkAccept, run: networkRun, rebuild: networkRebuild },
+  async run({ args }) {
+    const next = process.argv[process.argv.indexOf("network") + 1];
+    if (next === "accept" || next === "run" || next === "rebuild") return;
+    await withProject(async ({ root }) => {
+      emit(
+        await planNetwork(root, {
+          change: textArg(args.change),
+          section: textArg(args.section),
+          task: textArg(args.task),
+          model: modelFromEnv(),
+        }),
+      );
+    });
+  },
+});
+
 const allow = defineCommand({
   meta: { name: "allow", description: "Allow once, always allow, or deny a stopped run" },
   args: {
@@ -212,5 +351,9 @@ export const roleCmd = defineCommand({
     delete: named("delete", "Delete one role, its conversation, and its memory", deleteRole),
     run,
     allow,
+    messaging,
+    handoff,
+    group,
+    network,
   },
 });
