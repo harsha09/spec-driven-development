@@ -1,0 +1,43 @@
+id: 2026-10-19-role-run-reads-changes-path
+title: Role run reads changes_path
+workflow: feature
+created: 2026-10-19T11:52:37.771Z
+updated: 2026-10-19T12:03:36.218Z
+status: in_progress
+stage: local_verify
+branch: story/issue-37/S-002
+epic: issue-37
+story: S-002
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the approved spec has no open product choice
+    at: 2026-10-19T12:00:34.587Z
+  - stage: brainstorm
+    reason: one approach is enough
+    at: 2026-10-19T12:00:35.337Z
+  - stage: clarify_design
+    reason: the approved design has no open product choice
+    at: 2026-10-19T12:00:36.896Z
+  - stage: clarify_tasks
+    reason: the approved design is the task list
+    at: 2026-10-19T12:00:38.449Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: cb20443d5b0c143f2175d53c56cbcbe4f643a977
+    at: 2026-10-19T12:03:36.218Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

@@ -111,6 +111,11 @@ async function writeAccepted(root: string): Promise<void> {
   await writeFile(join(root, "changes/issue-37/accepted.md"), ACCEPTED, "utf8");
 }
 
+async function writeAcceptedAt(root: string, dir: string): Promise<void> {
+  await mkdir(join(root, dir), { recursive: true });
+  await writeFile(join(root, dir, "accepted.md"), ACCEPTED, "utf8");
+}
+
 describe("role profile", () => {
   it("rejects an empty job and an illegal name without writing a file", async () => {
     const root = await project();
@@ -421,6 +426,42 @@ describe("role run", () => {
     expect(cited.calls).toHaveLength(3);
     expect(citedResult.exitCode).toBe(0);
     expect(citedResult.stdout).toBe("draft two");
+  });
+
+  it("reads accepted.md from changes_path and ignores a repo-root copy", async () => {
+    const root = await project();
+    await initProject({ projectRoot: root, agents: false, layoutRoot: ".sdd" });
+    await builder(root);
+    await writeAcceptedAt(root, ".sdd/changes/issue-37");
+    const found = fake([json({ text: "draft from layout" })]);
+    const result = await runRole(root, {
+      name: "builder",
+      task: "build",
+      kind: "code",
+      section: "billing",
+      change: "issue-37",
+      model: found.model,
+      now: clock(0),
+    });
+    expect(found.calls).toHaveLength(1);
+    expect(result.stdout).toBe("draft from layout");
+    expect(await pathExists(join(root, "changes/issue-37/accepted.md"))).toBe(false);
+
+    const missing = fake([json({ text: "should not run" })]);
+    const blocked = await runRole(root, {
+      name: "builder",
+      task: "build",
+      kind: "code",
+      section: "missing",
+      change: "issue-37",
+      model: missing.model,
+      now: clock(1),
+    });
+    expect(blocked).toEqual({
+      exitCode: 1,
+      stdout: "This needs an accepted section before a draft.",
+    });
+    expect(missing.calls).toEqual([]);
   });
 
   it("rejects forbidden actions before they run", async () => {
