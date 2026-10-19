@@ -146,7 +146,7 @@ function sameCiteSet(changed: string[], cites: string[]): boolean {
   return left.length === right.length && left.every((cite, index) => cite === right[index]);
 }
 
-function parseSection(markdown: string, sectionId: string): AcceptedSection | null {
+export function parseSection(markdown: string, sectionId: string): AcceptedSection | null {
   const rows = markdown.split(/\r?\n/);
   let start = -1;
   for (let i = 0; i < rows.length; i++) {
@@ -182,7 +182,7 @@ function parseSection(markdown: string, sectionId: string): AcceptedSection | nu
   return { id: sectionId, decision, checks, body: body.join("\n") };
 }
 
-function parseReply(raw: string): ModelReply | null {
+export function parseReply(raw: string): ModelReply | null {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -232,7 +232,7 @@ function parseReply(raw: string): ModelReply | null {
   return { text: rec.text, gaps, changed, action };
 }
 
-async function appendJson(file: string, value: unknown): Promise<void> {
+export async function appendJson(file: string, value: unknown): Promise<void> {
   await ensureDir(join(file, ".."));
   await appendFile(file, `${JSON.stringify(value)}\n`, "utf8");
 }
@@ -251,7 +251,7 @@ async function readJsonLines(file: string): Promise<unknown[]> {
   return lines;
 }
 
-async function timeoutMinutes(root: string): Promise<number | "invalid"> {
+export async function timeoutMinutes(root: string): Promise<number | "invalid"> {
   const path = join(root, ".sdd", "role.yaml");
   if (!(await pathExists(path))) return 10;
   let data: unknown;
@@ -323,7 +323,7 @@ function revisionPrompt(
   ].join("\n");
 }
 
-async function acceptedFile(root: string, changeId: string): Promise<string> {
+export async function acceptedFile(root: string, changeId: string): Promise<string> {
   if (!(await pathExists(configPath(root)))) return join(root, "changes", changeId, "accepted.md");
   const config = await loadConfig(root);
   return join(changesDir(root, config), changeId, "accepted.md");
@@ -445,6 +445,28 @@ async function finishRun(
   });
   if (role.askFirst) return ok(linesOf(action.words, ROLE_TEXT.askFirst), runId);
   return ok(linesOf(action.words, ROLE_TEXT.choice), runId);
+}
+
+/** Apply slice 1 stop rules to one reply. Does not change the critique prompts. */
+export async function settleRoleReply(
+  root: string,
+  file: string,
+  role: RoleProfile,
+  reply: { text: string; action: ModelReply["action"] },
+  now: Date,
+  runId: string,
+): Promise<RoleCommandResult> {
+  const minutes = await timeoutMinutes(root);
+  if (minutes === "invalid") return fail(ROLE_TEXT.badYaml, runId);
+  return finishRun(
+    root,
+    file,
+    role,
+    { text: reply.text, gaps: [], changed: null, action: reply.action },
+    minutes,
+    now,
+    runId,
+  );
 }
 
 async function latestRunFile(root: string, name: string): Promise<string | null> {
@@ -596,7 +618,12 @@ async function findRun(
     const file = join(conversationDir(root, roleName), `${runId}.jsonl`);
     if (await pathExists(file)) hits.push({ file, roleName });
   }
-  return hits.length === 1 ? hits[0]! : null;
+  if (hits.length === 1) return hits[0]!;
+  const pendingHits: { file: string; roleName: string }[] = [];
+  for (const hit of hits) {
+    if (openPending(await readJsonLines(hit.file))) pendingHits.push(hit);
+  }
+  return pendingHits.length === 1 ? pendingHits[0]! : null;
 }
 
 export async function allowRole(root: string, input: AllowRoleInput): Promise<RoleCommandResult> {
