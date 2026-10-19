@@ -4,6 +4,7 @@ import type { Dirent } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import Database from "better-sqlite3";
 import { isAbsolute, join } from "pathe";
+import { loadConfig } from "../config.js";
 import { ensureDir, pathExists } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesPathRel, indexDbPath, memoryPathRel, sddRoot } from "../paths.js";
@@ -23,9 +24,16 @@ import {
 } from "./embed.js";
 import { isPrunedDir, loadExcluder } from "./exclude.js";
 import { packHits, searchPreamble } from "./pack.js";
+import {
+  attachSummaries,
+  forgetPath,
+  readPackedCache,
+  resolveActiveDirectory,
+  writePackedCache,
+} from "./result-cache.js";
 import { fuseHits } from "./rrf.js";
 import { ADD_CHUNK_HASH_SQL, SEARCH_SCHEMA_SQL } from "./schema.js";
-import { ftsTokens } from "./tokenize.js";
+import { countTokens, ftsTokens } from "./tokenize.js";
 import type {
   IndexStats,
   RawHit,
@@ -173,6 +181,7 @@ async function ensureDb(projectRoot: string): Promise<Database.Database> {
 }
 
 function deletePath(db: Database.Database, rel: string): boolean {
+  forgetPath(db, rel);
   const had = db.prepare("SELECT 1 AS n FROM files WHERE path = ?").get(rel) as
     | { n: number }
     | undefined;
@@ -858,6 +867,36 @@ export async function searchProject(
   runtime?: SearchRuntime,
 ): Promise<SearchResult> {
   const search = await loadSearchConfig(projectRoot);
+  const config = await loadConfig(projectRoot);
+  const activeChange = await resolveActiveDirectory(projectRoot, config);
+  const request = {
+    projectRoot,
+    query,
+    channel: "search" as const,
+    scope: options.scope,
+    k: options.k,
+    budget: options.budget,
+    embeddings: search.embeddings,
+    activeChange,
+    scopes: [options.scope],
+  };
+  try {
+    const cached = readPackedCache(request);
+    if (cached) {
+      return {
+        provider: "builtin",
+        warning: cached.warning,
+        query,
+        scope: options.scope,
+        budget: options.budget,
+        usedTokens: countTokens(cached.text),
+        hits: cached.hits,
+        text: cached.text,
+      };
+    }
+  } catch {
+    // A broken cache uses the uncached pack.
+  }
   const embedder = await resolveEmbedder(projectRoot, search.embeddings, runtime);
   const embedded = await embedSearchQuery(embedder, search.embeddings, query);
   const ranked = await rankScope(projectRoot, query, options.scope, options.k, {
@@ -867,7 +906,19 @@ export async function searchProject(
   });
   const preamble =
     options.preamble ?? searchPreamble(query, options.scope, options.budget, ranked.hybrid);
-  const packed = packHits({ preamble, hits: ranked.hits, budget: options.budget });
+  let hits = ranked.hits;
+  try {
+    hits = attachSummaries(projectRoot, ranked.hits, activeChange);
+  } catch {
+    hits = ranked.hits;
+  }
+  const packed = packHits({ preamble, hits, budget: options.budget });
+  const mode = ranked.hits.some((hit) => hit.rankedBy === "rrf") ? "rrf" : "bm25";
+  try {
+    writePackedCache(request, packed, ranked.hits, mode, ranked.hybrid ? options.scope : "");
+  } catch {
+    // The pack is still returned when the cache write fails.
+  }
   return {
     provider: "builtin",
     warning: ranked.warning ? EMBEDDINGS_UNAVAILABLE : undefined,

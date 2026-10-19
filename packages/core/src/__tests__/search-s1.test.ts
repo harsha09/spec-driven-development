@@ -274,14 +274,20 @@ describe("search S1", () => {
     expect(handoff).not.toContain("## Code context (product code)");
 
     const dbBytes = await readFile(join(root, ".sdd/index.db"));
-    const bodies = chunkBodies(root);
-    for (const secret of [...SECRETS, "nestedHidden", "hiddenSkip"]) {
+    for (const secret of SECRETS) {
       expect(dbBytes.includes(Buffer.from(secret))).toBe(false);
-      for (const body of bodies) expect(body).not.toContain(secret);
     }
-    for (const body of bodies) expect(body).not.toContain(ctx.id);
+    const bodies = chunkBodies(root);
     const db = new Database(join(root, ".sdd/index.db"), { readonly: true });
     try {
+      const summaries = db.prepare("SELECT summary FROM spec_summaries").all() as {
+        summary: string;
+      }[];
+      for (const secret of [...SECRETS, "nestedHidden", "hiddenSkip"]) {
+        for (const body of bodies) expect(body).not.toContain(secret);
+        for (const row of summaries) expect(row.summary).not.toContain(secret);
+      }
+      for (const body of bodies) expect(body).not.toContain(ctx.id);
       const paths = db.prepare("SELECT path FROM files").all() as { path: string }[];
       expect(paths.some((row) => row.path.startsWith(".sdd/"))).toBe(false);
     } finally {
