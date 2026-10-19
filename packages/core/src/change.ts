@@ -72,6 +72,9 @@ export interface CreateChangeInput {
   domain?: string;
   flags?: Record<string, boolean | string | number>;
   branch?: string;
+  epic?: string;
+  story?: string;
+  depends?: string[];
 }
 
 export interface AdvanceResult {
@@ -111,6 +114,9 @@ export async function createChange(input: CreateChangeInput): Promise<ChangeCont
     stage: workflow.stages[0]!.id,
     domain: input.domain,
     branch: input.branch,
+    epic: input.epic,
+    story: input.story,
+    depends: input.depends ?? [],
     flags: input.flags ?? {},
     overrides: {
       skip_stages: [],
