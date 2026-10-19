@@ -66,6 +66,6 @@ The AstroApp commands were the search, context, new, and agent invocations named
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="bc7f2be218408aec38302b25b761e362b80be8b3" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="0dd6a43f7bebebe381accada8518f98dcf096600" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)
