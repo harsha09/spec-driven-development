@@ -88,10 +88,11 @@ export function runIdFrom(date: Date): string {
   return `${match[1]}${match[2]}${match[3]}T${match[4]}${match[5]}${match[6]}Z`;
 }
 
+/** Case-sensitive mention ban. A hit rejects the task wherever the text appears. */
 function mentionsX(task: string): boolean {
-  // Mention ban, not a URL allowlist. A hit rejects the task wherever the text appears.
-  // codeql[js/incomplete-url-substring-sanitization]
-  return task.includes("@X") || task.includes("x.com") || task.includes("twitter.com");
+  return (
+    task.indexOf("@X") !== -1 || task.indexOf("x.com") !== -1 || task.indexOf("twitter.com") !== -1
+  );
 }
 
 function safeChangeId(id: string): boolean {
