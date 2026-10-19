@@ -89,6 +89,8 @@ export function runIdFrom(date: Date): string {
 }
 
 function mentionsX(task: string): boolean {
+  // Mention ban, not a URL allowlist. A hit rejects the task wherever the text appears.
+  // codeql[js/incomplete-url-substring-sanitization]
   return task.includes("@X") || task.includes("x.com") || task.includes("twitter.com");
 }
 
