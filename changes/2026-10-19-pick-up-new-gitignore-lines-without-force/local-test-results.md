@@ -17,6 +17,6 @@
 
 > Overall: PASS
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="cb20443d5b0c143f2175d53c56cbcbe4f643a977" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="03f7da8dc931bd299bcf6aab4968782a7e1731ec" result_count="1" -->
 
 - **Workspace tests**: exit 0 (`pnpm test`)

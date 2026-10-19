@@ -2,7 +2,7 @@ id: 2026-10-19-pick-up-new-gitignore-lines-without-force
 title: Pick up new gitignore lines without --force
 workflow: feature
 created: 2026-10-19T11:52:36.779Z
-updated: 2026-10-19T12:14:39.495Z
+updated: 2026-10-19T12:19:02.351Z
 status: in_progress
 stage: local_verify
 branch: story/issue-37/S-001
@@ -36,7 +36,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: cb20443d5b0c143f2175d53c56cbcbe4f643a977
+    head_sha: 03f7da8dc931bd299bcf6aab4968782a7e1731ec
     at: 2026-10-19T12:14:39.495Z
     results:
       - name: Workspace tests
