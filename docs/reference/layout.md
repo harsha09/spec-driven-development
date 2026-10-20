@@ -27,7 +27,7 @@ changes/              ← one folder per piece of work
 domains/              ← optional extra docs by area
 AGENTS.md             ← tiny pointer for AIs
 # only for the AI you picked:
-# .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/
+# .github/agents/  or  .grok/rules/  or  .claude/agents/  or  .ollama/  or  .kilo/
 ```
 
 ## What belongs in git

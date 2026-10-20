@@ -1,3 +1,8 @@
+---
+title: Customize sdd workflows
+description: Shorten or extend one sdd change with skip and use, or ship your own workflow YAML under .sdd/workflows, without forking the CLI.
+---
+
 # Customize workflows
 
 > Change process shape without forking the engine.
