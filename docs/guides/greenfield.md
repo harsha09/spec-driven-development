@@ -34,7 +34,7 @@ Plans land in the repo (`changes/` then `memory/` on complete), so the agent’s
 
 ```bash
 cd your-app   # or an empty folder
-sdd init --here --ai copilot    # or grok | claude | ollama
+sdd init --here --ai copilot    # or grok | claude | ollama | kilo
 sdd doctor
 ```
 

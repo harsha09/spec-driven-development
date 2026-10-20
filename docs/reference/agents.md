@@ -70,7 +70,7 @@ This protection covers **`AGENTS.md`, host agent files and folders, `.sdd/protoc
 
 ## Agent roles (stubs)
 
-| Role id | Purpose | Copilot / Claude | Grok / Ollama |
+| Role id | Purpose | Copilot / Claude | Grok / Ollama / Kilo |
 |---------|---------|------------------|---------------|
 | `sdd` | Router from current stage | Yes | Single brief file |
 | `sdd-planner` | Specs only | Yes | Use router + stage |

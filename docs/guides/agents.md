@@ -8,7 +8,7 @@ description: Connect sdd to one AI host — GitHub Copilot, Claude Code, Grok, O
 You only need **one** AI coding tool. `sdd` installs a few small files for that tool and keeps the real rules in one place.
 
 > Your **editor** (VS Code, Cursor, …) is not the AI.  
-> Your **AI** (Copilot, Grok, Claude, Ollama) is what writes with you.
+> Your **AI** (Copilot, Grok, Claude, Ollama, or Kilo) is what writes with you.
 
 ---
 
@@ -63,7 +63,7 @@ Full host details: [Available agents](../reference/agents).
 
 | AI | How it runs |
 |----|-------------|
-| **grok** / **claude** / **ollama** | Terminal launches the CLI |
+| **grok** / **claude** / **ollama** / **kilo** | Terminal launches the CLI |
 | **copilot** | Open Copilot Chat → agent `sdd` (handoff file is refreshed) |
 
 Skip the AI once: `--no-agent` or `SDD_NO_AGENT=1`.
