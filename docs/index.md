@@ -1,7 +1,6 @@
 ---
 layout: home
 title: Spec-Driven Development CLI for AI Coding Agents
-titleTemplate: sdd
 description: "sdd (Structured Vibe Coding) is a local Spec-Driven Development CLI for AI coding agents. Package: @structured-vibe-coding/cli. Keep intent in git, not only in chat. Copilot, Claude Code, Grok, Ollama, Kilo Code."
 hero:
   name: sdd
