@@ -1,3 +1,8 @@
+---
+title: Refine an sdd stage
+description: Run sdd refine to improve one stage’s notes, keep earlier artifacts consistent, and leave memory/constitution.md untouched.
+---
+
 # Refine a stage
 
 > Improve specs by **stage name**, keep the pack consistent, and never edit the constitution.

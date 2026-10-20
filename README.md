@@ -2,11 +2,11 @@
 
 Your AI writes fast. The reasons disappear into chat.
 
-**`sdd`** is a **local Spec-Driven Development CLI**: short steps, notes **in your repo**, so you, your team, and Copilot / Claude Code / Grok / Ollama stay aligned.
+**sdd** (**Structured Vibe Coding**, npm `@structured-vibe-coding/cli`) is a **local Spec-Driven Development CLI**: short steps, notes **in your repo**, so you, your team, and Copilot / Claude Code / Grok / Ollama / Kilo Code stay aligned.
 
 - No cloud process product
 - No required IDE extension
-- One AI at setup: Copilot, Grok, Claude Code, or Ollama
+- One AI at setup: Copilot, Grok, Claude Code, Ollama, or Kilo Code
 
 | | |
 |---|---|
@@ -31,7 +31,7 @@ npm install -g @structured-vibe-coding/cli
 
 ```bash
 cd your-app
-sdd init --here --ai copilot     # or grok | claude | ollama
+sdd init --here --ai copilot     # or grok | claude | ollama | kilo
 sdd doctor
 sdd new "Fix empty list crash" -w hotfix -y --no-agent
 # open the intent.md path it prints → write a few real sentences
@@ -59,7 +59,7 @@ sdd backlog start F-001
 
 | Guide | Link |
 |-------|------|
-| What is sdd? | [docs/concepts/what-is-sdd.md](./docs/concepts/what-is-sdd.md) |
+| Start in 10 minutes | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
 | Everyday commands | [docs/guides/everyday-loop.md](./docs/guides/everyday-loop.md) |
 | New product | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
 | Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |

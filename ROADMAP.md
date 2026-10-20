@@ -522,7 +522,7 @@ Debt  Parallel, continuous
 | Doc | Role |
 |-----|------|
 | [README.md](./README.md) | Install + first loop |
-| [docs/concepts/keep-ai-coding-in-git.md](./docs/concepts/keep-ai-coding-in-git.md) | Problem framing (SEO + product) |
+| [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) | First path for a new reader |
 | [docs/concepts/change-packs.md](./docs/concepts/change-packs.md) | Pack vs memory |
 | [docs/guides/mcp.md](./docs/guides/mcp.md) | MCP **client** sources |
 | [docs/maintainers/ci-cd.md](./docs/maintainers/ci-cd.md) | Release / CI for this monorepo |

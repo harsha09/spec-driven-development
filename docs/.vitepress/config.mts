@@ -12,7 +12,7 @@ const siteOrigin = "https://harsha09.github.io";
 const siteUrl = `${siteOrigin}/spec-driven-development`;
 const siteName = "sdd — Spec-Driven Development CLI";
 const defaultDescription =
-  "sdd is a local Spec-Driven Development CLI for AI coding agents. Keep intent, design, and progress in git—not only in chat. Copilot, Claude Code, Grok, Ollama. No IDE extension required.";
+  "sdd is a local Spec-Driven Development CLI from Structured Vibe Coding (@structured-vibe-coding/cli). Keep intent and progress in git—not only in chat. Copilot, Claude Code, Grok, Ollama, and Kilo Code.";
 const ogImage = `${siteUrl}/og.jpg`;
 
 /** Keep JSON-LD softwareVersion aligned with the published CLI package. */
@@ -72,11 +72,10 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "sdd, spec-driven development, Spec-Driven Development CLI, AI coding agent, keep AI decisions in git, structured vibe coding, local SDD, greenfield, MCP sources, Copilot, Claude Code, Grok, Ollama",
+          "sdd, spec-driven development, Spec-Driven Development CLI, AI coding agent, keep AI decisions in git, structured vibe coding, local SDD, greenfield, MCP sources, Copilot, Claude Code, Grok, Ollama, Kilo Code",
       },
     ],
     ["meta", { name: "robots", content: "index, follow" }],
-    ["link", { rel: "canonical", href: `${siteUrl}/` }],
 
     // Open Graph
     ["meta", { property: "og:type", content: "website" }],
@@ -115,6 +114,7 @@ export default defineConfig({
               "Structured Vibe Coding",
               "spec-driven-development",
               "Spec-Driven Development CLI",
+              "@structured-vibe-coding/cli",
             ],
             applicationCategory: "DeveloperApplication",
             operatingSystem: "macOS, Linux, Windows",
@@ -167,8 +167,6 @@ export default defineConfig({
     siteTitle: "sdd",
     nav: [
       { text: "Start (10 min)", link: "/tutorials/first-change" },
-      { text: "What is sdd", link: "/concepts/what-is-sdd" },
-      { text: "Why (problem)", link: "/concepts/keep-ai-coding-in-git" },
       {
         text: "Guides",
         items: [
@@ -177,12 +175,10 @@ export default defineConfig({
           { text: "New product", link: "/guides/greenfield" },
           { text: "Enterprise", link: "/guides/enterprise" },
           { text: "Set up AI", link: "/guides/agents" },
-          { text: "MCP sources", link: "/guides/mcp" },
-          { text: "Code context (AST)", link: "/guides/code-context" },
         ],
       },
       {
-        text: "Reference",
+        text: "Look up",
         items: [
           { text: "Commands", link: "/reference/cli" },
           { text: "Workflows", link: "/reference/workflows" },
@@ -206,10 +202,6 @@ export default defineConfig({
         items: [
           { text: "Home", link: "/" },
           { text: "Start in 10 minutes", link: "/tutorials/first-change" },
-          { text: "Keep AI decisions in git", link: "/concepts/keep-ai-coding-in-git" },
-          { text: "What is sdd?", link: "/concepts/what-is-sdd" },
-          { text: "Why sdd exists", link: "/concepts/why-sdd" },
-          { text: "What you can achieve", link: "/concepts/what-you-can-achieve" },
         ],
       },
       {
@@ -226,7 +218,6 @@ export default defineConfig({
         text: "Learn more",
         items: [
           { text: "Change packs & memory", link: "/concepts/change-packs" },
-          { text: "Agents vs editors", link: "/concepts/agents-vs-ides" },
           { text: "Improve notes (refine)", link: "/guides/refine" },
           { text: "MCP sources (org/AST)", link: "/guides/mcp" },
           { text: "Code context (local AST)", link: "/guides/code-context" },

@@ -27,7 +27,7 @@ sdd new "Fix null pointer on empty list" -y
 | **`patch`** | Small bugs / scoped fixes | intent → acceptance → implement → local_verify |
 | **`feature`** | Normal product features | intent → optional clarify/brainstorm → design → optional clarify → tasks → optional clarify → implement → local_verify |
 | **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd backlog start F-001`) |
-| **`spike`** | Time-boxed research / PoC | intent → research → (notes) |
+| **`spike`** | Time-boxed research / PoC | intent → research → outcome |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
 
 Prefer the CLI entrypoint for product bootstrap:

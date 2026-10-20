@@ -1,3 +1,8 @@
+---
+title: sdd CI and manual npm release
+description: GitHub Actions for this repo only. Tests run on pull requests. The docs site rebuilds when docs changes hit main. npm publish stays manual. Node.js 24.
+---
+
 # CI/CD
 
 GitHub Actions pipelines for continuous integration and **manual-only npm releases**. No push, merge, tag or GitHub Release ever publishes to npm.

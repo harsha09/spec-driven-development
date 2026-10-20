@@ -64,8 +64,16 @@ sdd next
 # hl_arb: fill hl-design, arb-packet, arb-decision — then:
 sdd gate approve -n "ARB approved with condition: reuse existing outbox"
 sdd next
+```
 
-# Continue through lld → … → implement → verify → complete
+`local_verify` is a hard gate. Fill `local-test-plan.md` and `local-test-results.md` with real cases and results, then:
+
+```bash
+sdd gate approve -n "Local verification signed off"
+sdd complete
+```
+
+```bash
 sdd skip db_design -r "no schema change"   # when truly N/A
 ```
 
@@ -87,7 +95,6 @@ Not a multi-tenant cloud control plane — suitable for regulated *engineering p
 
 ## Related
 
-- [What you can achieve](../concepts/what-you-can-achieve)  
 - [Built-in workflows](../reference/workflows)  
 - [Simple feature](./simple-feature)  
 - [Greenfield](./greenfield)  
