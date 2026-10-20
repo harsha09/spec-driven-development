@@ -21,7 +21,7 @@ Brand-new product from a one-liner? → [Greenfield](./greenfield), then come ba
 
 ```bash
 cd your-app
-sdd init --here --ai copilot    # or grok | claude | ollama
+sdd init --here --ai copilot    # or grok | claude | ollama | kilo
 sdd doctor
 ```
 

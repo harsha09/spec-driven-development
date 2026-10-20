@@ -29,7 +29,7 @@ sdd complete
 `verify.commands` configured (the default `commands: []`) it says **NOT RUN** and exits 1 —
 that is not a failure of your code, it means nothing was checked automatically. Complete the
 checklist in `local-test-results.md` by hand, or add commands to the stage in
-`.sdd/workflows/<workflow>.yaml`. Only commands marked `required: true` block `sdd complete`.
+`.sdd/workflows/<workflow>.yaml`. Only verify commands marked `required: true` block `sdd complete`. A required note, and a hard gate, also block it.
 
 Without `-w`, most titles open `feature`. That path is not this two-step `sdd next`. Use [Simple feature](./simple-feature). On `feature`, fill `local-test-plan.md` and `local-test-results.md` before `sdd complete`.
 
@@ -38,7 +38,7 @@ From a product backlog after greenfield:
 ```bash
 sdd backlog list
 sdd backlog start F-001
-# then the same next → verify → complete loop
+# opens feature by default — fill both test files, then sdd complete
 ```
 
 (`sdd new "…"` is for free-form titles; `sdd backlog start` is only for `F-001` rows in `memory/features.md`.)
