@@ -39,29 +39,27 @@ The title can also recommend a workflow if you omit `-w feature`.
 
 ## 3. Walk the stages
 
-Rough flow (you can skip optional steps):
+Optional stages can be skipped while you are still on intent. That does not move the stage.
 
 ```bash
-# 1) Open feature.md — write who it's for, scope, non-goals, success
-sdd next
+sdd skip clarify_intent -r "clear enough"
+sdd skip brainstorm -r "one clear approach"
+sdd skip clarify_design -r "design is clear"
+sdd skip clarify_tasks -r "tasks are clear"
 
-# optional skips if a step doesn't apply:
-# sdd skip clarify_intent -r "clear enough"
-# sdd skip brainstorm -r "one clear approach"
-
-# 2) design.md — how you'll build it
-sdd next
-
-# 3) tasks.md — checklist
-sdd next
-
-# 4) implement — write the code (you or the AI)
-sdd next
-
-# 5) check it works
-sdd verify
-sdd complete
+# replace feature.md
+sdd next --no-agent
+# replace design.md
+sdd next --no-agent
+# replace tasks.md
+sdd next --no-agent
+# write the code
+sdd next --no-agent
+# on local_verify: real cases in local-test-plan.md and real results in local-test-results.md
+sdd complete --no-agent
 ```
+
+`sdd verify` is optional here. With no `verify.commands`, it prints NOT RUN and does not satisfy those two files.
 
 ---
 

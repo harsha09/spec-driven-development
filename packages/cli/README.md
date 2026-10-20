@@ -1,6 +1,6 @@
 # `@structured-vibe-coding/cli`
 
-**`sdd`** — local **Spec-Driven Development CLI** for you and your **AI coding agent**.
+**sdd** (**Structured Vibe Coding**) — local **Spec-Driven Development CLI** for you and your **AI coding agent**.
 
 Keep intent, design, and verify notes **in git**, not only in chat. Hotfix, greenfield product spine, or enterprise ARB — same CLI.
 
@@ -22,7 +22,7 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude | ollama
+sdd init --here --ai copilot    # or grok | claude | ollama | kilo
 sdd doctor
 sdd new "Add expense CSV export" -w feature -y
 # edit feature.md, then sdd next … sdd complete

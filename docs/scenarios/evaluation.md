@@ -7,7 +7,7 @@ description: Internal scenario matrix for sdd — hotfix, greenfield, enterprise
 
 ::: warning Maintainer lab notes
 This page is an **internal matrix** of how `sdd` behaves on engineering scenarios.  
-**New here?** Start with [Your first change](../tutorials/first-change) or [What is sdd](../concepts/what-is-sdd).
+**New here?** Start with [Start in 10 minutes](../tutorials/first-change).
 :::
 
 How `sdd` behaves on real scenarios — from hotfix to enterprise. Skim the row that matches your team, then open a [guide](../guides/everyday-loop) to act.
