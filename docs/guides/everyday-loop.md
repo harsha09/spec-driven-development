@@ -13,21 +13,16 @@ Do the [10-minute tutorial](../tutorials/first-change) once first. It includes a
 
 ---
 
-## Normal work (a fix or a feature)
+## Tiny fix
 
 ```bash
-sdd doctor                    # optional: is my setup ok?
-sdd new "Short title of the work" -y
-sdd status                    # where am I? (never opens the AI)
-
-# Open the file path sdd printed. Write a few real sentences.
-# Or let the AI draft them if it opened.
-
-sdd next                      # move to the next step when ready
-# … repeat sdd next as stages complete …
-
-sdd verify                    # when you’re on the verify step
-sdd complete                  # mark this work done
+sdd doctor
+sdd new "Short title of the work" -w hotfix -y
+sdd status
+# edit the intent file sdd printed
+sdd next
+sdd next
+sdd complete
 ```
 
 `sdd verify` only says **PASS** when commands actually ran and all exited 0. With no
@@ -35,6 +30,8 @@ sdd complete                  # mark this work done
 that is not a failure of your code, it means nothing was checked automatically. Complete the
 checklist in `local-test-results.md` by hand, or add commands to the stage in
 `.sdd/workflows/<workflow>.yaml`. Only commands marked `required: true` block `sdd complete`.
+
+Without `-w`, most titles open `feature`. That path is not this two-step `sdd next`. Use [Simple feature](./simple-feature). On `feature`, fill `local-test-plan.md` and `local-test-results.md` before `sdd complete`.
 
 From a product backlog after greenfield:
 

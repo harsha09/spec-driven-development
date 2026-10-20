@@ -7,7 +7,7 @@ description: Install the sdd Spec-Driven Development CLI, run your first AI-frie
 
 This tutorial is the fastest way to learn **sdd**, a **local Spec-Driven Development CLI** for **AI coding agents**. You’ll make a tiny change pack, write a few sentences **in the repo**, and finish. No enterprise process. No long theory.
 
-By the end, intent and progress live as **markdown in git**—the same trail you and Copilot, Claude Code, Grok, or Ollama can share.
+By the end, intent and progress live as **markdown in git**—the same trail you and Copilot, Claude Code, Grok, Ollama, or Kilo Code can share.
 
 | | |
 |--|--|
@@ -83,6 +83,7 @@ Pick **one** AI tool (you can change later):
 | Grok | `sdd init --here --ai grok` |
 | Claude Code | `sdd init --here --ai claude` |
 | Ollama (local) | `sdd init --here --ai ollama` then `ollama pull llama3.2` |
+| Kilo Code | `sdd init --here --ai kilo` |
 
 ```bash
 sdd init --here --ai copilot
@@ -116,10 +117,12 @@ sdd status
 You should see something like:
 
 ```text
-Stage:    intent
-[●] intent
-[ ] implement
-[ ] local_verify
+Workflow: hotfix
+
+Stages:
+  [●] intent — Intent
+  [ ] implement — Implement
+  [ ] local_verify — Local smoke
 ```
 
 ---
@@ -162,7 +165,7 @@ sdd complete --no-agent
 | `sdd: command not found` | Install again, or use `npx @structured-vibe-coding/cli …` |
 | `next` says the file is incomplete | Paste the sample intent above into `intent.md` |
 | Unsure if setup is OK | Run `sdd doctor` |
-| Want a different AI | `sdd agents install --ai grok --force` (or copilot / claude / ollama) |
+| Want a different AI | `sdd agents install --ai grok --force` (or copilot / claude / ollama / kilo) |
 
 ---
 
@@ -175,6 +178,16 @@ sdd complete --no-agent
 | `sdd status` | Where am I? |
 | `sdd next` | This step is done; go to the next |
 | `sdd complete` | This piece of work is finished |
+
+### Words
+
+| Word | Meaning |
+|------|---------|
+| Change pack | One folder for this task (`changes/…`) |
+| Stage | One step, such as describe, code, or check |
+| Workflow | Which path: `hotfix`, `feature`, `greenfield`, or `enterprise-feature` |
+| Memory | Product notes that outlive one change (`memory/`) |
+| Agent | The AI (Copilot, Grok, Claude, Ollama, or Kilo), not the editor |
 
 ---
 

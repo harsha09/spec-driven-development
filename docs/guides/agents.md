@@ -1,6 +1,6 @@
 ---
 title: AI agents setup for sdd
-description: Connect sdd to GitHub Copilot, Grok, Claude Code, or Ollama in one command. Simple setup first; details later.
+description: Connect sdd to one AI host — GitHub Copilot, Claude Code, Grok, Ollama, or Kilo Code — with a single init command.
 ---
 
 # Set up your AI
