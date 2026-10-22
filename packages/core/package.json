@@ -27,7 +27,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "better-sqlite3": "12.8.0",
     "fastembed": "3.0.0",
     "gpt-tokenizer": "4.0.3",
