@@ -48,6 +48,7 @@ import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { metricsCmd } from "./metrics-cmd.js";
+import { modelsCmd } from "./models-cmd.js";
 import { isNodeVersionSupported } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
@@ -1373,6 +1374,7 @@ export const commands = {
   agents,
   role: roleCmd,
   team: teamCmd,
+  models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,
   pr: prCmd,

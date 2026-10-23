@@ -74,6 +74,9 @@ export interface RenderChangeReportInput {
 const TOKEN_HEADER =
   "source  phase  provider  model  requests  input  cache_read  cache_write  output  usd  inr";
 
+const DECISION_HEADER =
+  "work_type  kind  provider  model  calls  input  cache_read  cache_write  output  usd  inr";
+
 function finiteMs(startIso: string, endMs: number): number {
   const start = Date.parse(startIso);
   if (!Number.isFinite(start) || !Number.isFinite(endMs)) return 0;
@@ -354,8 +357,77 @@ export function renderChangeReport(input: RenderChangeReportInput): string {
     for (const request of input.metrics.requests) addRequest(total, request);
     lines.push(`  ${totalLine(total, input.metrics, input.prices)}`);
   }
+  const decisions = decisionSection(input.metrics, input.prices);
+  if (decisions.length > 0) {
+    lines.push("Decisions:");
+    lines.push(`  ${DECISION_HEADER}`);
+    for (const line of decisions) lines.push(`  ${line}`);
+  }
   if (input.prices === null) lines.push("prices.yaml is missing");
   return lines.join("\n");
+}
+
+function groupDecisions(metrics: ChangeMetrics): DecisionGroup[] {
+  const groups = new Map<string, DecisionGroup>();
+  for (const row of metrics.decisions ?? []) {
+    const model = row.model ?? null;
+    const key = `${row.workType}\0${row.kind}\0${row.provider}\0${model ?? ""}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        workType: row.workType,
+        kind: row.kind,
+        provider: row.provider,
+        model,
+        totals: emptyTotals(),
+      };
+      groups.set(key, group);
+    }
+    group.totals.requests += 1;
+    group.totals.input = addCount(group.totals.input, row.inputTokens);
+    group.totals.cacheRead = addCount(group.totals.cacheRead, row.cacheReadTokens);
+    group.totals.cacheWrite = addCount(group.totals.cacheWrite, row.cacheWriteTokens);
+    group.totals.output = addCount(group.totals.output, row.outputTokens);
+  }
+  const order = ["route", "classify", "check", "draft", "design", "code", "review"];
+  return [...groups.values()].sort((left, right) => {
+    const workDelta = order.indexOf(left.workType) - order.indexOf(right.workType);
+    if (workDelta !== 0) return workDelta;
+    const kindDelta = left.kind.localeCompare(right.kind);
+    if (kindDelta !== 0) return kindDelta;
+    const providerDelta = left.provider.localeCompare(right.provider);
+    if (providerDelta !== 0) return providerDelta;
+    return (left.model ?? "").localeCompare(right.model ?? "");
+  });
+}
+
+function decisionSection(metrics: ChangeMetrics, prices: Prices | null): string[] {
+  return groupDecisions(metrics).map((group) => {
+    const card = prices ? cardFor(prices, group.provider, group.model) : null;
+    const cost =
+      prices && card ? costFor(group.totals, card, prices.usd_to_inr) : { usd: "n/a", inr: "n/a" };
+    return [
+      group.workType,
+      group.kind,
+      group.provider,
+      modelCell(group.model),
+      String(group.totals.requests),
+      cell(group.totals.input),
+      cell(group.totals.cacheRead),
+      cell(group.totals.cacheWrite),
+      cell(group.totals.output),
+      cost.usd,
+      cost.inr,
+    ].join("  ");
+  });
+}
+
+interface DecisionGroup {
+  workType: string;
+  kind: string;
+  provider: string;
+  model: string | null;
+  totals: Totals;
 }
 
 function requestUsdNumerator(request: ChangeMetrics["requests"][number], card: PriceCard): bigint {

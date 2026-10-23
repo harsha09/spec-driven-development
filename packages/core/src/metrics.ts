@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { z } from "zod";
 import { pathExists, readText, writeText } from "./fs.js";
 import { changePath } from "./paths.js";
+import { WORK_TYPES } from "./role/types.js";
 import type { Config } from "./schemas.js";
 
 const UtcTimestampSchema = z.string().datetime();
@@ -30,14 +31,28 @@ export const TokenUsageMetricSchema = z.object({
   measured: z.literal(true),
 });
 
+export const DecisionMetricSchema = z.object({
+  workType: z.enum(WORK_TYPES),
+  kind: z.enum(["reason", "decide"]),
+  provider: z.enum(["command", "ollama"]),
+  model: z.string().min(1).nullable(),
+  startedAt: UtcTimestampSchema,
+  inputTokens: z.number().int().nonnegative().nullable(),
+  cacheReadTokens: z.number().int().nonnegative().nullable(),
+  cacheWriteTokens: z.number().int().nonnegative().nullable(),
+  outputTokens: z.number().int().nonnegative().nullable(),
+});
+
 export const ChangeMetricsSchema = z.object({
   version: z.literal(1),
   phases: z.array(PhaseMetricSchema),
   requests: z.array(TokenUsageMetricSchema),
+  decisions: z.array(DecisionMetricSchema).optional(),
 });
 
 export type PhaseMetric = z.infer<typeof PhaseMetricSchema>;
 export type TokenUsageMetric = z.infer<typeof TokenUsageMetricSchema>;
+export type DecisionMetric = z.infer<typeof DecisionMetricSchema>;
 export type ChangeMetrics = z.infer<typeof ChangeMetricsSchema>;
 
 export interface MetricsImportResult {
@@ -89,6 +104,18 @@ async function writeChangeMetrics(
   const path = metricsPath(projectRoot, config, changeId);
   const validated = ChangeMetricsSchema.parse(metrics);
   await writeText(path, `${JSON.stringify(validated, null, 2)}\n`);
+}
+
+export async function recordDecisionMetric(
+  projectRoot: string,
+  config: Config,
+  changeId: string,
+  draft: DecisionMetric,
+): Promise<void> {
+  if (!config.metrics.enabled) return;
+  const metrics = await readChangeMetrics(projectRoot, config, changeId);
+  const decisions = [...(metrics.decisions ?? []), DecisionMetricSchema.parse(draft)];
+  await writeChangeMetrics(projectRoot, config, changeId, { ...metrics, decisions });
 }
 
 export async function startPhase(
