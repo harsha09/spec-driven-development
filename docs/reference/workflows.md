@@ -1,6 +1,6 @@
 ---
 title: Built-in sdd workflows
-description: Default Spec-Driven Development workflow packs — hotfix, patch, feature, greenfield, spike, enterprise-feature — stages and when to use each.
+description: Default Spec-Driven Development workflow packs — hotfix, patch, feature, greenfield, spike, enterprise-feature, team-software — stages and when to use each.
 ---
 
 # Built-in workflows
@@ -31,6 +31,7 @@ sdd new "Fix null pointer on empty list" -y
 | **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd backlog start F-001`) |
 | **`spike`** | Time-boxed research / PoC | intent → research → outcome |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
+| **`team-software`** | A software team with named roles | requirements (hard gate) → architecture → stories → plan → tasks → implement → pr_review → acceptance (hard gate) |
 
 Prefer the CLI entrypoint for product bootstrap:
 
@@ -46,7 +47,22 @@ See [Greenfield guide](../guides/greenfield).
 
 ## How recommendation works
 
-`sdd new` scores keywords and complexity hints in the title (e.g. “typo” → hotfix, “ARB” / “migration” → enterprise-feature). You can always force `-w <name>`.
+`sdd new` scores keywords and complexity hints in the title (e.g. “typo” → hotfix, “ARB” / “migration” → enterprise-feature). You can always force `-w <name>`. `team-software` is selected by name, or when the title contains `team-software`.
+
+## Stage owners
+
+A stage may name who produces it and who they work with. A gate may name who approves it. Older packs omit these fields and keep working.
+
+```yaml
+owner: product-manager
+collaborates: [architect]
+gate:
+  type: hard
+  mode: human_approval
+  approvers: [human]
+```
+
+`items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement. Requirements and acceptance use a hard gate, so `sdd next` waits for `sdd gate approve`.
 
 ## Per-change controls
 

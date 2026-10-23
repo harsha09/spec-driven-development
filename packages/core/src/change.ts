@@ -35,6 +35,7 @@ import {
 } from "./schemas.js";
 import { changeDirName, nowIso, uniqueChangeDirName } from "./slug.js";
 import { canLeaveStage, fallbackIncompleteStageId } from "./stage-gates.js";
+import { syncStageItems } from "./stage-items.js";
 import {
   activeStages,
   firstActiveStageId,
@@ -198,6 +199,11 @@ async function materializeStageArtifacts(
 
     await writeText(target, content);
     created.push(artifact.path);
+  }
+
+  if (stage.items_from) {
+    await syncStageItems(dir, stage);
+    created.push("items.yaml");
   }
 
   return created;

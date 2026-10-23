@@ -4,6 +4,8 @@ export const GateSchema = z.object({
   type: z.enum(["none", "soft", "hard"]).default("soft"),
   mode: z.enum(["none", "human_approval", "checklist"]).default("checklist"),
   checklist: z.array(z.string()).default([]),
+  /** Role names, or human for a person listed on the team. */
+  approvers: z.array(z.string().trim().min(1)).optional(),
   overridable: z.boolean().default(true),
 });
 
@@ -32,6 +34,18 @@ export const StageSchema = z.object({
   kind: z.enum(["standard", "brainstorm", "clarify"]).default("standard"),
   /** When true, stage is optional (skippable); agents may skip if not needed */
   optional: z.boolean().default(false),
+  /** Role that produces this stage. */
+  owner: z.string().trim().min(1).optional(),
+  /** Roles who work with the owner on this stage. */
+  collaborates: z.array(z.string().trim().min(1)).optional(),
+  /**
+   * One item per matching file when the stage starts.
+   * A directory, a slash, and one star in the file name: tasks/T-*.md
+   */
+  items_from: z
+    .string()
+    .regex(/^(?!.*\.\.)[A-Za-z0-9._-]+\/[A-Za-z0-9._-]*\*[A-Za-z0-9._-]*$/)
+    .optional(),
   artifacts: z.array(ArtifactDefSchema).default([]),
   gate: GateSchema.default({}),
   skippable: z.boolean().default(true),
