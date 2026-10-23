@@ -285,7 +285,7 @@ describe("route decides only when no rule matched", () => {
       expect(String(init?.body)).toContain("qwen2.5:7b");
       return new Response(
         JSON.stringify({
-          model: "qwen2.5:7b",
+          model: "qwen2.5:latest",
           message: { content: reply("developer", 0.9, 1, false) },
           prompt_eval_count: 11,
           eval_count: 5,
@@ -351,7 +351,7 @@ describe("route decides only when no rule matched", () => {
     const active = (await readFile(join(root, "changes/.active"), "utf8")).trim();
     const metrics = await readChangeMetrics(root, config, active);
     expect(
-      metrics.decisions?.some((row) => row.model === "qwen2.5:7b" && row.inputTokens === 11),
+      metrics.decisions?.some((row) => row.model === "qwen2.5:latest" && row.inputTokens === 11),
     ).toBe(true);
   });
 

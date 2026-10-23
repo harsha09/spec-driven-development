@@ -16,10 +16,11 @@ export function decideStdin(input: {
 
 export function spawnModelCommand(command: string, stdin: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, { shell: true, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(command, { shell: true, stdio: ["pipe", "pipe", "ignore"] });
     const out: Buffer[] = [];
     child.stdout?.on("data", (chunk: Buffer) => out.push(chunk));
     child.on("error", reject);
+    child.stdin?.on("error", () => undefined);
     child.on("close", (code) => {
       if (code !== 0) {
         reject(new Error(`role model exited ${code ?? "unknown"}`));
