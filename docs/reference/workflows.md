@@ -11,6 +11,8 @@ Shipped under `.sdd/workflows/` after `sdd init` (from package defaults). List a
 sdd workflows
 ```
 
+A project initialized by an older `sdd` may be missing packs this CLI ships. `sdd workflows` names those under `Not copied yet`. Copy them with `sdd init --here --force`. That command leaves a file alone when its bytes differ from the bundled file. A file that still matches is recorded, so a later upgrade can refresh it.
+
 Pick a pack at change start:
 
 ```bash

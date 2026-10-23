@@ -1,0 +1,29 @@
+id: 2026-10-23-issue-36-show-missing-bundled-workflows
+title: "Issue #36: show missing bundled workflows and adopt matching files"
+workflow: patch
+created: 2026-10-23T00:00:00.000Z
+updated: 2026-10-23T00:00:00.000Z
+status: completed
+stage: local_verify
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    at: 2026-10-23T14:09:00.000Z
+    results:
+      - name: Core vitest for init, generated defaults, engine, and dynamic bugs
+        exitCode: 0
+      - name: CLI integration tests
+        exitCode: 0
+      - name: biome check on touched TypeScript
+        exitCode: 0
+      - name: tsc --noEmit for core and cli
+        exitCode: 0
+completed_at: 2026-10-23T14:09:00.000Z

@@ -10,7 +10,7 @@ Install: **[@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@s
 Learn by doing: [Start in 10 minutes](../tutorials/first-change).
 One command’s flags: `sdd <command> --help`.
 
-Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, `models/`, `role-runs/`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init` without `--force` appends any missing ignore line and does not rewrite config, memory, or workflows. `sdd init --force` still refreshes unchanged generated files. `sdd status` prints the change path relative to the repo.
+Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and change packs. Ignore `handoff.md`, `active-context.md`, `index.db`, `index.db-journal`, `index.db-wal`, `index.db-shm`, `models/`, `role-runs/`, and `<changes_path>/.active`. `sdd init` writes those gitignore rules. On a project that already has `.sdd/config.yaml`, `sdd init` without `--force` appends any missing ignore line and does not rewrite config, memory, or workflows. `sdd init --force` still refreshes unchanged generated files. A file with no manifest hash is recorded as generated when it matches the bundled file, and left in place when it differs. `sdd workflows` names bundled workflows that are not copied yet. `sdd status` prints the change path relative to the repo.
 
 ---
 
@@ -59,7 +59,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | Command | What it does | When |
 |---------|--------------|------|
 | `sdd init` | Create sdd files + one AI setup | Once per app |
-| `sdd init --force` | Merge current defaults into supported config; refresh only unchanged SDD-generated workflows/templates and agent files | Upgrades |
+| `sdd init --force` | Merge current defaults into supported config; refresh only unchanged SDD-generated workflows/templates and agent files. A file with no manifest hash is recorded as generated when it matches the bundled file | Upgrades |
 | `sdd new "title"` | Start a change pack from a free-form title | Everyday work |
 | `sdd new … -w <pack>` | Choose path (hotfix, feature, …) | You know the path |
 | `sdd new … -y` | Skip confirm prompts | Scripts / CI |
@@ -94,7 +94,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd branch <name>` | Create that story branch from `main` | Start one story |
 | `sdd pr` | Push the change branch and open a pull request | Story is ready |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
-| `sdd workflows` | List paths | Discover |
+| `sdd workflows` | List project workflows, and name bundled workflows that are not copied yet | Discover |
 | `sdd help` | Short overview | First run |
 | `sdd doctor` | Health check | Stuck / setup |
 

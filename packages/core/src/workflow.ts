@@ -1,4 +1,5 @@
 import { join } from "pathe";
+import { defaultWorkflowsDir } from "./defaults.js";
 import { listFiles, pathExists, readYaml } from "./fs.js";
 import { workflowsDir } from "./paths.js";
 import {
@@ -10,13 +11,38 @@ import {
   WorkflowSchema,
 } from "./schemas.js";
 
-export async function listWorkflowNames(projectRoot: string): Promise<string[]> {
-  const dir = workflowsDir(projectRoot);
-  const files = await listFiles(dir);
+function workflowNamesIn(files: string[]): string[] {
   return files
     .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"))
     .map((f) => f.replace(/\.ya?ml$/, ""))
     .sort();
+}
+
+export async function listWorkflowNames(projectRoot: string): Promise<string[]> {
+  const dir = workflowsDir(projectRoot);
+  return workflowNamesIn(await listFiles(dir));
+}
+
+/** Workflow packs shipped inside this CLI build. */
+export async function listBundledWorkflowNames(): Promise<string[]> {
+  return workflowNamesIn(await listFiles(defaultWorkflowsDir()));
+}
+
+/** Bundled workflow names that this project has not copied into `.sdd/workflows/`. */
+export async function missingBundledWorkflows(projectRoot: string): Promise<string[]> {
+  const present = new Set(await listWorkflowNames(projectRoot));
+  return (await listBundledWorkflowNames()).filter((name) => !present.has(name));
+}
+
+export function workflowUnavailableMessage(
+  name: string,
+  available: string[],
+  bundled: string[],
+): string {
+  const listed = available.join(", ") || "(none)";
+  const base = `Workflow "${name}" is not available. Available: ${listed}`;
+  if (!bundled.includes(name)) return base;
+  return `${base}. This CLI ships ${name}. Run \`sdd init --here --force\` to copy new defaults.`;
 }
 
 export async function loadWorkflow(projectRoot: string, name: string): Promise<Workflow> {
@@ -33,9 +59,14 @@ export async function loadWorkflow(projectRoot: string, name: string): Promise<W
       return workflow;
     }
   }
-  throw new Error(
-    `Workflow "${name}" not found in ${dir}. Available: ${(await listWorkflowNames(projectRoot)).join(", ") || "(none)"}`,
-  );
+  const available = await listWorkflowNames(projectRoot);
+  const bundled = await listBundledWorkflowNames();
+  const listed = available.join(", ") || "(none)";
+  let message = `Workflow "${name}" not found in ${dir}. Available: ${listed}`;
+  if (bundled.includes(name)) {
+    message += `. This CLI ships ${name}. Run \`sdd init --here --force\` to copy new defaults.`;
+  }
+  throw new Error(message);
 }
 
 /** Resolve effective stages for a change (workflow + per-change overrides). */
@@ -145,7 +176,7 @@ export async function recommendWorkflow(
   if (opts?.preferred) {
     if (!available.includes(opts.preferred)) {
       throw new Error(
-        `Workflow "${opts.preferred}" is not available. Available: ${available.join(", ") || "(none)"}`,
+        workflowUnavailableMessage(opts.preferred, available, await listBundledWorkflowNames()),
       );
     }
     if (config.allowed_workflows?.length && !config.allowed_workflows.includes(opts.preferred)) {
