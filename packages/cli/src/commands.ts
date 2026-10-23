@@ -21,6 +21,7 @@ import {
   loadConfig,
   loadInstalledAgent,
   loadWorkflow,
+  missingBundledWorkflows,
   parseStoryDraft,
   readChangeMetrics,
   recommendWorkflow,
@@ -806,6 +807,11 @@ const workflows = defineCommand({
         consola.log(
           `${pc.cyan(name)}  ${pc.dim(wf.description ?? "")}  ${pc.dim(`(${wf.stages.length} stages)`)}`,
         );
+      }
+      const missing = await missingBundledWorkflows(root);
+      if (missing.length > 0) {
+        const copy = "Run `sdd init --here --force` to copy new defaults.";
+        consola.log(`${pc.yellow("Not copied yet:")} ${missing.join(", ")}. ${copy}`);
       }
     });
   },

@@ -186,12 +186,20 @@ export async function reconcileGeneratedTree(
       continue;
     }
 
-    const previousHash = manifest.files[projectRelative];
+    const currentHash = contentHash(current);
+    let previousHash = manifest.files[projectRelative];
     if (!previousHash) {
-      kept.push({ path: projectRelative, reason: "not-generated" });
-      continue;
+      // No recorded hash. A byte-for-byte match (line endings aside) is the
+      // bundled file, so record it. A later --force can then refresh it.
+      // Anything else is a user's file and stays kept.
+      if (currentHash !== generatedHash) {
+        kept.push({ path: projectRelative, reason: "not-generated" });
+        continue;
+      }
+      manifest.files[projectRelative] = generatedHash;
+      previousHash = generatedHash;
     }
-    if (contentHash(current) !== previousHash) {
+    if (currentHash !== previousHash) {
       kept.push({ path: projectRelative, reason: "edited" });
       continue;
     }

@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { contentHash, initProject, loadConfig } from "../index.js";
+import {
+  contentHash,
+  initProject,
+  loadConfig,
+  missingBundledWorkflows,
+  recommendWorkflow,
+} from "../index.js";
 
 const temps: string[] = [];
 
@@ -165,21 +171,55 @@ describe("sdd init --force preserves project customization", () => {
     expect(manifest.files[".sdd/workflows/patch.yaml"]).toBe(contentHash(originalWorkflow));
   });
 
-  it("treats pre-manifest workflow files as user-owned on legacy upgrades", async () => {
+  it("records a matching unmarked workflow and keeps one that differs (#36)", async () => {
     const root = await freshProject();
-    const workflowPath = join(root, ".sdd/workflows/patch.yaml");
-    const before = await readFile(workflowPath, "utf8");
+    const patchPath = join(root, ".sdd/workflows/patch.yaml");
+    const featurePath = join(root, ".sdd/workflows/feature.yaml");
+    const patchBefore = await readFile(patchPath, "utf8");
+    const featureBefore = await readFile(featurePath, "utf8");
+    await rm(featurePath);
     await rm(join(root, ".sdd/.generated.json"));
 
-    const result = await initProject({ projectRoot: root, agents: false, force: true });
-    const manifest = JSON.parse(await readFile(join(root, ".sdd/.generated.json"), "utf8"));
+    const config = await loadConfig(root);
+    const missing = await missingBundledWorkflows(root);
+    expect(missing).toContain("feature");
+    expect(missing).not.toContain("patch");
+    await expect(
+      recommendWorkflow(root, "probe", config, { preferred: "feature" }),
+    ).rejects.toThrow(
+      /This CLI ships feature\. Run `sdd init --here --force` to copy new defaults/,
+    );
 
-    expect(await readFile(workflowPath, "utf8")).toBe(before);
-    expect(result.kept).toContainEqual({
+    const adopted = await initProject({ projectRoot: root, agents: false, force: true });
+    const manifest = JSON.parse(await readFile(join(root, ".sdd/.generated.json"), "utf8")) as {
+      files: Record<string, string>;
+    };
+    expect(await readFile(patchPath, "utf8")).toBe(patchBefore);
+    expect(manifest.files[".sdd/workflows/patch.yaml"]).toBe(contentHash(patchBefore));
+    expect(adopted.kept.some((k) => k.path === ".sdd/workflows/patch.yaml")).toBe(false);
+    expect(await readFile(featurePath, "utf8")).toBe(featureBefore);
+    expect(manifest.files[".sdd/workflows/feature.yaml"]).toBe(contentHash(featureBefore));
+    await expect(
+      recommendWorkflow(root, "probe", config, { preferred: "feature" }),
+    ).resolves.toMatchObject({ name: "feature" });
+
+    const custom = `${patchBefore}\n# team edit\n`;
+    await writeFile(patchPath, custom);
+    manifest.files = Object.fromEntries(
+      Object.entries(manifest.files).filter(([path]) => path !== ".sdd/workflows/patch.yaml"),
+    );
+    await writeFile(join(root, ".sdd/.generated.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const kept = await initProject({ projectRoot: root, agents: false, force: true });
+    const after = JSON.parse(await readFile(join(root, ".sdd/.generated.json"), "utf8")) as {
+      files: Record<string, string>;
+    };
+    expect(await readFile(patchPath, "utf8")).toBe(custom);
+    expect(kept.kept).toContainEqual({
       path: ".sdd/workflows/patch.yaml",
       reason: "not-generated",
     });
-    expect(manifest.files[".sdd/workflows/patch.yaml"]).toBeUndefined();
+    expect(after.files[".sdd/workflows/patch.yaml"]).toBeUndefined();
   });
 
   it("fails on a malformed manifest before changing config or workflow files", async () => {
