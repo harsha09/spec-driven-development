@@ -83,7 +83,7 @@ function emptyUsage(): Usage {
 
 function usageFrom(reply: DecisionReply, base: Usage): Usage {
   return {
-    model: reply.model,
+    model: reply.model ?? base.model,
     inputTokens: reply.input_tokens === undefined ? base.inputTokens : reply.input_tokens,
     cacheReadTokens:
       reply.cache_read_tokens === undefined ? base.cacheReadTokens : reply.cache_read_tokens,
