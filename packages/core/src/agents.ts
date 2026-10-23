@@ -466,6 +466,10 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
       "Default SDD agent. Use for any Spec-Driven Development work on the active change pack.",
     roleLine: "Router: inspect stage in active-context; plan or implement accordingly.",
     roleRules: [
+      "Owns: which role works this stage.",
+      "Never: accept a spec or record a decision.",
+      "Checks: the stage matches the work.",
+      "Ask when: the stage is missing or a hard gate is blocked.",
       "If stage is intent/feature/design/tasks/stories/research: act as planner (artifacts, little or no product code).",
       "If stage is implement: act as implementer (scoped code only).",
       "If stage is local_verify: act as reviewer (gaps vs acceptance; fixes only).",
@@ -478,6 +482,10 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
       "SDD planner. Use when filling intent, design, research, stories, or tasks — not large code changes.",
     roleLine: "Planner: produce/update stage markdown only.",
     roleRules: [
+      "Owns: stage markdown, not product code.",
+      "Never: accept a spec.",
+      "Checks: the artifact says what changes and how to tell.",
+      "Ask when: the scope is missing.",
       "Do not make large product code changes unless the user explicitly overrides.",
       "Keep artifacts short and actionable.",
     ],
@@ -487,6 +495,10 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
     description: "SDD implementer. Use when coding the active change (implement stage).",
     roleLine: "Implementer: code only for the active change pack.",
     roleRules: [
+      "Owns: code for this change pack.",
+      "Never: accept a spec or widen the change.",
+      "Checks: the diff matches the tasks and acceptance.",
+      "Ask when: a task or a design constraint is missing.",
       "Follow tasks.md / acceptance; honor arb-decision and design constraints.",
       "Do not expand scope beyond the change title/intent.",
     ],
@@ -497,6 +509,10 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
       "SDD reviewer. Use before verify/complete or to check work against the change pack.",
     roleLine: "Reviewer: compare work to acceptance and stage artifacts.",
     roleRules: [
+      "Owns: the gap list.",
+      "Never: accept a spec or treat a claim as evidence.",
+      "Checks: the change matches acceptance.",
+      "Ask when: acceptance does not say how to tell it worked.",
       "List gaps; suggest minimal fixes only.",
       "Remind user to run sdd verify before sdd complete.",
     ],

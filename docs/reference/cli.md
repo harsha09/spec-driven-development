@@ -89,7 +89,9 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
-| `sdd role` | Create, list, and run a product role | One job and one stop |
+| `sdd role` | Create, list, and run a product role. `sdd role create <name> --template software/developer` copies a shipped role | One job and one stop |
+| `sdd team init --template software` | Write `.sdd/team.yaml` and that template's roles. Also `solo` and `research`. Does not overwrite | Model a team |
+| `sdd team show` | Print bots, human approvers, the rooms commit switch, and the branch pattern | See the team |
 | `sdd graph --epic <key>` | Print which stories can run together and which must wait | Epic planning |
 | `sdd branch <name>` | Create that story branch from `main` | Start one story |
 | `sdd pr` | Push the change branch and open a pull request | Story is ready |
@@ -149,7 +151,17 @@ Related change specs and memory pages can be packed as a short extractive summar
 
 ## sdd role
 
-A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors and routines are not in this slice.
+A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. It is not a host stub from `sdd agents install`. A shipped template can fill `owns`, `inputs`, `outputs`, `collaborates`, `reviews`, `approvers`, `never`, `ask_human_when`, `skills`, `rules`, and `goals`.
+
+```bash
+sdd team init --template software
+sdd team show
+sdd role create builder --template software/developer
+```
+
+`software` ships product-manager, architect, product-owner, dev-lead, and developer. `solo` ships one developer. `research` ships one researcher. `developer` alone is ambiguous. Pass `software/developer` or `solo/developer`. Init writes nothing when `.sdd/team.yaml` or one of the template's role files already exists. A human approver whose name matches `git config user.name` is marked `(you)`. The rooms commit switch is stored and stays off in the shipped templates. The branch pattern includes `{bot}`.
+
+A role file at `.sdd/roles/<name>.md` is still not a host stub. The four host stubs (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) each state what they own, what they never do, what they check, and when they ask. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors and routines are not in this slice.
 
 `sdd role messaging off` stops a handoff before any model call. `sdd role handoff <from> --to <role> --change <id> --section <id> --task "..."` writes the same handoff record on both conversations and calls only the receiver. `sdd role group --change <id>` lists accepted owners. `sdd role network` prints one service, a connection with the lead absent, or asks the lead for a plan of depth at most 2. Nobody writes until `sdd role network accept`. `sdd role network run` runs a node only after its prerequisites, and the parent stays open until every node has a result.
 

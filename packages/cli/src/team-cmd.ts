@@ -1,0 +1,43 @@
+import { gitUserName, initTeam, showTeam } from "@structured-vibe-coding/core";
+import { defineCommand } from "citty";
+import { withProject } from "./project.js";
+
+function emit(result: { exitCode: number; stdout: string }): void {
+  if (result.stdout.length > 0) {
+    process.stdout.write(result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}\n`);
+  }
+  if (result.exitCode !== 0) process.exit(result.exitCode);
+}
+
+function textArg(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+const init = defineCommand({
+  meta: { name: "init", description: "Write .sdd/team.yaml and the template's role files" },
+  args: {
+    template: { type: "string", description: "software, solo, or research", required: true },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await initTeam(root, textArg(args.template), gitUserName(root)));
+    });
+  },
+});
+
+const show = defineCommand({
+  meta: { name: "show", description: "Print the team config" },
+  async run() {
+    await withProject(async ({ root }) => {
+      emit(await showTeam(root, gitUserName(root)));
+    });
+  },
+});
+
+export const teamCmd = defineCommand({
+  meta: {
+    name: "team",
+    description: "Install a role team from a template and show it",
+  },
+  subCommands: { init, show },
+});

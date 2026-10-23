@@ -1,4 +1,18 @@
-export interface RoleProfile {
+export interface RoleLists {
+  owns: string[];
+  inputs: string[];
+  outputs: string[];
+  collaborates: string[];
+  reviews: string[];
+  approvers: string[];
+  never: string[];
+  askHumanWhen: string[];
+  skills: string[];
+  rules: string[];
+  goals: string[];
+}
+
+export interface RoleProfile extends RoleLists {
   name: string;
   label: string;
   job: string;
@@ -6,6 +20,22 @@ export interface RoleProfile {
   askFirst: boolean;
   pinned: boolean;
   hidden: boolean;
+}
+
+export function emptyRoleLists(): RoleLists {
+  return {
+    owns: [],
+    inputs: [],
+    outputs: [],
+    collaborates: [],
+    reviews: [],
+    approvers: [],
+    never: [],
+    askHumanWhen: [],
+    skills: [],
+    rules: [],
+    goals: [],
+  };
 }
 
 export interface RoleModel {

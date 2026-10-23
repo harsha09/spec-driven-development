@@ -1,0 +1,21 @@
+branch: bot/{bot}/{change}
+rooms:
+  commit: false
+bots:
+  - name: product-manager
+    role: product-manager
+    wip: 1
+  - name: architect
+    role: architect
+    wip: 1
+  - name: product-owner
+    role: product-owner
+    wip: 1
+  - name: dev-lead
+    role: dev-lead
+    wip: 1
+  - name: developer
+    role: developer
+    wip: 1
+role_wip:
+  developer: 2
