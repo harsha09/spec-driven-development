@@ -1,0 +1,25 @@
+id: 2026-10-23-issue-62-model-selection
+title: Issue 62 model selection
+workflow: feature
+created: 2026-10-23T12:17:16.362Z
+updated: 2026-10-23T12:58:07.783Z
+status: in_progress
+stage: local_verify
+epic: issue-58
+depends: []
+flags: {}
+overrides:
+  skip_stages: []
+  gates: {}
+  extra_stages: []
+skipped: []
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: b11dfd5377ed51868fba6f3d00df89959f20b011
+    at: 2026-10-23T12:58:07.782Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

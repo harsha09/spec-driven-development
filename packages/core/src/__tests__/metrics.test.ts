@@ -12,6 +12,7 @@ import {
   loadConfig,
   pathExists,
   readChangeMetrics,
+  recordDecisionMetric,
   skipStage,
   startPhase,
   switchWorkflow,
@@ -528,5 +529,57 @@ stages:
     );
     const metrics = await readChangeMetrics(root, config, change.id);
     expect(metrics.requests).toEqual([]);
+  });
+
+  it("keeps decision rows when a session import writes the file back", async () => {
+    const { root, config, change } = await setup();
+    const startedAt = (await readChangeMetrics(root, config, change.id)).phases[0]!.startedAt;
+    await recordDecisionMetric(root, config, change.id, {
+      workType: "route",
+      kind: "decide",
+      provider: "command",
+      model: null,
+      startedAt,
+      inputTokens: 4,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      outputTokens: 2,
+    });
+    const logPath = join(root, "private-session.jsonl");
+    await writeFile(
+      logPath,
+      `${JSON.stringify({
+        type: "assistant",
+        timestamp: startedAt,
+        requestId: "claude-request-keep",
+        message: {
+          id: "claude-message-keep",
+          usage: {
+            input_tokens: 100,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 30,
+          },
+          content: [{ type: "text", text: "PRIVATE PROMPT CONTENT" }],
+        },
+      })}\n`,
+    );
+
+    const imported = await importSessionMetrics(root, config, change.id, logPath);
+    const metrics = await readChangeMetrics(root, config, change.id);
+    const serialized = await readFile(join(change.path, "metrics.json"), "utf8");
+
+    expect(imported.imported).toBe(1);
+    expect(metrics.decisions).toEqual([
+      expect.objectContaining({
+        workType: "route",
+        provider: "command",
+        model: null,
+        inputTokens: 4,
+      }),
+    ]);
+    expect(metrics.requests).toHaveLength(1);
+    expect(serialized).not.toContain("usd");
+    expect(serialized).not.toContain("PRIVATE PROMPT CONTENT");
   });
 });

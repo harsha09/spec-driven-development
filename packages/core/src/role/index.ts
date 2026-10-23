@@ -20,9 +20,18 @@ export {
 } from "./profile.js";
 export { TeamSchema } from "./schema.js";
 export type { TeamConfig } from "./schema.js";
+export { decide } from "./models/decide.js";
+export type { DecideInput, DecisionOutcome } from "./models/decide.js";
+export { modelFromEnv, spawnModelCommand } from "./models/command.js";
+export { loadModels, checkModels, ModelsConfigSchema } from "./models/schema.js";
+export type { ModelsConfig, ModelEntry } from "./models/schema.js";
+export { selectModel } from "./models/select.js";
+export type { ModelContext } from "./models/select.js";
+export { explainModel, formatModels } from "./models/show.js";
 export { queueRole, routeRole, takeRole } from "./routing.js";
-export type { RouteHit, RouteItem } from "./routing.js";
+export type { RouteDeps, RouteHit, RouteItem } from "./routing.js";
 export {
+  checkTeam,
   createRoleFromTemplate,
   formatTeam,
   gitUserName,
@@ -32,4 +41,13 @@ export {
   readTeamConfig,
   showTeam,
 } from "./team.js";
-export type { RoleCommandResult, RoleLists, RoleModel, RoleProfile } from "./types.js";
+export type {
+  DecisionModel,
+  ModelChoice,
+  RoleCommandResult,
+  RoleLists,
+  RoleModel,
+  RoleProfile,
+  WorkType,
+} from "./types.js";
+export { WORK_TYPES, isWorkType, workKind } from "./types.js";
