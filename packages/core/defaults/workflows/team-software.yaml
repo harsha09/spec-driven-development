@@ -1,0 +1,153 @@
+name: team-software
+description: >
+  Software team — requirements, architecture, stories, plan, tasks,
+  implement, pull-request review, acceptance
+version: 1
+recommendation:
+  priority: 10
+  when:
+    keywords: [team-software]
+stages:
+  - id: requirements
+    title: Requirements
+    summary: The short reading of what the person asked for
+    kind: standard
+    skippable: false
+    owner: product-manager
+    collaborates: [architect]
+    artifacts:
+      - id: requirements
+        path: requirements.md
+        template: requirements.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person accepted the reading"
+    agent_context:
+      instructions: |
+        Write the short reading in requirements.md. Do not accept the spec.
+        The person signs this gate.
+
+  - id: architecture
+    title: Architecture
+    summary: Module boundaries for this change
+    kind: standard
+    skippable: false
+    owner: architect
+    collaborates: [product-manager]
+    artifacts:
+      - id: architecture
+        path: architecture.md
+        template: greenfield-architecture.md
+        required: true
+    gate:
+      type: soft
+      approvers: [architect]
+
+  - id: stories
+    title: Stories
+    summary: One story file the product owner can ask about
+    kind: standard
+    skippable: false
+    owner: product-owner
+    collaborates: [dev-lead]
+    artifacts:
+      - id: story
+        path: stories/S-001.md
+        template: story.md
+        required: true
+    gate:
+      type: soft
+      approvers: [product-owner]
+
+  - id: plan
+    title: Plan
+    summary: How the work is split
+    kind: standard
+    skippable: false
+    owner: dev-lead
+    collaborates: [architect, developer]
+    artifacts:
+      - id: plan
+        path: plan.md
+        template: plan.md
+        required: true
+    gate:
+      type: soft
+      approvers: [dev-lead]
+
+  - id: tasks
+    title: Tasks
+    summary: One file per task
+    kind: standard
+    skippable: false
+    owner: dev-lead
+    collaborates: [developer]
+    artifacts:
+      - id: task
+        path: tasks/T-001.md
+        template: task.md
+        required: true
+    gate:
+      type: soft
+
+  - id: implement
+    title: Implement
+    summary: One item for each task file
+    kind: standard
+    skippable: false
+    owner: developer
+    items_from: tasks/T-*.md
+    artifacts: []
+    gate:
+      type: soft
+    agent_context:
+      instructions: |
+        When this stage starts, items.yaml has one row per tasks/T-*.md file.
+        Build those tasks. Do not accept a spec.
+
+  - id: pr_review
+    title: Pull request review
+    summary: Architect and dev lead review the change
+    kind: standard
+    skippable: false
+    owner: architect
+    collaborates: [dev-lead]
+    artifacts:
+      - id: review
+        path: reviews/R-001.md
+        template: review.md
+        required: true
+    gate:
+      type: soft
+      approvers: [architect, dev-lead]
+
+  - id: acceptance
+    title: Acceptance
+    summary: The person tries the change and keeps the final say
+    kind: standard
+    skippable: false
+    owner: product-owner
+    collaborates: [product-manager, architect]
+    artifacts:
+      - id: acceptance
+        path: acceptance.md
+        template: acceptance.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person recorded what they saw"
+    agent_context:
+      instructions: |
+        Write what the person can try. Do not record the QA result.
+        The person signs this gate.
+
+on_complete:
+  archive: false
+  domain_sync: never

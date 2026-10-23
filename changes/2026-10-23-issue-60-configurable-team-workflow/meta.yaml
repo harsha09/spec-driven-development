@@ -1,0 +1,41 @@
+id: 2026-10-23-issue-60-configurable-team-workflow
+title: Issue 60 configurable team workflow
+workflow: feature
+created: 2026-10-23T09:21:31.905Z
+updated: 2026-10-23T09:27:50.051Z
+status: in_progress
+stage: local_verify
+epic: issue-58
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the issue already names the stages and the sign-offs
+    at: 2026-10-23T09:23:42.953Z
+  - stage: brainstorm
+    reason: the workflow fields are the approach
+    at: 2026-10-23T09:23:44.563Z
+  - stage: clarify_design
+    reason: the seams are in the design
+    at: 2026-10-23T09:23:45.281Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-10-23T09:23:45.979Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 1c62be3e941f260d197a41a614c92b38cb4cdda8
+    at: 2026-10-23T09:27:50.051Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

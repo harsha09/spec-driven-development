@@ -22,6 +22,8 @@ sdd use feature -r "grew past hotfix"
 
 Ship your own pack by copying a default workflow and editing stages and artifacts.
 
+A stage can set `owner`, `collaborates`, and `items_from`. A gate can set `approvers`. `items_from` is one directory and one star in the file name, such as `tasks/T-*.md`. See [Built-in workflows](../reference/workflows) for the software-team example.
+
 ## Related
 
 - [Layout reference](../reference/layout)  
