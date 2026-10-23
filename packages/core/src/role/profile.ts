@@ -2,7 +2,13 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { listDirs, listFiles, pathExists, readText, removePath, writeText } from "../fs.js";
-import { ROLE_TEXT, type RoleCommandResult, type RoleProfile } from "./types.js";
+import {
+  ROLE_TEXT,
+  type RoleCommandResult,
+  type RoleLists,
+  type RoleProfile,
+  emptyRoleLists,
+} from "./types.js";
 
 const NAME_LIMIT = 80;
 
@@ -42,6 +48,31 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const LIST_FIELDS: [keyof RoleLists, string][] = [
+  ["owns", "owns"],
+  ["inputs", "inputs"],
+  ["outputs", "outputs"],
+  ["collaborates", "collaborates"],
+  ["reviews", "reviews"],
+  ["approvers", "approvers"],
+  ["never", "never"],
+  ["askHumanWhen", "ask_human_when"],
+  ["skills", "skills"],
+  ["rules", "rules"],
+  ["goals", "goals"],
+];
+
+function stringList(value: unknown): string[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !item.trim()) return null;
+    out.push(item.trim());
+  }
+  return out;
+}
+
 export function parseRoleDocument(name: string, raw: string): RoleProfile | null {
   const text = raw.replace(/^\uFEFF/, "");
   const nl = text.indexOf("\n");
@@ -57,6 +88,12 @@ export function parseRoleDocument(name: string, raw: string): RoleProfile | null
   }
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   const rec = data as Record<string, unknown>;
+  const lists = emptyRoleLists();
+  for (const [field, key] of LIST_FIELDS) {
+    const parsed = stringList(rec[key]);
+    if (!parsed) return null;
+    lists[field] = parsed;
+  }
   const body = rest.slice(close.index + close[0].length).trim();
   return {
     name,
@@ -66,21 +103,23 @@ export function parseRoleDocument(name: string, raw: string): RoleProfile | null
     askFirst: rec.ask_first === true,
     pinned: rec.pinned === true,
     hidden: rec.hidden === true,
+    ...lists,
   };
 }
 
 export function renderRole(role: RoleProfile): string {
-  const front = stringifyYaml(
-    {
-      name: role.name,
-      label: role.label,
-      job: role.job,
-      ask_first: role.askFirst,
-      pinned: role.pinned,
-      hidden: role.hidden,
-    },
-    { lineWidth: 100 },
-  ).trimEnd();
+  const record: Record<string, unknown> = {
+    name: role.name,
+    label: role.label,
+    job: role.job,
+    ask_first: role.askFirst,
+    pinned: role.pinned,
+    hidden: role.hidden,
+  };
+  for (const [field, key] of LIST_FIELDS) {
+    if (role[field].length > 0) record[key] = role[field];
+  }
+  const front = stringifyYaml(record, { lineWidth: 100 }).trimEnd();
   const description = role.description.trim();
   if (!description) return `---\n${front}\n---\n`;
   return `---\n${front}\n---\n${description}\n`;
@@ -104,13 +143,23 @@ async function writeRole(root: string, role: RoleProfile): Promise<void> {
 
 export async function createRole(
   root: string,
-  input: { name: string; label: string; job: string; description?: string; askFirst?: boolean },
+  input: {
+    name: string;
+    label: string;
+    job: string;
+    description?: string;
+    askFirst?: boolean;
+  } & Partial<RoleLists>,
 ): Promise<RoleCommandResult> {
   const name = canonicalRoleName(input.name);
   if (!name) return fail(ROLE_TEXT.badName);
   const job = input.job.trim();
   if (!job) return fail(ROLE_TEXT.needsJob);
   if (await pathExists(roleFilePath(root, name))) return fail(ROLE_TEXT.exists);
+  const lists = emptyRoleLists();
+  for (const [field] of LIST_FIELDS) {
+    lists[field] = input[field] ?? [];
+  }
   await writeRole(root, {
     name,
     label: input.label.trim(),
@@ -119,6 +168,7 @@ export async function createRole(
     askFirst: input.askFirst === true,
     pinned: false,
     hidden: false,
+    ...lists,
   });
   return ok();
 }

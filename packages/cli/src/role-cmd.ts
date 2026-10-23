@@ -4,6 +4,7 @@ import {
   acceptNetwork,
   allowRole,
   createRole,
+  createRoleFromTemplate,
   deleteRole,
   duplicateRole,
   editRole,
@@ -78,21 +79,47 @@ function modelFromEnv(): RoleModel | undefined {
 const create = defineCommand({
   meta: { name: "create", description: "Write a new role file" },
   args: {
-    name: { type: "string", description: "Role name", required: true },
-    label: { type: "string", description: "Short label", required: true },
-    job: { type: "string", description: "One job for this role", required: true },
+    roleName: { type: "positional", description: "Role name", required: false },
+    name: { type: "string", description: "Role name", required: false },
+    label: { type: "string", description: "Short label" },
+    job: { type: "string", description: "One job for this role" },
     description: { type: "string", description: "Durable description" },
+    template: { type: "string", description: "Shipped role template, such as software/developer" },
     "ask-first": { type: "string", description: "true or false. Default false" },
   },
   async run({ args }) {
     const ask = boolArg(args["ask-first"]);
     if (ask === "bad") process.exit(1);
+    const positional = textArg(args.roleName);
+    const flagged = textArg(args.name);
+    if (positional && flagged && positional !== flagged) {
+      process.stdout.write("A role name is not valid.\n");
+      process.exit(1);
+    }
+    const name = flagged || positional || "";
     await withProject(async ({ root }) => {
+      const template = textArg(args.template);
+      if (template) {
+        emit(
+          await createRoleFromTemplate(root, {
+            name,
+            template,
+            label: textArg(args.label),
+            job: textArg(args.job),
+            description: textArg(args.description),
+          }),
+        );
+        return;
+      }
+      if (!textArg(args.label)) {
+        process.stdout.write("A role needs a label.\n");
+        process.exit(1);
+      }
       emit(
         await createRole(root, {
-          name: args.name,
-          label: args.label,
-          job: args.job,
+          name,
+          label: textArg(args.label) ?? "",
+          job: textArg(args.job) ?? "",
           description: textArg(args.description),
           askFirst: ask === true,
         }),
