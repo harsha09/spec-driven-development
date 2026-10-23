@@ -29,8 +29,10 @@ describe("generated defaults manifest", () => {
     const destTemplates = join(root, ".sdd/templates");
     await put(join(sourceWorkflows, "patch.yaml"), "name: patch-v1\n");
     await put(join(sourceWorkflows, "team.yaml"), "name: packaged-team-default\n");
+    await put(join(sourceWorkflows, "same.yaml"), "name: same\n");
     await put(join(sourceTemplates, "intent.md"), "# Intent v1\n");
     await put(join(destWorkflows, "team.yaml"), "name: user-team-workflow\n");
+    await put(join(destWorkflows, "same.yaml"), "name: same\n");
     const manifest = await loadGeneratedManifest(manifestPath);
 
     const firstWorkflows = await reconcileGeneratedTree(
@@ -54,8 +56,11 @@ describe("generated defaults manifest", () => {
       path: ".sdd/workflows/team.yaml",
       reason: "not-generated",
     });
+    expect(manifest.files[".sdd/workflows/same.yaml"]).toBeTruthy();
+    expect(firstWorkflows.kept.some((k) => k.path.endsWith("same.yaml"))).toBe(false);
 
     await put(join(sourceWorkflows, "patch.yaml"), "name: patch-v2\n");
+    await put(join(sourceWorkflows, "same.yaml"), "name: same-v2\n");
     await put(join(sourceTemplates, "intent.md"), "# Intent v2\n");
     await put(join(destTemplates, "intent.md"), "# Team edited intent\n");
     const workflows = await reconcileGeneratedTree(
@@ -76,7 +81,9 @@ describe("generated defaults manifest", () => {
     );
 
     expect(await readFile(join(destWorkflows, "patch.yaml"), "utf8")).toBe("name: patch-v2\n");
+    expect(await readFile(join(destWorkflows, "same.yaml"), "utf8")).toBe("name: same-v2\n");
     expect(workflows.refreshed).toContain(".sdd/workflows/patch.yaml");
+    expect(workflows.refreshed).toContain(".sdd/workflows/same.yaml");
     expect(await readFile(join(destWorkflows, "team.yaml"), "utf8")).toBe(
       "name: user-team-workflow\n",
     );
