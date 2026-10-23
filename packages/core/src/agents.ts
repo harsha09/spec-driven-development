@@ -464,15 +464,13 @@ export const SDD_AGENT_ROLES: SddAgentRole[] = [
     id: "sdd",
     description:
       "Default SDD agent. Use for any Spec-Driven Development work on the active change pack.",
-    roleLine: "Router: inspect stage in active-context; plan or implement accordingly.",
+    roleLine: "Router: send the stage to the role that owns it, one item at a time.",
     roleRules: [
       "Owns: which role works this stage.",
       "Never: accept a spec or record a decision.",
       "Checks: the stage matches the work.",
       "Ask when: the stage is missing or a hard gate is blocked.",
-      "If stage is intent/feature/design/tasks/stories/research: act as planner (artifacts, little or no product code).",
-      "If stage is implement: act as implementer (scoped code only).",
-      "If stage is local_verify: act as reviewer (gaps vs acceptance; fixes only).",
+      "Route with sdd role route. Rules in .sdd/routing.yaml win, then a role owns list. One item at a time. No owner asks the human.",
       "If kickoff/brief says refine or analyze: follow <changes_path>/<id>/refine-brief.md — stage-scoped refine; never edit constitution; do not sdd next.",
     ],
   },

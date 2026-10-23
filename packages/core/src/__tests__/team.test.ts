@@ -38,6 +38,7 @@ describe("team config", () => {
     expect(shown.stdout).toContain("Ada Lovelace (you)");
     expect(shown.stdout).toContain("rooms.commit: false");
     expect(shown.stdout).toContain("developer 2");
+    expect(await readFile(join(root, ".sdd/routing.yaml"), "utf8")).toContain("stage: implement");
 
     const again = await initTeam(root, "software", "Ada Lovelace");
     expect(again.stdout).toContain("Nothing was written");
@@ -48,6 +49,7 @@ describe("team config", () => {
     const root = await project();
     const solo = await initTeam(root, "solo", null);
     expect(solo.exitCode).toBe(0);
+    expect(await pathExists(join(root, ".sdd/routing.yaml"))).toBe(false);
     expect((await showTeam(root, null)).stdout).toContain("- (none)");
     await rm(join(root, ".sdd/team.yaml"));
     const blocked = await initTeam(root, "software", null);

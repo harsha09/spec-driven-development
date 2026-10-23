@@ -1,0 +1,41 @@
+id: 2026-10-23-issue-61-router
+title: Issue 61 router
+workflow: feature
+created: 2026-10-23T11:49:38.522Z
+updated: 2026-10-23T12:00:19.718Z
+status: in_progress
+stage: local_verify
+epic: issue-58
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue already names the rules, the inbox, and the commands.
+    at: 2026-10-23T11:49:57.958Z
+  - stage: brainstorm
+    reason: Rules first, then owns, then the stage owner. The model pick stays in issue 62.
+    at: 2026-10-23T11:49:58.667Z
+  - stage: clarify_design
+    reason: The seams are in the design.
+    at: 2026-10-23T11:50:18.163Z
+  - stage: clarify_tasks
+    reason: The task list is the issue scope.
+    at: 2026-10-23T11:50:28.694Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: ed15978f2e13e0bf0a6c4b832fe6d8f06023843e
+    at: 2026-10-23T12:00:19.718Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

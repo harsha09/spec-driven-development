@@ -124,6 +124,7 @@ describe("role handoff", () => {
     expect(blocked).toMatchObject({ exitCode: 0, stdout: "Messaging between roles is off." });
     expect(model.calls).toEqual([]);
     expect(await pathExists(join(root, ".sdd/role-runs/conversation"))).toBe(false);
+    expect(await pathExists(join(root, ".sdd/agents"))).toBe(false);
     expect((await setRoleMessaging(root, true)).stdout).toBe("Messaging between roles is on.");
   });
 
@@ -178,6 +179,17 @@ describe("role handoff", () => {
     expect(senderLines.map((line) => line.type)).toEqual(["handoff", "handoff_reply"]);
     expect(receiverLines.map((line) => line.type)).toEqual(["handoff", "model", "pending"]);
     expect(senderLines[0]).toEqual(receiverLines[0]);
+    const senderInbox = await readFile(join(root, ".sdd/agents/builder/inbox.jsonl"), "utf8");
+    const receiverInbox = await readFile(
+      join(root, ".sdd/agents/billing-builder/inbox.jsonl"),
+      "utf8",
+    );
+    expect(senderInbox.trim()).toBe(receiverInbox.trim());
+    expect(JSON.parse(senderInbox)).toMatchObject({
+      type: "handoff",
+      from: "builder",
+      to: "billing-builder",
+    });
     expect(sender).toContain("Checked billing.");
     expect(sender).not.toContain("Write the note.");
     const allowed = await allowRole(root, {
@@ -292,6 +304,16 @@ owner: billing-builder
       section: "link",
       decision: "D-link",
     });
+    const leftInbox = await readFile(
+      join(root, ".sdd/agents/expenses-builder/inbox.jsonl"),
+      "utf8",
+    );
+    const rightInbox = await readFile(
+      join(root, ".sdd/agents/billing-builder/inbox.jsonl"),
+      "utf8",
+    );
+    expect(leftInbox.trim()).toBe(rightInbox.trim());
+    expect(JSON.parse(leftInbox)).toMatchObject({ type: "handoff", section: "link" });
     expect(await showRoleGroup(root, "pay")).toMatchObject({
       exitCode: 0,
       stdout: "expenses-builder\nbilling-builder",
@@ -600,6 +622,109 @@ lead: product-lead
     });
     expect(stored.stdout.startsWith("Accept this plan before anyone writes.")).toBe(true);
     expect(model.calls[0]?.roleId).toBe("product-lead");
+  });
+
+  it("asks the human when two leads are named and no rule matches", async () => {
+    const root = await project();
+    await role(root, "lead-a");
+    await role(root, "lead-b");
+    await role(root, "expenses-builder");
+    await role(root, "billing-builder");
+    await accept(
+      root,
+      `# Spec
+
+## expenses
+decision: D-exp
+accepted: yes
+service: expenses
+module: spend
+owner: expenses-builder
+
+## billing
+decision: D-bill
+accepted: yes
+service: billing
+module: invoice
+owner: billing-builder
+
+## product-a
+decision: D-a
+accepted: yes
+scope: product
+lead: lead-a
+
+## product-b
+decision: D-b
+accepted: yes
+scope: product
+lead: lead-b
+`,
+    );
+    const result = await planNetwork(root, { change: "pay", section: "expenses", task: "both" });
+    expect(result).toMatchObject({ exitCode: 1, stdout: "Ask the human." });
+  });
+
+  it("uses a role skill before the first named lead", async () => {
+    const root = await project();
+    await role(root, "money-lead");
+    await createRole(root, {
+      name: "dev-lead",
+      label: "Dev lead",
+      job: "Name the next owner",
+      skills: ["name the next owner"],
+    });
+    await role(root, "expenses-builder");
+    await role(root, "billing-builder");
+    await accept(
+      root,
+      `# Spec
+
+## expenses
+decision: D-exp
+accepted: yes
+service: expenses
+module: money
+owner: expenses-builder
+
+## billing
+decision: D-bill
+accepted: yes
+service: billing
+module: money
+owner: billing-builder
+
+## lead
+decision: D-lead
+accepted: yes
+module: money
+lead: money-lead
+`,
+    );
+    const model = fake([
+      JSON.stringify({
+        text: "Plan it.",
+        plan: [
+          {
+            scope: "money",
+            owner: "dev-lead",
+            decision: "D-lead",
+            after: [],
+            artifact: "notes/parent.md",
+            boundary: "stop",
+          },
+        ],
+      }),
+    ]);
+    const stored = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "split",
+      model: model.model,
+      now: clock(),
+    });
+    expect(stored.stdout.startsWith("Accept this plan before anyone writes.")).toBe(true);
+    expect(model.calls[0]?.roleId).toBe("dev-lead");
   });
 
   it("does not call a lead when two services have no module", async () => {
