@@ -344,6 +344,60 @@ describe("token cost report", () => {
     expect(missing).toContain("No estimate: .sdd/handoff.md is missing.");
     expect(missing).not.toContain("estimated");
   });
+
+  it("adds a decision section without changing the request rows", () => {
+    const table = prices();
+    const text = render(
+      {
+        ...metrics(
+          [phase("intent", "2026-01-01T00:00:00.000Z", "2026-01-01T00:10:00.000Z")],
+          [request({ provider: "codex", requestId: "codex-1", inputTokens: 1_000_000 })],
+        ),
+        decisions: [
+          {
+            workType: "route",
+            kind: "decide",
+            provider: "command",
+            model: null,
+            startedAt: "2026-01-01T00:00:00.000Z",
+            inputTokens: 1_000_000,
+            cacheReadTokens: null,
+            cacheWriteTokens: null,
+            outputTokens: null,
+          },
+        ],
+      },
+      { prices: table, handoffCodePoints: 99 },
+    );
+    expect(text).toContain("source  phase  provider  model  requests");
+    expect(text).toContain(
+      "measured  intent  codex  n/a  1  1000000  n/a  n/a  n/a  3.0000  252.00",
+    );
+    expect(text).toContain("measured  total  all  all  1  1000000  n/a  n/a  n/a  3.0000  252.00");
+    expect(text).toContain("Decisions:");
+    expect(text).toContain(
+      "work_type  kind  provider  model  calls  input  cache_read  cache_write  output  usd  inr",
+    );
+    expect(text).toContain(
+      "route  decide  command  n/a  1  1000000  n/a  n/a  n/a  3.0000  252.00",
+    );
+    expect(text).not.toContain("measured  intent  command");
+
+    const empty = render(
+      {
+        ...metrics(
+          [phase("intent", "2026-01-01T00:00:00.000Z", "2026-01-01T00:10:00.000Z")],
+          [request({ provider: "codex", requestId: "codex-1", inputTokens: 1_000_000 })],
+        ),
+        decisions: [],
+      },
+      { prices: table, handoffCodePoints: 99 },
+    );
+    expect(empty).toContain(
+      "measured  intent  codex  n/a  1  1000000  n/a  n/a  n/a  3.0000  252.00",
+    );
+    expect(empty).not.toContain("Decisions:");
+  });
 });
 
 describe("report files", () => {

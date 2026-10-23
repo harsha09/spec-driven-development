@@ -4,6 +4,8 @@ import { z } from "zod";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { listDirs, listFiles, pathExists, readText } from "../fs.js";
+import { type DecideInput, decide } from "./models/decide.js";
+import { loadModels } from "./models/schema.js";
 import { canonicalRoleName, parseRoleDocument } from "./profile.js";
 import { appendJson } from "./run.js";
 import { readTeamConfig } from "./team.js";
@@ -59,6 +61,13 @@ export interface RouteItem {
   bot?: string;
 }
 
+export interface RouteDeps {
+  env?: Readonly<Record<string, string | undefined>>;
+  fetch?: typeof fetch;
+  runCommand?: (command: string, stdin: string) => Promise<string>;
+  now?: () => Date;
+}
+
 export type RouteHit =
   | { kind: "role"; role: string; reason: string; rule: string }
   | { kind: "ask"; reason: string };
@@ -99,10 +108,12 @@ function cleanItem(input: RouteItem): RouteItem {
   const stage = input.stage?.trim();
   const artifact = input.artifact?.trim();
   const skill = input.skill?.trim();
+  const bot = input.bot?.trim();
   if (id) item.id = id;
   if (stage) item.stage = stage;
   if (artifact) item.artifact = artifact;
   if (skill) item.skill = skill;
+  if (bot) item.bot = bot;
   return item;
 }
 
@@ -297,7 +308,10 @@ async function prepareItem(root: string, input: RouteItem): Promise<RouteItem | 
   if (item.stage || item.artifact || item.skill) return item;
   const active = await activeStageItem(root);
   if ("error" in active) return active;
-  return item.id ? { ...active, id: item.id } : active;
+  const merged: RouteItem = { ...active };
+  if (item.id) merged.id = item.id;
+  if (item.bot) merged.bot = item.bot;
+  return merged;
 }
 
 function formatHit(match: RouteHit): string {
@@ -305,12 +319,62 @@ function formatHit(match: RouteHit): string {
   return `role ${match.role}\nreason ${match.reason}\nrule ${match.rule}`;
 }
 
-export async function routeRole(root: string, input: RouteItem): Promise<RoleCommandResult> {
+function routeState(item: RouteItem): string {
+  return JSON.stringify({
+    stage: item.stage ?? null,
+    artifact: item.artifact ?? null,
+    skill: item.skill ?? null,
+    id: item.id ?? null,
+  });
+}
+
+async function routeMetrics(root: string): Promise<DecideInput<string>["metrics"]> {
+  try {
+    const config = await loadConfig(root);
+    const changeId = await getActiveChangeId(root, config);
+    if (!changeId) return undefined;
+    return { projectRoot: root, config, changeId };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function routeRole(
+  root: string,
+  input: RouteItem,
+  deps?: RouteDeps,
+): Promise<RoleCommandResult> {
   const item = await prepareItem(root, input);
   if ("error" in item) return fail(item.error);
   const matched = await matchRoute(root, item);
   if (!matched.ok) return fail(matched.message);
-  return ok(formatHit(matched.match));
+  if (matched.match.kind !== "ask" || matched.match.reason !== "No rule matched.") {
+    return ok(formatHit(matched.match));
+  }
+  const loaded = await loadModels(root);
+  if (loaded === null) return ok(formatHit(matched.match));
+  if ("error" in loaded) return fail(loaded.error);
+  const roles = await loadRoles(root);
+  if ("error" in roles) return fail(roles.error);
+  const names = roles.map((role) => role.name).sort((left, right) => left.localeCompare(right));
+  const options = names.includes("human") ? names : [...names, "human"];
+  const decision = await decide({
+    models: loaded.config,
+    ctx: { workType: "route", stage: item.stage, bot: item.bot },
+    state: routeState(item),
+    question: "No rule matched.",
+    options,
+    env: deps?.env ?? {},
+    fetch: deps?.fetch,
+    runCommand: deps?.runCommand,
+    now: deps?.now,
+    metrics: await routeMetrics(root),
+  });
+  if (decision.pick !== "human" && names.includes(decision.pick)) {
+    const id = decision.choice?.id ?? "model";
+    return ok(`role ${decision.pick}\nreason Model ${id} picked ${decision.pick}.`);
+  }
+  return ok("Ask the human.\nNo rule matched.");
 }
 
 async function readInbox(root: string, name: string): Promise<InboxEntry[] | { error: string }> {

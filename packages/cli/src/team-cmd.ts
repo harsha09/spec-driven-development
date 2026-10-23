@@ -1,4 +1,4 @@
-import { gitUserName, initTeam, showTeam } from "@structured-vibe-coding/core";
+import { checkTeam, gitUserName, initTeam, showTeam } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
 import { withProject } from "./project.js";
 
@@ -25,6 +25,15 @@ const init = defineCommand({
   },
 });
 
+const check = defineCommand({
+  meta: { name: "check", description: "Check team.yaml and reject a secret in models.yaml" },
+  async run() {
+    await withProject(async ({ root }) => {
+      emit(await checkTeam(root));
+    });
+  },
+});
+
 const show = defineCommand({
   meta: { name: "show", description: "Print the team config" },
   async run() {
@@ -39,5 +48,5 @@ export const teamCmd = defineCommand({
     name: "team",
     description: "Install a role team from a template and show it",
   },
-  subCommands: { init, show },
+  subCommands: { init, show, check },
 });

@@ -3,6 +3,7 @@ import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { defaultTeamsDir } from "../defaults.js";
 import { listDirs, listFiles, pathExists, readText, writeText } from "../fs.js";
+import { checkModels } from "./models/schema.js";
 import { createRole, parseRoleDocument, roleFilePath } from "./profile.js";
 import { type TeamConfig, TeamSchema, formatTeamError } from "./schema.js";
 import type { RoleCommandResult } from "./types.js";
@@ -174,6 +175,14 @@ export async function showTeam(root: string, gitUser: string | null): Promise<Ro
   const loaded = await readTeamConfig(root);
   if ("error" in loaded) return fail(loaded.error);
   return ok(formatTeam(loaded.team, gitUser));
+}
+
+export async function checkTeam(root: string): Promise<RoleCommandResult> {
+  const loaded = await readTeamConfig(root);
+  if ("error" in loaded) return fail(loaded.error);
+  const models = await checkModels(root);
+  if (!models.ok) return fail(models.message);
+  return ok("Team config is valid.");
 }
 
 export async function resolveRoleTemplate(
