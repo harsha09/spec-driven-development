@@ -1,6 +1,4 @@
-import { spawn } from "node:child_process";
 import {
-  type RoleModel,
   acceptNetwork,
   allowRole,
   createRole,
@@ -10,6 +8,7 @@ import {
   editRole,
   handoffRole,
   hideRole,
+  modelFromEnv,
   pinRole,
   planNetwork,
   queueRole,
@@ -20,6 +19,7 @@ import {
   setRoleMessaging,
   showRoleGroup,
   showRoles,
+  spawnModelCommand,
   takeRole,
 } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
@@ -41,42 +41,6 @@ function boolArg(value: unknown): boolean | undefined | "bad" {
   if (value === true || value === "true") return true;
   if (value === false || value === "false") return false;
   return "bad";
-}
-
-function modelFromEnv(): RoleModel | undefined {
-  const command = process.env.SDD_ROLE_MODEL?.trim();
-  if (!command) return undefined;
-  return {
-    async complete(input) {
-      const stdout = await new Promise<string>((resolve, reject) => {
-        const child = spawn(command, { shell: true, stdio: ["pipe", "pipe", "pipe"] });
-        const out: Buffer[] = [];
-        child.stdout?.on("data", (chunk: Buffer) => out.push(chunk));
-        child.on("error", reject);
-        child.on("close", (code) => {
-          if (code !== 0) {
-            reject(new Error(`role model exited ${code ?? "unknown"}`));
-            return;
-          }
-          const text = Buffer.concat(out).toString("utf8").trim();
-          try {
-            const parsed = JSON.parse(text) as unknown;
-            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-              reject(new Error("role model stdout is not a JSON object"));
-              return;
-            }
-          } catch {
-            reject(new Error("role model stdout is not JSON"));
-            return;
-          }
-          resolve(text);
-        });
-        child.stdin?.write(`${JSON.stringify({ roleId: input.roleId, prompt: input.prompt })}\n`);
-        child.stdin?.end();
-      });
-      return stdout;
-    },
-  };
 }
 
 const create = defineCommand({
@@ -209,7 +173,7 @@ const run = defineCommand({
           section: textArg(args.section),
           change: textArg(args.change),
           stop: args.stop === true,
-          model: args.stop === true ? undefined : modelFromEnv(),
+          model: args.stop === true ? undefined : modelFromEnv(process.env),
         }),
       );
     });
@@ -257,7 +221,7 @@ const handoff = defineCommand({
           task: textArg(args.task),
           change: textArg(args.change),
           section: textArg(args.section),
-          model: modelFromEnv(),
+          model: modelFromEnv(process.env),
         }),
       );
     });
@@ -305,7 +269,7 @@ const networkRun = defineCommand({
         await runNetwork(root, {
           change: textArg(args.change),
           section: textArg(args.section),
-          model: modelFromEnv(),
+          model: modelFromEnv(process.env),
         }),
       );
     });
@@ -321,7 +285,7 @@ const networkRebuild = defineCommand({
         await rebuildNetwork(root, {
           change: textArg(args.change),
           section: textArg(args.section),
-          model: modelFromEnv(),
+          model: modelFromEnv(process.env),
         }),
       );
     });
@@ -341,7 +305,7 @@ const network = defineCommand({
           change: textArg(args.change),
           section: textArg(args.section),
           task: textArg(args.task),
-          model: modelFromEnv(),
+          model: modelFromEnv(process.env),
         }),
       );
     });
@@ -377,16 +341,29 @@ function routeArgs() {
 
 const route = defineCommand({
   meta: { name: "route", description: "Route one item to the role that owns it" },
-  args: routeArgs(),
+  args: {
+    ...routeArgs(),
+    bot: { type: "string" as const, description: "Bot name for a model override" },
+  },
   async run({ args }) {
     await withProject(async ({ root }) => {
       emit(
-        await routeRole(root, {
-          stage: textArg(args.stage),
-          artifact: textArg(args.artifact),
-          skill: textArg(args.skill),
-          id: textArg(args.id),
-        }),
+        await routeRole(
+          root,
+          {
+            stage: textArg(args.stage),
+            artifact: textArg(args.artifact),
+            skill: textArg(args.skill),
+            id: textArg(args.id),
+            bot: textArg(args.bot),
+          },
+          {
+            env: process.env,
+            fetch: globalThis.fetch,
+            runCommand: spawnModelCommand,
+            now: () => new Date(),
+          },
+        ),
       );
     });
   },

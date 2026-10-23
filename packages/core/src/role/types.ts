@@ -42,6 +42,44 @@ export interface RoleModel {
   complete(input: { roleId: string; prompt: string }): Promise<string>;
 }
 
+export const WORK_TYPES = [
+  "route",
+  "classify",
+  "check",
+  "draft",
+  "design",
+  "code",
+  "review",
+] as const;
+
+export type WorkType = (typeof WORK_TYPES)[number];
+
+export function isWorkType(value: string): value is WorkType {
+  return (WORK_TYPES as readonly string[]).includes(value);
+}
+
+/** Route, classify, and check are cheap decisions. The other work types reason. */
+export function workKind(workType: WorkType): "reason" | "decide" {
+  return workType === "route" || workType === "classify" || workType === "check"
+    ? "decide"
+    : "reason";
+}
+
+export interface DecisionModel {
+  decide<T extends string>(input: {
+    state: string;
+    question: string;
+    options: readonly T[];
+  }): Promise<{ pick: T; probs: Record<T, number> }>;
+}
+
+export interface ModelChoice {
+  id: string;
+  kind: "reason" | "decide";
+  provider: "rules" | "command" | "ollama";
+  why: string;
+}
+
 export interface RoleCommandResult {
   exitCode: number;
   stdout: string;
