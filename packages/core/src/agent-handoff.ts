@@ -66,6 +66,11 @@ export async function buildAgentPrompt(
   }
   parts.push(`- Workflow: ${ctx.meta.workflow}`);
   parts.push(`- Change path: ${ctx.displayPath}`);
+  if (stage?.owner) parts.push(`- Owner: ${stage.owner}`);
+  if (stage?.collaborates?.length) parts.push(`- Works with: ${stage.collaborates.join(", ")}`);
+  if (stage?.gate?.approvers?.length) {
+    parts.push(`- Approvers: ${stage.gate.approvers.join(", ")}`);
+  }
   parts.push("");
 
   const paths = guidancePaths(config);

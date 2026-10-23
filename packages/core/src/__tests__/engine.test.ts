@@ -225,6 +225,7 @@ on_complete:
       "enterprise-feature",
       "spike",
       "greenfield",
+      "team-software",
     ] as const) {
       const wf = await loadWorkflow(root, name);
       expect(wf.on_complete?.archive).toBe(false);
