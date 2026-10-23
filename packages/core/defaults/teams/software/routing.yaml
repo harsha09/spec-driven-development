@@ -1,0 +1,28 @@
+rules:
+  - id: requirements
+    stage: requirements
+    role: product-manager
+  - id: architecture
+    stage: architecture
+    role: architect
+  - id: stories
+    stage: stories
+    role: product-owner
+  - id: plan
+    stage: plan
+    role: dev-lead
+  - id: tasks
+    stage: tasks
+    role: dev-lead
+  - id: implement
+    stage: implement
+    role: developer
+  - id: pr-review
+    stage: pr_review
+    role: architect
+  - id: acceptance
+    stage: acceptance
+    role: product-owner
+  - id: lead
+    skill: name the next owner
+    role: dev-lead

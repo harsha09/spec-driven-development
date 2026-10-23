@@ -100,6 +100,12 @@ export async function initTeam(
   if (await pathExists(teamPath)) {
     return fail("Team config already exists at .sdd/team.yaml. Nothing was written.");
   }
+  const routingSrc = join(defaultTeamsDir(), template, "routing.yaml");
+  const routingDest = join(root, ".sdd", "routing.yaml");
+  const copyRouting = await pathExists(routingSrc);
+  if (copyRouting && (await pathExists(routingDest))) {
+    return fail("Routing config already exists at .sdd/routing.yaml. Nothing was written.");
+  }
   const existing: string[] = [];
   for (const role of roles) {
     if (await pathExists(roleFilePath(root, role.name))) existing.push(role.name);
@@ -117,7 +123,26 @@ export async function initTeam(
     await writeText(join(root, ".sdd", "roles", `${role.name}.md`), role.raw);
   }
   await writeText(teamPath, stringifyYaml(checked.data, { lineWidth: 100 }));
+  if (copyRouting) await writeText(routingDest, await readText(routingSrc));
   return ok(`Wrote .sdd/team.yaml from ${template}.`);
+}
+
+export async function readTeamConfig(
+  root: string,
+): Promise<{ team: TeamConfig } | { error: string }> {
+  const path = join(root, ".sdd", "team.yaml");
+  if (!(await pathExists(path))) {
+    return { error: "No team config. Run sdd team init --template software." };
+  }
+  let raw: unknown;
+  try {
+    raw = parseYaml(await readText(path));
+  } catch {
+    return { error: "team.yaml is invalid: team could not be parsed" };
+  }
+  const parsed = TeamSchema.safeParse(raw);
+  if (!parsed.success) return { error: formatTeamError(parsed.error) };
+  return { team: parsed.data };
 }
 
 export function formatTeam(team: TeamConfig, gitUser: string | null): string {
@@ -146,19 +171,9 @@ export function formatTeam(team: TeamConfig, gitUser: string | null): string {
 }
 
 export async function showTeam(root: string, gitUser: string | null): Promise<RoleCommandResult> {
-  const path = join(root, ".sdd", "team.yaml");
-  if (!(await pathExists(path))) {
-    return fail("No team config. Run sdd team init --template software.");
-  }
-  let raw: unknown;
-  try {
-    raw = parseYaml(await readText(path));
-  } catch {
-    return fail("team.yaml is invalid: team could not be parsed");
-  }
-  const parsed = TeamSchema.safeParse(raw);
-  if (!parsed.success) return fail(formatTeamError(parsed.error));
-  return ok(formatTeam(parsed.data, gitUser));
+  const loaded = await readTeamConfig(root);
+  if ("error" in loaded) return fail(loaded.error);
+  return ok(formatTeam(loaded.team, gitUser));
 }
 
 export async function resolveRoleTemplate(

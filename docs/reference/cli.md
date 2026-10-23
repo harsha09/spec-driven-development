@@ -90,7 +90,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
 | `sdd role` | Create, list, and run a product role. `sdd role create <name> --template software/developer` copies a shipped role | One job and one stop |
-| `sdd team init --template software` | Write `.sdd/team.yaml` and that template's roles. Also `solo` and `research`. Does not overwrite | Model a team |
+| `sdd team init --template software` | Write `.sdd/team.yaml`, that template's roles, and `routing.yaml` when the template has one. Also `solo` and `research`. Does not overwrite | Model a team |
 | `sdd team show` | Print bots, human approvers, the rooms commit switch, and the branch pattern | See the team |
 | `sdd graph --epic <key>` | Print which stories can run together and which must wait | Epic planning |
 | `sdd branch <name>` | Create that story branch from `main` | Start one story |
@@ -161,7 +161,9 @@ sdd team show
 sdd role create builder --template software/developer
 ```
 
-`software` ships product-manager, architect, product-owner, dev-lead, and developer. `solo` ships one developer. `research` ships one researcher. `developer` alone is ambiguous. Pass `software/developer` or `solo/developer`. Init writes nothing when `.sdd/team.yaml` or one of the template's role files already exists. A human approver whose name matches `git config user.name` is marked `(you)`. The rooms commit switch is stored and stays off in the shipped templates. The branch pattern includes `{bot}`.
+`software` ships product-manager, architect, product-owner, dev-lead, and developer. `solo` ships one developer. `research` ships one researcher. `developer` alone is ambiguous. Pass `software/developer` or `solo/developer`. Init writes nothing when `.sdd/team.yaml`, `.sdd/routing.yaml` (when the template ships one), or one of the template's role files already exists. A human approver whose name matches `git config user.name` is marked `(you)`. The rooms commit switch is stored and stays off in the shipped templates. The branch pattern includes `{bot}`.
+
+`sdd role route` prints the role, the reason, and the rule for one item. With no flags it uses the active change. Rules in `.sdd/routing.yaml` are tried first. Then one role whose `owns` list names the artifact, or whose `skills` list names the skill. Then the active workflow stage's `owner`, when that role file exists. No match prints `Ask the human.` This command does not call a model. `sdd role queue` prints each bot inbox at `.sdd/agents/<name>/inbox.jsonl`. `sdd role take` writes one active item onto a bot of that role that is under its `wip` limit and under `role_wip` when the team sets one. A bot at either limit is not given another item. A handoff appends the same typed note to both inboxes. Those notes do not count toward the limit.
 
 A role file at `.sdd/roles/<name>.md` is still not a host stub. The four host stubs (`sdd`, `sdd-planner`, `sdd-implementer`, `sdd-reviewer`) each state what they own, what they never do, what they check, and when they ask. `sdd role run` stops in plain language before it writes a file. Allow once writes only the named file. Always allow remembers that file and those inputs for that role. Connectors and routines are not in this slice.
 
