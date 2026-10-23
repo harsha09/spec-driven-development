@@ -1,0 +1,41 @@
+id: 2026-10-23-issue-21-workflow-and-artifact-tokens
+title: Issue 21 workflow and artifact tokens
+workflow: feature
+created: 2026-10-23T10:32:16.610Z
+updated: 2026-10-23T10:35:52.601Z
+status: in_progress
+stage: local_verify
+epic: issue-21
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the request names tokens and leaves dollar cost out
+    at: 2026-10-23T10:32:32.972Z
+  - stage: brainstorm
+    reason: count the files with the existing tokenizer
+    at: 2026-10-23T10:32:33.756Z
+  - stage: clarify_design
+    reason: the seams are in the design
+    at: 2026-10-23T10:32:34.472Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-10-23T10:32:35.201Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 1c62be3e941f260d197a41a614c92b38cb4cdda8
+    at: 2026-10-23T10:35:52.601Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
