@@ -10,6 +10,7 @@ import {
   describeKept,
   formatJsonSummary,
   formatStatus,
+  formatTokenInventory,
   generateCodeContext,
   getActiveChangeId,
   getStage,
@@ -801,7 +802,7 @@ const feature = defineCommand({
 const workflows = defineCommand({
   meta: { name: "workflows", description: "List available workflow packs (no agent launch)" },
   async run() {
-    await withProject(async ({ root }) => {
+    await withProject(async ({ root, config }) => {
       const names = await listWorkflowNames(root);
       for (const name of names) {
         const wf = await loadWorkflow(root, name);
@@ -814,6 +815,8 @@ const workflows = defineCommand({
         const copy = "Run `sdd init --here --force` to copy new defaults.";
         consola.log(`${pc.yellow("Not copied yet:")} ${missing.join(", ")}. ${copy}`);
       }
+      console.log("");
+      console.log(await formatTokenInventory(root, config));
     });
   },
 });
