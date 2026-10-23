@@ -12,12 +12,15 @@ import {
   hideRole,
   pinRole,
   planNetwork,
+  queueRole,
   rebuildNetwork,
+  routeRole,
   runNetwork,
   runRole,
   setRoleMessaging,
   showRoleGroup,
   showRoles,
+  takeRole,
 } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
 import { withProject } from "./project.js";
@@ -363,6 +366,65 @@ const allow = defineCommand({
   },
 });
 
+function routeArgs() {
+  return {
+    stage: { type: "string" as const, description: "Stage id" },
+    artifact: { type: "string" as const, description: "Artifact path or owns phrase" },
+    skill: { type: "string" as const, description: "Skill the item needs" },
+    id: { type: "string" as const, description: "Item id" },
+  };
+}
+
+const route = defineCommand({
+  meta: { name: "route", description: "Route one item to the role that owns it" },
+  args: routeArgs(),
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await routeRole(root, {
+          stage: textArg(args.stage),
+          artifact: textArg(args.artifact),
+          skill: textArg(args.skill),
+          id: textArg(args.id),
+        }),
+      );
+    });
+  },
+});
+
+const queue = defineCommand({
+  meta: { name: "queue", description: "Show bot inboxes" },
+  args: {
+    bot: { type: "positional", description: "Bot name", required: false },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await queueRole(root, textArg(args.bot)));
+    });
+  },
+});
+
+const take = defineCommand({
+  meta: { name: "take", description: "Give one item to a bot that has room" },
+  args: {
+    bot: { type: "positional", description: "Bot name", required: false },
+    ...routeArgs(),
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await takeRole(root, {
+          bot: textArg(args.bot),
+          stage: textArg(args.stage),
+          artifact: textArg(args.artifact),
+          skill: textArg(args.skill),
+          id: textArg(args.id),
+        }),
+      );
+    });
+  },
+});
+
 export const roleCmd = defineCommand({
   meta: {
     name: "role",
@@ -382,5 +444,8 @@ export const roleCmd = defineCommand({
     handoff,
     group,
     network,
+    route,
+    queue,
+    take,
   },
 });

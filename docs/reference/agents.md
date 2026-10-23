@@ -72,7 +72,7 @@ This protection covers **`AGENTS.md`, host agent files and folders, `.sdd/protoc
 
 | Role id | Purpose | Copilot / Claude | Grok / Ollama / Kilo |
 |---------|---------|------------------|---------------|
-| `sdd` | Router from current stage | Yes | Single brief file |
+| `sdd` | Router. `sdd role route` names the owner | Yes | Single brief file |
 | `sdd-planner` | Specs only | Yes | Use router + stage |
 | `sdd-implementer` | Code for active change | Yes | Use router + stage |
 | `sdd-reviewer` | Check acceptance | Yes | Use router + stage |

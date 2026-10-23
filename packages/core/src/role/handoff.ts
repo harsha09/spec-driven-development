@@ -2,6 +2,7 @@ import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { pathExists, readText, writeText } from "../fs.js";
 import { canonicalRoleName, conversationDir, readRole } from "./profile.js";
+import { matchRoute, writeHandoffInboxes } from "./routing.js";
 import {
   acceptedFile,
   appendJson,
@@ -269,6 +270,7 @@ export async function handoffRole(
   const record = handoffRecord(from, to, input.change?.trim() ?? "", loaded.current);
   await appendJson(senderFile, record);
   await appendJson(receiverFile, record);
+  await writeHandoffInboxes(root, record);
   let raw: string;
   try {
     raw = await input.model.complete({
@@ -488,6 +490,7 @@ async function connectionResult(
     const record = handoffRecord(from, to, changeId, section);
     await appendJson(join(conversationDir(root, from), `${runId}.jsonl`), record);
     await appendJson(join(conversationDir(root, to), `${runId}.jsonl`), record);
+    await writeHandoffInboxes(root, record);
   }
   const lines = ["Connection hands off. Lead is absent.", ...owners];
   return ok(lines.join("\n"));
@@ -527,7 +530,7 @@ export async function planNetwork(
     return ok(`Service ${name} runs ${owner}.`);
   }
 
-  const picked = pickLead(loaded.all, services);
+  const picked = await pickLead(root, loaded.all, services);
   if (picked.kind === "none") return ok("One scope. No lead.");
   if (picked.kind === "missing") return fail(picked.sentence);
   const lead = await readRole(root, picked.name);
@@ -737,7 +740,7 @@ export async function rebuildNetwork(
   if (!loaded) return fail(ROLE_TEXT.needsSection);
   if (!input.model) return fail(ROLE_TEXT.noModel);
   const services = distinctServices(loaded.all);
-  const picked = pickLead(loaded.all, services);
+  const picked = await pickLead(root, loaded.all, services);
   if (picked.kind === "missing") return fail(picked.sentence);
   if (picked.kind !== "lead") return fail("This module needs a lead.");
   const lead = await readRole(root, picked.name);
@@ -763,10 +766,38 @@ export async function rebuildNetwork(
   return result;
 }
 
-function pickLead(
+async function chooseLead(
+  root: string,
+  sections: SectionFacts[],
+  missing: string,
+): Promise<{ kind: "lead"; name: string } | { kind: "missing"; sentence: string }> {
+  const routed = await matchRoute(root, { stage: "network", skill: "name the next owner" });
+  if (!routed.ok) return { kind: "missing", sentence: routed.message };
+  if (routed.match.kind === "role") return { kind: "lead", name: routed.match.role };
+  if (routed.match.reason !== "No rule matched.") {
+    return { kind: "missing", sentence: "Ask the human." };
+  }
+  const names: string[] = [];
+  for (const section of sections) {
+    for (const lead of section.leads) {
+      if (!names.includes(lead)) names.push(lead);
+    }
+  }
+  if (names.length === 1) {
+    const name = names[0];
+    if (name) return { kind: "lead", name };
+  }
+  if (names.length === 0) return { kind: "missing", sentence: missing };
+  return { kind: "missing", sentence: "Ask the human." };
+}
+
+async function pickLead(
+  root: string,
   all: SectionFacts[],
   services: Map<string, SectionFacts>,
-): { kind: "lead"; name: string } | { kind: "missing"; sentence: string } | { kind: "none" } {
+): Promise<
+  { kind: "lead"; name: string } | { kind: "missing"; sentence: string } | { kind: "none" }
+> {
   const modules = new Set<string>();
   let missingModule = false;
   for (const section of services.values()) {
@@ -776,15 +807,18 @@ function pickLead(
   }
   const moduleId = [...modules][0];
   if (!missingModule && modules.size === 1 && moduleId && services.size > 1) {
-    const name =
-      all.find((item) => item.modules.includes(moduleId) && item.leads[0])?.leads[0] ?? "";
-    if (!name) return { kind: "missing", sentence: "This module needs a lead." };
-    return { kind: "lead", name };
+    return chooseLead(
+      root,
+      all.filter((item) => item.modules.includes(moduleId)),
+      "This module needs a lead.",
+    );
   }
   if (modules.size > 1) {
-    const name = all.find((item) => item.product && item.leads[0])?.leads[0] ?? "";
-    if (!name) return { kind: "missing", sentence: "This product needs a lead." };
-    return { kind: "lead", name };
+    return chooseLead(
+      root,
+      all.filter((item) => item.product),
+      "This product needs a lead.",
+    );
   }
   return { kind: "none" };
 }
