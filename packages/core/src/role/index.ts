@@ -18,4 +18,15 @@ export {
   pinRole,
   showRoles,
 } from "./profile.js";
-export type { RoleCommandResult, RoleModel, RoleProfile } from "./types.js";
+export { TeamSchema } from "./schema.js";
+export type { TeamConfig } from "./schema.js";
+export {
+  createRoleFromTemplate,
+  formatTeam,
+  gitUserName,
+  initTeam,
+  listRoleTemplates,
+  listTeamTemplates,
+  showTeam,
+} from "./team.js";
+export type { RoleCommandResult, RoleLists, RoleModel, RoleProfile } from "./types.js";

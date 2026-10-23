@@ -754,6 +754,27 @@ stages:
     expect(started.status, started.stderr + started.stdout).toBe(0);
   });
 
+  it("installs a team template and creates a role from one (#59)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-team-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const init = runSdd(root, ["team", "init", "--template", "research"]);
+    expect(init.status, init.stderr + init.stdout).toBe(0);
+    expect(await exists(join(root, ".sdd/roles/researcher.md"))).toBe(true);
+    const shown = runSdd(root, ["team", "show"]);
+    expect(shown.status, shown.stderr + shown.stdout).toBe(0);
+    expect(shown.stdout).toContain("researcher");
+    expect(shown.stdout).toContain("rooms.commit: false");
+    const created = runSdd(root, ["role", "create", "notes", "--template", "research/researcher"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const role = await readFile(join(root, ".sdd/roles/notes.md"), "utf8");
+    expect(role).toContain("name: notes");
+    expect(role).toContain("treat the notes as an accepted spec");
+    const again = runSdd(root, ["team", "init", "--template", "research"]);
+    expect(again.status).not.toBe(0);
+    expect(again.stdout + again.stderr).toContain("Nothing was written");
+  });
+
   it("init --force preserves custom config paths and lists edited workflows/templates (#15)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-force-preserve-"));
     temps.push(root);

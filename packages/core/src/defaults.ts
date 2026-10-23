@@ -26,6 +26,10 @@ export function defaultWorkflowsDir(): string {
   return join(defaultsRoot(), "workflows");
 }
 
+export function defaultTeamsDir(): string {
+  return join(defaultsRoot(), "teams");
+}
+
 export function defaultTemplatesDir(): string {
   return join(defaultsRoot(), "templates");
 }

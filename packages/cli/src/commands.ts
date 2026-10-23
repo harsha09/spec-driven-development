@@ -54,6 +54,7 @@ import { roleCmd } from "./role-cmd.js";
 import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
+import { teamCmd } from "./team-cmd.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
 function displayRepoPath(projectRoot: string, absolutePath: string): string {
@@ -1368,6 +1369,7 @@ export const commands = {
   agent,
   agents,
   role: roleCmd,
+  team: teamCmd,
   graph: graphCmd,
   branch: branchCmd,
   pr: prCmd,

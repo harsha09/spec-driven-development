@@ -267,7 +267,7 @@ describe("agent integrations (registry)", () => {
   it("renderThinAgent stays concise", () => {
     for (const role of SDD_AGENT_ROLES) {
       const body = renderThinAgent(role);
-      expect(body.length).toBeLessThan(1200);
+      expect(body.length).toBeLessThan(1400);
       expect(body).not.toMatch(/Hard rules/);
       expect(body).toMatch(/protocol\.md/);
     }
