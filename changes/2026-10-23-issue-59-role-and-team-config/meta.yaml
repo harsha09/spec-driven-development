@@ -1,0 +1,38 @@
+id: 2026-10-23-issue-59-role-and-team-config
+title: Issue 59 role and team config
+workflow: feature
+created: 2026-10-23T09:02:16.874Z
+updated: 2026-10-23T09:10:09.436Z
+status: in_progress
+stage: local_verify
+epic: issue-58
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue states the fields, commands, and templates.
+    at: 2026-10-23T09:08:43.569Z
+  - stage: brainstorm
+    reason: Extend the current role file and add team.yaml. One approach.
+    at: 2026-10-23T09:08:45.139Z
+  - stage: clarify_design
+    reason: The schema, commands, and fail-before-write rule are in design.md.
+    at: 2026-10-23T09:08:46.981Z
+  - stage: clarify_tasks
+    reason: The six tasks name the files and the commands.
+    at: 2026-10-23T09:08:48.777Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: false
+    status: not_run
+    at: 2026-10-23T09:10:09.436Z
+    results: []

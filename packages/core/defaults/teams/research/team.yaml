@@ -1,0 +1,7 @@
+branch: bot/{bot}/{change}
+rooms:
+  commit: false
+bots:
+  - name: researcher
+    role: researcher
+    wip: 1
