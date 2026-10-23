@@ -96,7 +96,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd branch <name>` | Create that story branch from `main` | Start one story |
 | `sdd pr` | Push the change branch and open a pull request | Story is ready |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
-| `sdd workflows` | List project workflows, and name bundled workflows that are not copied yet | Discover |
+| `sdd workflows` | List project workflows, name bundled workflows that are not copied yet, and print cl100k token counts for each workflow file and artifact | Discover |
 | `sdd help` | Short overview | First run |
 | `sdd doctor` | Health check | Stuck / setup |
 
@@ -140,6 +140,8 @@ Tools without session logs can use a local proxy that the operator runs; sdd doe
 If a change has no measured requests, the report adds one `estimated (handoff code points / 4)` row from `.sdd/handoff.md` and labels it as an estimate, not a model tokenizer. This version does not include a BPE tokenizer.
 
 Search, context packing, and the handoff retrieved section count tokens with `cl100k_base`. That count is separate from the report estimate.
+
+`sdd workflows` prints those same cl100k counts for every copied workflow. The workflow line counts the workflow file. Each artifact line counts the template that stage copies. A missing template prints `missing`. When a change is active, a `Change` section counts the artifact files in that change. A file that has not been written prints `not written`. This view has no dollar amount.
 
 Embeddings are off by default. Set `embeddings: true` in `.sdd/search.yaml` to download `BAAI/bge-small-en-v1.5` once into `.sdd/models/` and rank with hybrid fusion. A missing model falls back to keyword search.
 

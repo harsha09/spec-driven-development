@@ -7,6 +7,7 @@ export * from "./report.js";
 export * from "./search/index.js";
 export * from "./sync.js";
 export * from "./workflow.js";
+export * from "./token-inventory.js";
 export * from "./change.js";
 export * from "./init.js";
 export * from "./verify.js";
