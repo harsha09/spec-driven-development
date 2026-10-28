@@ -30,6 +30,8 @@ export type { ModelContext } from "./models/select.js";
 export { explainModel, formatModels } from "./models/show.js";
 export { queueRole, routeRole, takeRole } from "./routing.js";
 export type { RouteDeps, RouteHit, RouteItem } from "./routing.js";
+export { loadProductTeam, productTeamHome, renderProductTeamSection } from "./entrypoint-team.js";
+export type { ProductTeamMember } from "./entrypoint-team.js";
 export {
   checkTeam,
   createRoleFromTemplate,

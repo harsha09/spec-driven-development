@@ -9,6 +9,11 @@ import { pathExists, readText, writeText } from "./fs.js";
 import { type KeptFile, generatedState, markGenerated } from "./generated.js";
 import { refreshConfiguredGuidance } from "./guidance.js";
 import { configPath, guidancePaths, sddRoot } from "./paths.js";
+import {
+  type ProductTeamMember,
+  loadProductTeam,
+  renderProductTeamSection,
+} from "./role/entrypoint-team.js";
 import type { Config } from "./schemas.js";
 import type { SearchRuntime } from "./search/index.js";
 
@@ -567,17 +572,21 @@ export interface AgentInstallPlan {
   problems: string[];
 }
 
-function agentFiles(integ: AgentIntegration, config: Config): { rel: string; content: string }[] {
+function agentFiles(
+  integ: AgentIntegration,
+  config: Config,
+  team: ProductTeamMember[] = [],
+): { rel: string; content: string }[] {
   const roles = integ.rolesToInstall?.length
     ? SDD_AGENT_ROLES.filter((r) => integ.rolesToInstall!.includes(r.id))
     : SDD_AGENT_ROLES;
   return [
-    { rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config) },
+    { rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config, team) },
     ...roles.map((role) => ({
       rel: integ.rolePath(role.id),
-      content: renderThinAgent(role, config),
+      content: renderThinAgent(role, config, team),
     })),
-    { rel: "AGENTS.md", content: renderAgentsMd(integ, config) },
+    { rel: "AGENTS.md", content: renderAgentsMd(integ, config, team) },
   ];
 }
 
@@ -594,8 +603,9 @@ export async function planAgentIntegration(opts: InstallAgentOptions): Promise<A
   const writes: PlannedWrite[] = [];
   // Init plans the install before config.yaml exists; defaults match what init writes.
   const config = (await pathExists(configPath(root))) ? await loadConfig(root) : defaultConfig();
+  const team = await loadProductTeam(root);
 
-  for (const { rel, content } of agentFiles(integ, config)) {
+  for (const { rel, content } of agentFiles(integ, config, team)) {
     const full = join(root, rel);
     // Host/agent files are never written through a symlink (file or folder).
     if (!rel.startsWith(".sdd/")) {
@@ -771,11 +781,16 @@ export async function installAgentIntegrations(
 }
 
 /** Thin agent body shared across hosts (same text). Paths come from config. */
-export function renderThinAgent(role: SddAgentRole, config?: Config): string {
+export function renderThinAgent(
+  role: SddAgentRole,
+  config?: Config,
+  team: ProductTeamMember[] = [],
+): string {
   const paths = guidancePaths(config ?? { memory_path: "memory", changes_path: "changes" });
   const rules = role.roleRules
     .map((r) => `- ${r.replaceAll("<changes_path>", paths.changes)}`)
     .join("\n");
+  const productTeam = team.length > 0 ? `\n${renderProductTeamSection(team)}\n` : "";
   return `---
 name: ${role.id}
 description: ${role.description}
@@ -795,7 +810,7 @@ ${role.roleLine}
 ## Role rules
 
 ${rules}
-
+${productTeam}
 ## Done
 
 Remind the human: \`sdd verify\` then \`sdd next\` / \`sdd complete\` as appropriate.
@@ -844,6 +859,7 @@ export async function writeAgentHandoff(
 ): Promise<string> {
   const ctx = await buildContext(projectRoot, config, changeId);
   const body = await buildAgentPrompt(ctx, config, projectRoot, budget, runtime);
+  const team = renderProductTeamSection(await loadProductTeam(projectRoot));
   const outPath = join(sddRoot(projectRoot), "handoff.md");
   const header = `# SDD handoff (auto)
 
@@ -855,7 +871,8 @@ Also read: \`.sdd/active-context.md\`, \`.sdd/protocol.md\`, \`${guidancePaths(c
 ---
 
 `;
-  await writeText(outPath, header + body + "\n");
+  const teamBlock = team ? `\n${team}\n` : "";
+  await writeText(outPath, header + teamBlock + body + "\n");
   return outPath;
 }
 
@@ -906,9 +923,10 @@ export function agentKickoffMessage(opts: {
  */
 async function refreshGeneratedAgentFiles(projectRoot: string, config: Config): Promise<void> {
   const installed = await loadInstalledAgent(projectRoot);
+  const team = await loadProductTeam(projectRoot);
   const files = installed
-    ? agentFiles(installed.integration, config)
-    : [{ rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config) }];
+    ? agentFiles(installed.integration, config, team)
+    : [{ rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config, team) }];
   for (const { rel, content } of files) {
     const full = join(projectRoot, rel);
     if (!(await pathExists(full))) {
@@ -936,6 +954,8 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
   await refreshGeneratedAgentFiles(projectRoot, config);
   const activeId = await getActiveChangeId(projectRoot, config);
   const outPath = join(markerDir, "active-context.md");
+  const team = renderProductTeamSection(await loadProductTeam(projectRoot));
+  const teamBlock = team ? `\n${team}\n` : "";
 
   if (!activeId) {
     const empty = `# SDD active context
@@ -945,7 +965,7 @@ _No active change._ Run \`sdd new "…"\` or **SDD: New Change** in the IDE.
 Then re-run \`sdd agents refresh\` (or advance a stage) to update this file.
 
 Protocol: \`.sdd/protocol.md\`
-`;
+${teamBlock}`;
     await writeText(outPath, empty);
     return outPath;
   }
@@ -965,7 +985,7 @@ Protocol: \`.sdd/protocol.md\`
 \`\`\`
 ${status}
 \`\`\`
-
+${teamBlock}
 ${handoff}
 `;
 
@@ -977,9 +997,13 @@ ${handoff}
 export const PROTOCOL_MD = renderProtocolMd({ memory_path: "memory", changes_path: "changes" });
 
 /** Single playbook — paths come from project config, not hard-coded defaults. */
-export function renderProtocolMd(config: Pick<Config, "memory_path" | "changes_path">): string {
+export function renderProtocolMd(
+  config: Pick<Config, "memory_path" | "changes_path">,
+  team: ProductTeamMember[] = [],
+): string {
   const paths = guidancePaths(config);
   const fence = "```";
+  const teamLines = team.length > 0 ? ["", ...renderProductTeamSection(team).split("\n")] : [];
   return [
     "# SDD protocol",
     "",
@@ -1002,6 +1026,7 @@ export function renderProtocolMd(config: Pick<Config, "memory_path" | "changes_p
     `3. \`${paths.constitution}\` if present (non-negotiables agents must not violate)`,
     "4. `meta.yaml` + artifacts for the **current stage** (and prior stages if needed)",
     `5. \`${paths.memoryIndex}\` (documentation map) if present, then linked memory pages when architecture or conventions matter`,
+    ...teamLines,
     "",
     "## Stage behavior",
     "",
@@ -1051,8 +1076,13 @@ export function renderProtocolMd(config: Pick<Config, "memory_path" | "changes_p
   ].join("\n");
 }
 
-export function renderAgentsMd(integ: AgentIntegration, config?: Config): string {
+export function renderAgentsMd(
+  integ: AgentIntegration,
+  config?: Config,
+  team: ProductTeamMember[] = [],
+): string {
   const paths = guidancePaths(config ?? { memory_path: "memory", changes_path: "changes" });
+  const teamLines = team.length > 0 ? ["", ...renderProductTeamSection(team).split("\n")] : [];
   return [
     "# Agents",
     "",
@@ -1067,6 +1097,7 @@ export function renderAgentsMd(integ: AgentIntegration, config?: Config): string
     `| Constitution | \`${paths.constitution}\` if present |`,
     `| Doc map (stable) | \`${paths.memoryIndex}\` if present |`,
     `| Active change | \`${paths.changes}/<id>/\` |`,
+    ...teamLines,
     "",
     "| AI agent | Files |",
     "|----------|--------|",
