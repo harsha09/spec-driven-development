@@ -1,0 +1,33 @@
+id: 2026-10-29-issue-79-scheme-less-ollama-host
+title: Issue 79 scheme-less Ollama host
+workflow: feature
+created: 2026-10-29T06:08:08.707Z
+updated: 2026-10-29T06:16:38.121Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue already names the prefix and the ask path that must stay.
+    at: 2026-10-29T06:16:32.586Z
+  - stage: brainstorm
+    reason: The prefix is the option this change builds. A distinct error and a default host are not
+      this change.
+    at: 2026-10-29T06:16:33.610Z
+  - stage: clarify_design
+    reason: The change is chatUrl. decide.ts and routeRole stay.
+    at: 2026-10-29T06:16:35.652Z
+  - stage: clarify_tasks
+    reason: The four tasks are the prefix, the files that stay, the no-call path, and the Vitest cases.
+    at: 2026-10-29T06:16:37.311Z
+gates: {}
+verify_results: {}
