@@ -2,7 +2,7 @@ id: 2026-10-29-issue-80-product-team-on-the-host-entrypoint
 title: Issue 80 product team on the host entrypoint
 workflow: feature
 created: 2026-10-29T05:55:22.602Z
-updated: 2026-10-29T05:59:58.176Z
+updated: 2026-10-29T06:01:46.409Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -33,7 +33,7 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: 9b11cde7029d9366fcc66bde5c836576f876a6b2
+    head_sha: 5b08deb3638395aa5df39ed60dcf34b4b4ece776
     at: 2026-10-29T05:59:58.176Z
     results:
       - name: Workspace tests
