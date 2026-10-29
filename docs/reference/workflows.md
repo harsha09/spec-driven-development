@@ -57,7 +57,7 @@ See [Greenfield guide](../guides/greenfield).
 [Roles and duties](../guides/roles) is the description: what a role is, what a duty is, why the split helps, and the commands that set it up. The lists on this page are the same stage map.
 :::
 
-A role is a markdown file in `.sdd/roles`. A duty is the kind of work that role does. `sdd setup` writes planner (planning), architect (architecture), and builder (construction) when that folder has no markdown files. Pass `-w` to name the workflow those lists come from. The default is `feature`. Role files that are already there stay as they are, and setup prints `Roles are already here.`
+A role is a markdown file in `.sdd/roles`. A duty is the kind of work that role does. `sdd setup` on a terminal walks the pieces. Enter, and `sdd setup --yes`, write planner (planning), architect (architecture), and builder (construction) when that folder has no markdown files. Pass `-w` to name the workflow those lists come from. The default is `feature`. Role files that are already there stay as they are, and setup prints `Roles are already here.` One piece is `sdd setup --step roles`.
 
 ### The three duties
 

@@ -25,7 +25,7 @@ sdd setup --ai copilot          # or grok | claude | ollama | kilo
 sdd doctor
 ```
 
-`sdd setup` also writes planner, architect, and builder when you have no roles yet. The planner plans the feature, the architect names the modules, and the builder writes the tasks and the implementation note. `sdd go` hands each stage to the role that lists it. [Roles and duties](./roles) is the setup, including how to point those duties at this `feature` workflow. `sdd init --here --ai copilot` is the same host install when those roles are already here.
+On a terminal, press Enter through `sdd setup`. It writes planner, architect, and builder when you have no roles yet, and installs the host you named with `--ai`. `sdd setup --yes --ai copilot` does that without the questions. The planner plans the feature, the architect names the modules, and the builder writes the tasks and the implementation note. `sdd go` hands each stage to the role that lists it. [Roles and duties](./roles) is the setup, including how to point those duties at this `feature` workflow. `sdd init --here --ai copilot` is the same host install when those roles are already here.
 
 ---
 
