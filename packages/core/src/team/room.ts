@@ -16,6 +16,7 @@ import { ROLE_TEXT, type RoleCommandResult, type RoleModel } from "../role/types
 import type { ChangeMeta, Stage, Workflow } from "../schemas.js";
 import { nowIso } from "../slug.js";
 import { getStage } from "../workflow.js";
+import { claimsPass, evidenceSupports, reviewNeedsEvidence } from "./tools.js";
 
 const ROOM_TYPES = ["post", "objection", "agree", "block", "decision"] as const;
 
@@ -235,6 +236,16 @@ export async function postRoom(
   const cite = input.cite?.trim() ?? "";
   if (cite && (cite.includes("\n") || cite.includes("\r"))) return fail("A cite is one line.");
   if (type === "objection" && !cite) return fail("An objection needs a cite.");
+  const stageDef = getStage(opened.workflow, opened.meta, stage);
+  const needed = await reviewNeedsEvidence(
+    root,
+    opened.id,
+    stageDef?.verify?.commands?.length ?? 0,
+    type,
+    text,
+    cite,
+  );
+  if (needed) return fail(needed);
   const evidence: string[] = [];
   for (const item of input.evidence ?? []) {
     const line = oneLine(item, "Evidence needs text.", "Evidence is one line.");
@@ -349,6 +360,15 @@ export async function reviewRoom(
     }
     const stored = await entryFromReply(root, raw, input.env, input.runCommand);
     if (isFailure(stored)) return stored;
+    const needed = await reviewNeedsEvidence(
+      root,
+      opened.id,
+      stage.verify?.commands?.length ?? 0,
+      stored.type,
+      stored.text,
+      stored.cite ?? "",
+    );
+    if (needed) return fail(needed);
     const entry: RoomEntry = {
       ts: nowIso(),
       from: bot.name,
@@ -439,11 +459,27 @@ export async function roomForPrompt(root: string): Promise<string> {
 }
 
 /** A done step posts into a room that already exists. It does not create one. */
-export async function postLoopDone(root: string, bot: string, text: string): Promise<void> {
+export async function postLoopDone(
+  root: string,
+  bot: string,
+  text: string,
+  cite?: string,
+): Promise<void> {
   const words = text.trim();
   if (!words || words.includes("\n") || words.includes("\r")) return;
   const room = await activeRoom(root);
   if (!room) return;
+  let storedCite = "";
+  if (claimsPass(words)) {
+    try {
+      const config = await loadConfig(root);
+      const id = await getActiveChangeId(root, config);
+      if (!id || !cite || !(await evidenceSupports(root, id, cite))) return;
+      storedCite = cite;
+    } catch {
+      return;
+    }
+  }
   const prior = await readEntries(room.file);
   const round = prior.reduce((max, entry) => Math.max(max, entry.round), 1);
   const sha = await headSha(root);
@@ -454,6 +490,7 @@ export async function postLoopDone(root: string, bot: string, text: string): Pro
     text: words,
     round: prior.length === 0 ? 1 : round,
   };
+  if (storedCite) entry.cite = storedCite;
   if (sha) entry.sha = sha;
   await appendEntry(room.file, entry);
 }
