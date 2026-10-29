@@ -21,9 +21,11 @@ Brand-new product from a one-liner? → [Greenfield](./greenfield), then come ba
 
 ```bash
 cd your-app
-sdd init --here --ai copilot    # or grok | claude | ollama | kilo
+sdd setup --ai copilot          # or grok | claude | ollama | kilo
 sdd doctor
 ```
+
+`sdd setup` also writes planner, architect, and builder when you have no roles yet. `sdd init --here --ai copilot` is the same host install when those roles are already here.
 
 ---
 

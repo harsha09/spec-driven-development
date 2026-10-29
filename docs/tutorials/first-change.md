@@ -75,7 +75,17 @@ cd ~/projects/my-app
 
 ## Step 3 — One-time setup
 
-Pick **one** AI tool (you can change later):
+The shortest start lets sdd create three roles and walk the change:
+
+```bash
+sdd setup --no-agent
+sdd go "Fix empty list crash" --no-agent
+sdd go --answer "People who open an empty list" --no-agent
+```
+
+`sdd setup` writes planner, architect, and builder when `.sdd/roles` is empty. `sdd go` asks one question, drafts the stage, and hands the next stage to the role that lists it. A hard gate that needs you stops. The role does not sign it.
+
+Pick **one** AI tool when you want that host installed (you can change later):
 
 | If you use… | Run |
 |-------------|-----|

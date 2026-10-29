@@ -15,7 +15,7 @@ hero:
       link: https://www.npmjs.com/package/@structured-vibe-coding/cli
 features:
   - title: Simple commands
-    details: "new → fill a short file → next → code → complete. You always know where you are with sdd status."
+    details: "setup → go, or new → fill a short file → next → complete. You always know where you are with sdd status."
   - title: As light or as heavy as you need
     details: Tiny fix? Three steps. Real feature? A bit more. New product or big platform work? Longer path. Same tool.
   - title: Works with your AI
@@ -29,11 +29,11 @@ Install **Structured Vibe Coding** from npm: **[@structured-vibe-coding/cli](htt
 ```bash
 npm install -g @structured-vibe-coding/cli
 cd your-app
-sdd init --here --ai copilot          # or: grok | claude | ollama | kilo
-sdd new "Fix empty list crash" -w hotfix -y --no-agent
-# open the intent.md path it prints → paste a few real sentences →
-sdd next --no-agent
+sdd setup --no-agent
+sdd go "Fix empty list crash" --no-agent
 ```
+
+`sdd setup` writes planner, architect, and builder when you have no roles yet. `sdd go` asks their questions one at a time. A named host is `sdd setup --ai copilot`, or `sdd init --here --ai copilot` when you want to pick the workflow yourself.
 
 Full walkthrough with a paste-ready example: **[Start in 10 minutes](./tutorials/first-change)**.
 
