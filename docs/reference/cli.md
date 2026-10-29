@@ -64,7 +64,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | Command | What it does | When |
 |---------|--------------|------|
 | `sdd setup` | Walk setup on a terminal. Enter writes the folder, the feature workflow, and the three duties when no role file exists. `--yes` keeps that short path. `--step` runs one piece | First time, or one missing piece |
-| `sdd go "title"` | Open a change, ask each role's questions, draft the stage, and hand off to the next role | After setup |
+| `sdd go "title"` | Open a change, ask each role's questions, draft each required file under its own headings, and hand off to the next role | After setup |
 | `sdd go --answer "..."` | Give the answer the current role is waiting for | When a role asks |
 | `sdd init` | Create sdd files + one AI setup | Once per app |
 | `sdd init --force` | Merge current defaults into supported config; refresh only unchanged SDD-generated workflows/templates and agent files. A file with no manifest hash is recorded as generated when it matches the bundled file | Upgrades |

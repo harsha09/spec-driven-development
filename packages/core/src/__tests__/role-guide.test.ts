@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
+import { headingsFilled } from "../artifacts.js";
 import { initProject, pathExists } from "../index.js";
 import { dutyForStage, prepareGuide, runGuide } from "../role/guide.js";
 import { createRole, runRole } from "../role/index.js";
@@ -24,6 +25,33 @@ async function emptyDir(): Promise<string> {
 
 const DRAFT =
   "Show an empty state when the list has no rows, and keep the person on the same page.";
+const DESIGN_SENTENCE = "The list module draws the empty state.";
+const TASKS_SENTENCE = "Add the empty-state message to the list.";
+const PLAN_SENTENCE = "Open the list when it has no rows.";
+const FEATURE = [
+  "Problem / opportunity",
+  "Users & value",
+  "Scope",
+  "Non-goals",
+  "Success criteria",
+  "Risks / open questions",
+];
+const DESIGN = [
+  "Approach",
+  "Components / modules",
+  "Data flow",
+  "Alternatives considered",
+  "Risks",
+];
+const TASKS = ["Breakdown", "Traceability"];
+const PLAN = ["Environment", "Cases", "Out of scope this change"];
+
+function headed(headings: string[], sentence: string) {
+  return {
+    text: sentence,
+    parts: headings.map((heading) => ({ heading, text: sentence })),
+  };
+}
 
 function model(replies: unknown[] = []): { model: RoleModel; prompts: string[] } {
   const pending = replies.slice();
@@ -81,7 +109,7 @@ describe("prepareGuide", () => {
 describe("runGuide", () => {
   it("asks one question at a time, then hands the next stage to the next role", async () => {
     const root = await emptyDir();
-    const fake = model();
+    const fake = model([headed(FEATURE, DRAFT)]);
     const first = await runGuide(root, {
       title: "Build an empty state",
       workflow: "feature",
@@ -113,6 +141,8 @@ describe("runGuide", () => {
     expect(fake.prompts).toHaveLength(1);
     expect(fake.prompts[0]).toContain("Stay inside this role.");
     expect(fake.prompts[0]).toContain("people tracking expenses");
+    expect(fake.prompts[0]).toContain("Non-goals");
+    expect(fake.prompts[0]).not.toContain("Produce a concrete design");
     const changeDirs = await readFile(join(root, "changes/.active"), "utf8");
     const drafted = await readFile(join(root, "changes", changeDirs.trim(), "feature.md"), "utf8");
     expect(drafted).toContain("The person has not signed it.");
@@ -141,7 +171,12 @@ describe("runGuide", () => {
 
   it("hands planning to architecture and then to construction", async () => {
     const root = await emptyDir();
-    const fake = model();
+    const fake = model([
+      headed(FEATURE, DRAFT),
+      headed(DESIGN, DESIGN_SENTENCE),
+      headed(TASKS, TASKS_SENTENCE),
+      headed(PLAN, PLAN_SENTENCE),
+    ]);
     await runGuide(root, {
       title: "Build an empty state",
       workflow: "feature",
@@ -157,12 +192,100 @@ describe("runGuide", () => {
     expect(done.exitCode).toBe(0);
     expect(done.stdout.startsWith("Done.")).toBe(true);
     expect(done.stdout).toContain("Handoff: architect to builder.");
-    expect(done.stdout).toContain("builder drafted implement.");
+    expect(done.stdout).toContain("builder left implement.");
+    expect(done.stdout).not.toContain("drafted implement");
     expect(done.stdout).toContain("The person has not signed this change.");
+    expect(fake.prompts.some((prompt) => prompt.includes("Implement tasks from tasks.md"))).toBe(
+      false,
+    );
+    expect(fake.prompts[1]).toContain("Produce a concrete design");
+    expect(fake.prompts[1]).toContain(DRAFT);
+    expect(fake.prompts[2]).toContain(DRAFT);
+    expect(fake.prompts[2]).toContain(DESIGN_SENTENCE);
     const changeId = (await readFile(join(root, "changes/.active"), "utf8")).trim();
     const meta = await readFile(join(root, "changes", changeId, "meta.yaml"), "utf8");
     expect(meta).toContain("stage: local_verify");
     expect(meta).toContain("clarify_design");
+    const feature = await readFile(join(root, "changes", changeId, "feature.md"), "utf8");
+    const design = await readFile(join(root, "changes", changeId, "design.md"), "utf8");
+    const tasks = await readFile(join(root, "changes", changeId, "tasks.md"), "utf8");
+    const plan = await readFile(join(root, "changes", changeId, "local-test-plan.md"), "utf8");
+    const results = await readFile(
+      join(root, "changes", changeId, "local-test-results.md"),
+      "utf8",
+    );
+    expect(feature).toContain("## Non-goals");
+    expect(feature).toContain(DRAFT);
+    expect(feature).toContain("The person has not signed it.");
+    expect(design).toContain("## Approach");
+    expect(design).toContain(DESIGN_SENTENCE);
+    expect(tasks).toContain("## Breakdown");
+    expect(tasks).toContain(TASKS_SENTENCE);
+    expect(feature).not.toBe(design);
+    expect(design).not.toBe(tasks);
+    expect(plan).toContain(PLAN_SENTENCE);
+    expect(plan).not.toBe(results);
+    expect(results).toContain("This guide did not run a verify command.");
+    expect(results).not.toContain("PASS");
+    expect(results).not.toContain("passed");
+  });
+
+  it("stops when a heading is still empty and does not write the draft", async () => {
+    const root = await emptyDir();
+    const incomplete = headed(
+      FEATURE.filter((heading) => heading !== "Non-goals"),
+      DRAFT,
+    );
+    const fake = model([incomplete]);
+    await runGuide(root, {
+      title: "Build an empty state",
+      workflow: "feature",
+      agents: false,
+      model: fake.model,
+    });
+    await runGuide(root, { answer: "people tracking expenses", model: fake.model });
+    const stopped = await runGuide(root, {
+      answer: "an empty list shows a message",
+      model: fake.model,
+    });
+    expect(stopped.stdout.startsWith("Stopped.")).toBe(true);
+    expect(stopped.stdout).toContain("Non-goals is still empty.");
+    const changeId = (await readFile(join(root, "changes/.active"), "utf8")).trim();
+    const drafted = await readFile(join(root, "changes", changeId, "feature.md"), "utf8");
+    expect(drafted).not.toContain(DRAFT);
+  });
+
+  it("does not treat Task N or an empty traceability row as filled", () => {
+    const stub = [
+      "# Tasks",
+      "",
+      "## Breakdown",
+      "",
+      "- [ ] Task 1",
+      "- [ ] Task 2",
+      "",
+      "## Traceability",
+      "",
+      "| Task | Story / design ref |",
+      "|------|--------------------|",
+      "| | |",
+      "",
+    ].join("\n");
+    expect(headingsFilled(stub, TASKS)).toBe(false);
+    const filled = [
+      "# Tasks",
+      "",
+      "## Breakdown",
+      "",
+      "- [ ] Show an empty state",
+      "",
+      "## Traceability",
+      "",
+      "The empty state follows the feature scope.",
+      "",
+    ].join("\n");
+    expect(headingsFilled(filled, TASKS)).toBe(true);
+    expect(headingsFilled("# Feature\n\n## Scope\n\n-\n", ["Scope"])).toBe(false);
   });
 
   it("stops on a human gate and does not sign it", async () => {

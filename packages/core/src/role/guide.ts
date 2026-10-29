@@ -1,6 +1,6 @@
 import { join } from "pathe";
 import type { AgentTarget } from "../agents.js";
-import { isSubstantiveArtifactContent } from "../artifacts.js";
+import { headingsFilled, isSubstantiveArtifactContent } from "../artifacts.js";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { advanceStage, createChange, skipStage } from "../change.js";
 import { isInitialized, loadConfig } from "../config.js";
@@ -14,11 +14,12 @@ import {
   writeYaml,
 } from "../fs.js";
 import { initProject } from "../init.js";
+import { templatesDir } from "../paths.js";
 import type { Stage } from "../schemas.js";
 import { getStage, loadWorkflow } from "../workflow.js";
 import { createRole, readRole } from "./profile.js";
+import { guideDraftPrompt } from "./prompts.js";
 import { matchRoute } from "./routing.js";
-import { runRole } from "./run.js";
 import { ROLE_TEXT, type RoleCommandResult, type RoleModel, type RoleProfile } from "./types.js";
 
 const PLANNING = new Set([
@@ -216,16 +217,6 @@ function nextRoleQuestion(role: RoleProfile, answers: GuideAnswer[]): string | u
   return role.askHumanWhen.find((item) => !answered.has(item));
 }
 
-function taskFor(request: string, role: string, answers: GuideAnswer[]): string {
-  const rows = [`Request: ${request}`];
-  const mine = answers.filter((item) => item.role === role);
-  if (mine.length > 0) {
-    rows.push("Answers:");
-    for (const item of mine) rows.push(`- ${item.question}: ${item.answer}`);
-  }
-  return rows.join("\n");
-}
-
 async function roleFiles(root: string): Promise<string[]> {
   const names = await listFiles(join(root, ".sdd", "roles"));
   return names.filter((name) => name.endsWith(".md"));
@@ -267,36 +258,265 @@ export async function prepareGuide(
   }
 }
 
-async function writeDraft(
-  ctxPath: string,
-  stage: Stage,
-  role: string,
-  text: string,
-  request: string,
-): Promise<void> {
-  const body = [
+function partText(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !/^##\s+/.test(line.trim()))
+    .join("\n")
+    .trim();
+}
+
+function draftHeader(stage: Stage, role: string): string[] {
+  return [
     `# ${stage.title ?? stage.id}`,
     "",
     `${role} drafted this stage. The person has not signed it.`,
     "",
-    text.trim(),
-    "",
-    `Request: ${request}`,
-    "",
-  ].join("\n");
-  for (const artifact of stage.artifacts) {
-    if (!artifact.required) continue;
-    const abs = join(ctxPath, artifact.path);
-    if (await pathExists(abs)) {
-      const current = await readText(abs);
-      if (isSubstantiveArtifactContent(current)) continue;
-    }
-    await writeText(abs, body);
+  ];
+}
+
+function plainBody(stage: Stage, role: string, request: string, text: string): string {
+  return [...draftHeader(stage, role), text.trim(), "", `Request: ${request}`, ""].join("\n");
+}
+
+function headedBody(
+  stage: Stage,
+  role: string,
+  request: string,
+  headings: string[],
+  parts: { heading: string; text: string }[],
+): string {
+  const matched = new Map<string, string[]>();
+  for (const part of parts) {
+    const heading = part.heading.trim();
+    const text = partText(part.text);
+    if (!headings.includes(heading) || !text) continue;
+    const list = matched.get(heading) ?? [];
+    list.push(text);
+    matched.set(heading, list);
   }
+  const rows = draftHeader(stage, role);
+  for (const heading of headings) {
+    rows.push(`## ${heading}`, "", (matched.get(heading) ?? []).join("\n\n"), "");
+  }
+  rows.push(`Request: ${request}`, "");
+  return rows.join("\n");
+}
+
+const RESULTS_LINES: Record<string, string> = {
+  Results: "No command output is stored for this change.",
+  "Commands run": "This guide did not run a verify command.",
+  "Sign-off": "The person has not signed it.",
+};
+
+function resultsBody(stage: Stage, role: string, request: string, headings: string[]): string {
+  if (headings.length === 0) {
+    return plainBody(stage, role, request, Object.values(RESULTS_LINES).join(" "));
+  }
+  return headedBody(
+    stage,
+    role,
+    request,
+    headings,
+    headings.map((heading) => ({
+      heading,
+      text: RESULTS_LINES[heading] ?? RESULTS_LINES.Results,
+    })),
+  );
+}
+
+function parseGuideReply(
+  raw: string,
+): { text: string; parts: { heading: string; text: string }[] } | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rec = value as Record<string, unknown>;
+  if (typeof rec.text !== "string") return null;
+  if (rec.parts === undefined) return { text: rec.text, parts: [] };
+  if (!Array.isArray(rec.parts)) return null;
+  const parts: { heading: string; text: string }[] = [];
+  for (const part of rec.parts) {
+    if (!part || typeof part !== "object" || Array.isArray(part)) return null;
+    const item = part as Record<string, unknown>;
+    if (typeof item.heading !== "string" || typeof item.text !== "string") return null;
+    parts.push({ heading: item.heading, text: item.text });
+  }
+  return { text: rec.text, parts };
+}
+
+function missingHeading(content: string, headings: string[]): string | null {
+  for (const heading of headings) {
+    if (!headingsFilled(content, [heading])) return heading;
+  }
+  return null;
+}
+
+function isResultsFile(path: string): boolean {
+  const name = path.replace(/\\/g, "/");
+  return name === "local-test-results.md" || name.endsWith("/local-test-results.md");
+}
+
+async function templateHeadings(root: string, template: string | undefined): Promise<string[]> {
+  const name = template?.trim();
+  if (!name) return [];
+  const path = join(templatesDir(root), name.replace(/^templates\//, ""));
+  if (!(await pathExists(path))) return [];
+  const headings: string[] = [];
+  for (const line of (await readText(path)).split(/\r?\n/)) {
+    const match = /^##\s+(.+?)\s*$/.exec(line.trim());
+    if (match?.[1]) headings.push(match[1]);
+  }
+  return headings;
+}
+
+async function artifactReady(abs: string, headings: string[]): Promise<boolean> {
+  if (!(await pathExists(abs))) return false;
+  const current = await readText(abs);
+  if (!isSubstantiveArtifactContent(current)) return false;
+  return headings.length === 0 || headingsFilled(current, headings);
+}
+
+async function readyArtifacts(
+  changeDir: string,
+  stages: Stage[],
+  currentPath: string,
+): Promise<{ path: string; body: string }[]> {
+  const files: { path: string; body: string }[] = [];
+  for (const stage of stages) {
+    for (const artifact of stage.artifacts) {
+      if (artifact.required === false || artifact.path === currentPath) continue;
+      const abs = join(changeDir, artifact.path);
+      if (!(await pathExists(abs))) continue;
+      const body = await readText(abs);
+      if (!isSubstantiveArtifactContent(body)) continue;
+      files.push({ path: artifact.path, body });
+    }
+  }
+  return files;
+}
+
+async function writeOne(abs: string, body: string): Promise<void> {
+  await ensureDir(join(abs, ".."));
+  await writeText(abs, body);
 }
 
 function optionalStage(stage: Stage): boolean {
   return stage.optional || stage.kind === "clarify" || stage.kind === "brainstorm";
+}
+
+async function leaveStage(
+  root: string,
+  config: Awaited<ReturnType<typeof loadConfig>>,
+  changeId: string,
+  stageId: string,
+  roleName: string,
+  drafted: boolean,
+  lines: string[],
+  state: GuideState,
+): Promise<RoleCommandResult | "next"> {
+  const note = drafted ? `${roleName} drafted ${stageId}.` : `${roleName} left ${stageId}.`;
+  try {
+    const advanced = await advanceStage(root, config, changeId);
+    lines.push(note);
+    if (!advanced.to) {
+      await writeState(root, state);
+      return ok(
+        [
+          "Done.",
+          ...lines,
+          "No further stages. Run `sdd complete` when ready.",
+          "The person has not signed this change.",
+        ].join("\n"),
+      );
+    }
+    return "next";
+  } catch (error) {
+    await writeState(root, state);
+    const message = error instanceof Error ? error.message : String(error);
+    return ok(["Stopped.", note, message, ...lines].join("\n"));
+  }
+}
+
+async function draftStage(
+  root: string,
+  config: Awaited<ReturnType<typeof loadConfig>>,
+  ctx: Awaited<ReturnType<typeof buildContext>>,
+  state: GuideState,
+  stage: Stage,
+  role: RoleProfile,
+  required: Stage["artifacts"],
+  input: { model?: RoleModel },
+  lines: string[],
+): Promise<RoleCommandResult | "next"> {
+  if (required.length === 0) {
+    return leaveStage(root, config, ctx.id, stage.id, role.name, false, lines, state);
+  }
+  const answers = state.answers.filter((item) => item.role === role.name);
+  for (const artifact of required) {
+    const headings = await templateHeadings(root, artifact.template);
+    const abs = join(ctx.path, artifact.path);
+    if (await artifactReady(abs, headings)) continue;
+    if (isResultsFile(artifact.path)) {
+      await writeOne(abs, resultsBody(stage, role.name, state.request, headings));
+      continue;
+    }
+    if (!input.model) return fail(ROLE_TEXT.noModel);
+    let raw = "";
+    try {
+      raw = await input.model.complete({
+        roleId: role.name,
+        prompt: guideDraftPrompt({
+          role,
+          request: state.request,
+          answers,
+          stageId: stage.id,
+          summary: stage.summary ?? "",
+          instructions: stage.agent_context?.instructions ?? "",
+          artifactPath: artifact.path,
+          headings,
+          earlier: await readyArtifacts(ctx.path, ctx.workflow.stages, artifact.path),
+        }),
+      });
+    } catch {
+      return fail("A draft is not valid.");
+    }
+    const parsed = parseGuideReply(raw);
+    if (!parsed) return fail("A draft is not valid.");
+    const asked = parsed.text.trim();
+    if (asked.startsWith("Question:")) {
+      state.pending = {
+        role: role.name,
+        kind: "model",
+        question: asked.replace(/^Question:\s*/, "").trim() || asked,
+      };
+      await writeState(root, state);
+      return ok(
+        [
+          "Question:",
+          ...lines,
+          `${role.name} asks:`,
+          state.pending.question,
+          'Answer with: sdd go --answer "..."',
+        ].join("\n"),
+      );
+    }
+    const body =
+      headings.length > 0
+        ? headedBody(stage, role.name, state.request, headings, parsed.parts)
+        : plainBody(stage, role.name, state.request, parsed.text);
+    const missing = headings.length > 0 ? missingHeading(body, headings) : null;
+    if (missing) {
+      await writeState(root, state);
+      return ok(["Stopped.", `${missing} is still empty.`, ...lines].join("\n"));
+    }
+    await writeOne(abs, body);
+  }
+  return leaveStage(root, config, ctx.id, stage.id, role.name, true, lines, state);
 }
 
 export async function runGuide(
@@ -416,54 +636,10 @@ export async function runGuide(
       );
     }
 
-    if (!input.model) return fail(ROLE_TEXT.noModel);
-    const ran = await runRole(root, {
-      name: role.name,
-      task: taskFor(state.request, role.name, state.answers),
-      guide: { changeDir: ctx.displayPath },
-      model: input.model,
-      now: input.now,
-    });
-    if (ran.exitCode !== 0) {
-      return fail([ran.stdout, ...lines].filter((line) => line.length > 0).join("\n"));
-    }
-    const text = ran.stdout.trim();
-    if (text.startsWith("Question:")) {
-      const asked = text.replace(/^Question:\s*/, "").trim();
-      state.pending = { role: role.name, kind: "model", question: asked || text };
-      await writeState(root, state);
-      return ok(
-        [
-          "Question:",
-          ...lines,
-          `${role.name} asks:`,
-          state.pending.question,
-          'Answer with: sdd go --answer "..."',
-        ].join("\n"),
-      );
-    }
-
-    await writeDraft(ctx.path, stage, role.name, text, state.request);
-    try {
-      const advanced = await advanceStage(root, config, ctx.id);
-      lines.push(`${role.name} drafted ${stage.id}.`);
-      lastRole = role.name;
-      if (!advanced.to) {
-        await writeState(root, state);
-        return ok(
-          [
-            "Done.",
-            ...lines,
-            "No further stages. Run `sdd complete` when ready.",
-            "The person has not signed this change.",
-          ].join("\n"),
-        );
-      }
-    } catch (error) {
-      await writeState(root, state);
-      const message = error instanceof Error ? error.message : String(error);
-      return ok(["Stopped.", `${role.name} drafted ${stage.id}.`, message, ...lines].join("\n"));
-    }
+    const required = stage.artifacts.filter((artifact) => artifact.required !== false);
+    const moved = await draftStage(root, config, ctx, state, stage, role, required, input, lines);
+    if (moved !== "next") return moved;
+    lastRole = role.name;
   }
   return fail("The guide stopped after 16 steps.");
 }
