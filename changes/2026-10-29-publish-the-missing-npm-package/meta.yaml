@@ -1,0 +1,40 @@
+id: 2026-10-29-publish-the-missing-npm-package
+title: Publish the missing npm package
+workflow: feature
+created: 2026-10-29T11:49:51.765Z
+updated: 2026-10-29T11:52:09.591Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The failed run and the two scripts are already named.
+    at: 2026-10-29T11:50:12.452Z
+  - stage: brainstorm
+    reason: One change to the existing publisher. No second workflow.
+    at: 2026-10-29T11:50:13.219Z
+  - stage: clarify_design
+    reason: The two scripts and the maintainer page are the design.
+    at: 2026-10-29T11:50:14.877Z
+  - stage: clarify_tasks
+    reason: The tasks are the two scripts and the maintainer page.
+    at: 2026-10-29T11:50:16.507Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: e4497754c3fda39e62c668bb516101144931422a
+    at: 2026-10-29T11:52:09.591Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

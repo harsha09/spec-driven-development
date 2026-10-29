@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * If the current monorepo version is already on npm, bump patch until free.
+ * If both packages already have this version, bump patch until one is free.
+ * One package on npm is not a reason to bump. The publish script skips that package.
  *
  * Usage: node scripts/ensure-unpublished-version.mjs
  * Env: GITHUB_OUTPUT → version=
@@ -34,10 +35,10 @@ function published(name, version) {
 let version = readVersion();
 let guards = 0;
 while (
-  published("@structured-vibe-coding/core", version) ||
+  published("@structured-vibe-coding/core", version) &&
   published("@structured-vibe-coding/cli", version)
 ) {
-  console.log(`Version ${version} already on npm — bumping patch`);
+  console.log(`Version ${version} is on both packages — bumping patch`);
   execSync("node scripts/bump-version.mjs patch", {
     cwd: root,
     stdio: "inherit",
