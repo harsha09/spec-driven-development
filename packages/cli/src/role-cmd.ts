@@ -520,44 +520,51 @@ const lesson = defineCommand({
   subCommands: { add: lessonAdd },
 });
 
-const roomPost = defineCommand({
-  meta: { name: "post", description: "Append one room line" },
+const room = defineCommand({
+  meta: { name: "room", description: "Print a room, or append one line with post" },
   args: {
-    text: { type: "positional", description: "One line", required: true },
-    change: { type: "string", description: "Change id" },
+    target: {
+      type: "positional",
+      description: "Change id, or post",
+      required: false,
+    },
+    text: {
+      type: "positional",
+      description: "One line, when the first word is post",
+      required: false,
+    },
+    change: { type: "string", description: "Change id for post" },
     stage: { type: "string", description: "Stage id" },
     type: { type: "string", description: "post, objection, agree, block, or decision" },
     cite: { type: "string", description: "Citation for an objection" },
   },
   async run({ args }) {
+    const target = textArg(args.target);
+    const text = textArg(args.text);
     await withProject(async ({ root }) => {
-      emit(
-        await postRoom(root, {
-          change: textArg(args.change),
-          stage: textArg(args.stage),
-          type: textArg(args.type),
-          cite: textArg(args.cite),
-          text: textArg(args.text),
-        }),
-      );
-    });
-  },
-});
-
-const room = defineCommand({
-  meta: { name: "room", description: "Print a room" },
-  args: {
-    change: { type: "positional", description: "Change id", required: false },
-    stage: { type: "string", description: "Stage id" },
-  },
-  subCommands: { post: roomPost },
-  async run({ args }) {
-    const next = process.argv[process.argv.indexOf("room") + 1];
-    if (next === "post") return;
-    await withProject(async ({ root }) => {
+      if (target === "post") {
+        if (!text?.trim()) {
+          process.stderr.write("Missing required positional argument: TEXT\n");
+          process.exit(1);
+        }
+        emit(
+          await postRoom(root, {
+            change: textArg(args.change),
+            stage: textArg(args.stage),
+            type: textArg(args.type),
+            cite: textArg(args.cite),
+            text,
+          }),
+        );
+        return;
+      }
+      if (text?.trim()) {
+        process.stderr.write("A room line starts with post.\n");
+        process.exit(1);
+      }
       emit(
         await showRoom(root, {
-          change: textArg(args.change),
+          change: textArg(args.change) ?? target,
           stage: textArg(args.stage),
         }),
       );

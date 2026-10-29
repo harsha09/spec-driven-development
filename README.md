@@ -92,7 +92,7 @@ sdd team signoff --note "I accept this stage"
 
 `team-software` stops on every stage until a person signs that commit. A role prepares the page and does not sign. Merge stays with you after product-owner sign-off. Who owns each stage, and the commands that assign those stages, are in [docs/guides/roles.md](./docs/guides/roles.md).
 
-`sdd role room` prints the active change. A change id in that position is read as a command. Notes: [docs/reference/cli.md](./docs/reference/cli.md).
+`sdd role room` prints the active change. `sdd role room <change-id>` prints that change. Notes: [docs/reference/cli.md](./docs/reference/cli.md).
 
 ---
 

@@ -1,0 +1,32 @@
+id: 2026-10-29-accept-a-change-id-on-sdd-role-room
+title: Accept a change id on sdd role room
+workflow: feature
+created: 2026-10-29T16:41:45.441Z
+updated: 2026-10-29T16:43:32.370Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue names the two forms that fail.
+    at: 2026-10-29T16:41:46.538Z
+  - stage: brainstorm
+    reason: Drop the room subcommand so the change id stays an argument.
+    at: 2026-10-29T16:41:47.413Z
+  - stage: clarify_design
+    reason: The room command is the design.
+    at: 2026-10-29T16:42:57.587Z
+  - stage: clarify_tasks
+    reason: The tasks are the parser, the test, and the docs.
+    at: 2026-10-29T16:42:59.356Z
+gates: {}
+verify_results: {}
