@@ -50,6 +50,7 @@ function asText(value: unknown): string {
 }
 
 const LIST_FIELDS: [keyof RoleLists, string][] = [
+  ["stages", "stages"],
   ["owns", "owns"],
   ["inputs", "inputs"],
   ["outputs", "outputs"],
@@ -126,6 +127,22 @@ export function renderRole(role: RoleProfile): string {
   return `---\n${front}\n---\n${description}\n`;
 }
 
+export async function rolesListingStage(
+  root: string,
+  stageId: string,
+): Promise<string[] | { error: string }> {
+  const dir = join(root, ".sdd", "roles");
+  if (!(await pathExists(dir))) return [];
+  const names: string[] = [];
+  for (const file of (await listFiles(dir)).filter((item) => item.endsWith(".md")).sort()) {
+    const name = file.slice(0, -".md".length);
+    const role = await readRole(root, name);
+    if (!role) return { error: `Role file is invalid: ${name}.` };
+    if (role.stages.includes(stageId)) names.push(role.name);
+  }
+  return names;
+}
+
 export async function readRole(root: string, name: string): Promise<RoleProfile | null> {
   const canonical = canonicalRoleName(name);
   if (!canonical) return null;
@@ -177,7 +194,13 @@ export async function createRole(
 export async function editRole(
   root: string,
   nameInput: string,
-  patch: { label?: string; job?: string; description?: string; askFirst?: boolean },
+  patch: {
+    label?: string;
+    job?: string;
+    description?: string;
+    askFirst?: boolean;
+    stages?: string[];
+  },
 ): Promise<RoleCommandResult> {
   const name = canonicalRoleName(nameInput);
   if (!name) return fail(ROLE_TEXT.badName);
@@ -188,6 +211,7 @@ export async function editRole(
   if (patch.job !== undefined) role.job = patch.job.trim();
   if (patch.description !== undefined) role.description = patch.description.trim();
   if (patch.askFirst !== undefined) role.askFirst = patch.askFirst;
+  if (patch.stages !== undefined) role.stages = patch.stages;
   await writeRole(root, role);
   return ok();
 }

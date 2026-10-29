@@ -33,7 +33,7 @@ sdd new "Fix null pointer on empty list" -y
 | **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd backlog start F-001`) |
 | **`spike`** | Time-boxed research / PoC | intent → research → outcome |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
-| **`team-software`** | A software team with named roles | requirements (hard gate) → architecture → stories → plan → tasks → implement → pr_review → acceptance (hard gate) |
+| **`team-software`** | An optional stage pack you can name with `-w` | requirements (hard gate) → architecture → stories → plan → tasks → implement → pr_review → acceptance (hard gate) |
 
 Prefer the CLI entrypoint for product bootstrap:
 
@@ -49,7 +49,20 @@ See [Greenfield guide](../guides/greenfield).
 
 ## How recommendation works
 
-`sdd new` scores keywords and complexity hints in the title (e.g. “typo” → hotfix, “ARB” / “migration” → enterprise-feature). You can always force `-w <name>`. `team-software` is selected by name, or when the title contains `team-software`.
+`sdd new` scores keywords and complexity hints in the title (e.g. “typo” → hotfix, “ARB” / “migration” → enterprise-feature). You can always force `-w <name>`. `team-software` is selected by name, or when the title contains `team-software`. It is one stage pack.
+
+## Roles follow the workflow you name
+
+A role is a file you create. The stages it follows are the stages of the workflow you pass to `sdd new -w`.
+
+```bash
+sdd role create analyst --label "Analyst" --job "Write the reading" --stages intent,design
+sdd role create builder --label "Builder" --job "Build the change" --stages implement,local_verify
+sdd new "Add CSV export" -w feature -y
+sdd role route
+```
+
+`--stages` is a comma-separated list of stage ids from that workflow. The same role can list ids from more than one workflow, such as `intent` on `feature` and `intent` on `hotfix`. `sdd role route` uses the list for the active stage. Two roles listing the same stage asks you. When no role lists the stage, a workflow that already names an `owner` still uses that owner. `sdd role edit <name> --stages ...` replaces the list.
 
 ## Stage owners
 

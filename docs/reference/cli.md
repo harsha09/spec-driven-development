@@ -162,7 +162,10 @@ A role file at `.sdd/roles/<name>.md` is the profile a product repo can commit. 
 sdd team init --template software
 sdd team show
 sdd role create builder --template software/developer
+sdd role create analyst --label "Analyst" --job "Write the reading" --stages intent,design
 ```
+
+`--stages` lists stage ids from the workflow you pass to `sdd new -w`. `sdd role route` uses that list for the active stage. `team-software` stays one stage pack you can name with `-w`. `sdd role edit <name> --stages ...` replaces the list.
 
 `software` ships product-manager, architect, product-owner, dev-lead, developer, and qa. `solo` ships one developer. `research` ships one researcher. `developer` alone is ambiguous. Pass `software/developer` or `solo/developer`. Init writes nothing when `.sdd/team.yaml`, `.sdd/routing.yaml` (when the template ships one), or one of the template's role files already exists. A human approver whose name matches `git config user.name` is marked `(you)`. The rooms commit switch is stored. Shipped templates set it to true, so a new team commits rooms unless that team sets `rooms.commit` to false. The branch pattern includes `{bot}`.
 
