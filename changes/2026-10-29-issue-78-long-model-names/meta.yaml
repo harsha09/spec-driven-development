@@ -2,7 +2,7 @@ id: 2026-10-29-issue-78-long-model-names
 title: Issue 78 long model names
 workflow: feature
 created: 2026-10-29T06:29:05.805Z
-updated: 2026-10-29T06:35:20.382Z
+updated: 2026-10-29T06:38:07.135Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -30,4 +30,12 @@ skipped:
     reason: The tasks are the model exemption, the files that stay, and the Vitest cases.
     at: 2026-10-29T06:33:17.708Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 1ae0efefa3086b614a2ff712d66028d7ba260e9b
+    at: 2026-10-29T06:38:07.135Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
