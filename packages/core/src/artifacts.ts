@@ -138,6 +138,16 @@ export function isSubstantiveArtifactContent(content: string): boolean {
   return meaningful.length >= 32;
 }
 
+/** Level-2 heading text. A `.+?` match against draft text is polynomial. */
+export function h2Title(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("##") || trimmed.startsWith("###")) return null;
+  const rest = trimmed.slice(2);
+  if (!rest.startsWith(" ") && !rest.startsWith("\t")) return null;
+  const text = rest.trim();
+  return text.length > 0 ? text : null;
+}
+
 function isTaskStub(line: string): boolean {
   const text = line
     .replace(/^\s*(?:[-*+]|\d+\.)\s+/, "")
@@ -150,9 +160,9 @@ function h2Sections(content: string): Map<string, string> {
   const buffers = new Map<string, string[]>();
   let current: string | null = null;
   for (const line of content.split(/\r?\n/)) {
-    const match = /^##\s+(.+?)\s*$/.exec(line.trim());
-    if (match?.[1]) {
-      current = match[1];
+    const title = h2Title(line);
+    if (title) {
+      current = title;
       if (!buffers.has(current)) buffers.set(current, []);
       continue;
     }
