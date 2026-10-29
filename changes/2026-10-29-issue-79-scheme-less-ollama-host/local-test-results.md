@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Issue 79 scheme-less Ollama host** · `2026-10-29-issue-79-scheme-less-ollama-host`
+# Local verify results
 
-## Results
+> Change: Issue 79 scheme-less Ollama host
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="435ee869aed145e10ea33bfb75a59e81291588df" result_count="1" -->
+> At: 2026-10-29T06:20:59.839Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->

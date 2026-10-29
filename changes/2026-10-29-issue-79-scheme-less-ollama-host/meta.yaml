@@ -2,7 +2,7 @@ id: 2026-10-29-issue-79-scheme-less-ollama-host
 title: Issue 79 scheme-less Ollama host
 workflow: feature
 created: 2026-10-29T06:08:08.707Z
-updated: 2026-10-29T06:16:38.121Z
+updated: 2026-10-29T06:20:59.840Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -30,4 +30,12 @@ skipped:
     reason: The four tasks are the prefix, the files that stay, the no-call path, and the Vitest cases.
     at: 2026-10-29T06:16:37.311Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 435ee869aed145e10ea33bfb75a59e81291588df
+    at: 2026-10-29T06:20:59.840Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
