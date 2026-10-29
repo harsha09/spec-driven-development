@@ -53,7 +53,11 @@ See [Greenfield guide](../guides/greenfield).
 
 ## Roles, duties, and the workflow they follow
 
-A role is a markdown file in `.sdd/roles`. The job in that file is its duty. The stage ids on its `stages` list are the stages it follows. `sdd setup` writes three roles when that folder has no markdown files. Pass `-w` to name the workflow those lists come from. The default is `feature`. Role files that are already there stay as they are, and setup prints `Roles are already here.`
+::: tip Start here
+[Roles and duties](../guides/roles) is the description: what a role is, what a duty is, why the split helps, and the commands that set it up. The lists on this page are the same stage map.
+:::
+
+A role is a markdown file in `.sdd/roles`. A duty is the kind of work that role does. `sdd setup` writes planner (planning), architect (architecture), and builder (construction) when that folder has no markdown files. Pass `-w` to name the workflow those lists come from. The default is `feature`. Role files that are already there stay as they are, and setup prints `Roles are already here.`
 
 ### The three duties
 
@@ -154,7 +158,7 @@ The handoff writes `Owner` from the workflow stage's `owner` field. Hotfix, patc
 
 ## Stage owners
 
-The people for `team-software` are in [Roles, duties, and the workflow they follow](#roles-duties-and-the-workflow-they-follow). A stage may name who produces it and who they work with. A gate may name who approves it. Older packs omit these fields and keep working.
+The people for `team-software`, and how to assign their stages, are in [Roles and duties](../guides/roles). A stage may name who produces it and who they work with. A gate may name who approves it. Older packs omit these fields and keep working.
 
 ```yaml
 owner: product-manager
@@ -177,6 +181,7 @@ sdd gate approve -n "ARB approved with condition …"
 
 ## Related
 
+- [Roles and duties](../guides/roles)  
 - [Greenfield (new product)](../guides/greenfield)  
 - [Simple feature](../guides/simple-feature)  
 - [Enterprise guide](../guides/enterprise)  

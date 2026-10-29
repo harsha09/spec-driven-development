@@ -28,6 +28,8 @@ sdd go "My first change"
 
 `sdd init --here --ai copilot` installs that same host when you want to choose the workflow with `sdd new` yourself.
 
+`sdd setup` also writes planner, architect, and builder when you have no roles yet. Those are the three duties: planning, architecture, and construction. Each one follows the stages of the workflow you name, and `sdd go` hands the next stage to the next role. [Roles and duties](./roles) explains what they are, why that helps, and how to set up a software team instead.
+
 That’s it for day one. The AI often opens after process commands so it can help with the current step.
 
 **Learn without the AI opening?** Add `--no-agent` (see [tutorial](../tutorials/first-change)).
