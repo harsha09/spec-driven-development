@@ -67,7 +67,8 @@ bump root + core + cli versions together (auto from commits since last tag, or f
         ↓
 build + typecheck + test + CLI smoke
         ↓
-skip to a free patch version if this one is already on npm
+if both packages already have this version, patch-bump until one is free
+if only one package has it, keep the version and publish the other
 re-check origin/main is still <sha>           else fail, nothing published
         ↓
 npm publish @structured-vibe-coding/core, then @structured-vibe-coding/cli
@@ -93,7 +94,7 @@ From commit subjects **since the last git tag**:
 
 ### “There are no new packages that should be published”
 
-The current version is already on npm. `scripts/ensure-unpublished-version.mjs` patch-bumps until it finds a free version, and the publish step fails if pnpm still skips.
+Both packages already have this version. `scripts/ensure-unpublished-version.mjs` patch-bumps until one package is free. When only one package has the version, the publish script skips that package and publishes the other. After a publish, `npm view` is retried for about five minutes, because the registry can accept a version and still hide it from `npm view`.
 
 ### Build from a SHA without publishing (QA / pinned consumers)
 
@@ -175,7 +176,8 @@ sdd --help
 | Release run fails "not on main" | The `sha` is from a branch or was rebased away. Use a commit on `main` |
 | Cannot push release commit | Enable **Read and write** workflow permissions |
 | `403` or `E404` npm publish | Token lacks write permission for the `@structured-vibe-coding` scope **or** you are using a classic npm token that bypasses 2FA (npm is restricting these for publishing). Create a **Granular Access Token** with "Read and write" for Packages (scoped to packages you maintain), store it as the `NPM_TOKEN` secret, and re-run. See the script output for the exact npm guidance link. |
-| Version already on npm | The workflow patch-bumps to a free version automatically, or dispatch with a higher `bump` |
+| Version already on both packages | The workflow patch-bumps until one package is free, or dispatch with a higher `bump` |
+| `npm view` misses a version that just published | The publish script waits about five minutes. A version already on one package is skipped and the other package still publishes |
 
 ---
 
