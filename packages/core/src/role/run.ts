@@ -7,6 +7,7 @@ import { changesDir, configPath } from "../paths.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
 import { runLoop } from "../team/loop.js";
+import { roleContextBody } from "./context.js";
 import {
   allowFilePath,
   canonicalRoleName,
@@ -279,13 +280,11 @@ function authorPrompt(
   task: string,
   kind: string,
   section?: AcceptedSection,
+  context = "",
 ): string {
-  const rows = [
-    `Job: ${role.job}`,
-    `Description: ${role.description}`,
-    `Task: ${task}`,
-    `Kind: ${kind}`,
-  ];
+  const rows = [`Job: ${role.job}`, `Description: ${role.description}`];
+  if (context.trim()) rows.push(`Context:\n${context.trim()}`);
+  rows.push(`Task: ${task}`, `Kind: ${kind}`);
   if (section) {
     rows.push(
       `Section: ${section.id}`,
@@ -554,7 +553,7 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     input.model,
     file,
     role.name,
-    authorPrompt(role, task, kind, section),
+    authorPrompt(role, task, kind, section, await roleContextBody(root, role.name)),
     1,
   );
   if (!draft) return fail("", runId);

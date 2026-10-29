@@ -24,6 +24,10 @@ export function roleFilePath(root: string, name: string): string {
   return join(root, ".sdd", "roles", `${name}.md`);
 }
 
+export function roleContextDir(root: string, name: string): string {
+  return join(root, ".sdd", "role-context", name);
+}
+
 export function conversationDir(root: string, name: string): string {
   return join(root, ".sdd", "role-runs", "conversation", name);
 }
@@ -287,6 +291,7 @@ export async function deleteRole(root: string, nameInput: string): Promise<RoleC
   if (!(await pathExists(path))) return fail(ROLE_TEXT.notFound);
   await removePath(path);
   await removePath(conversationDir(root, name));
+  await removePath(roleContextDir(root, name));
   await removeBotBrain(root, name);
   await removePath(memoryDir(root, name));
   await removeAllowKey(root, name);
