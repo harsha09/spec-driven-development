@@ -16,21 +16,23 @@ You only need **one** AI coding tool. `sdd` installs a few small files for that 
 
 ```bash
 # In your app folder — pick ONE:
-sdd init --here --ai copilot    # GitHub Copilot
-# sdd init --here --ai grok
-# sdd init --here --ai claude
-# sdd init --here --ai ollama   # then: ollama pull llama3.2
-# sdd init --here --ai kilo     # Kilo Code CLI
+sdd setup --ai copilot          # GitHub Copilot, plus planner, architect, and builder
+# sdd setup --ai grok
+# sdd setup --ai claude
+# sdd setup --ai ollama         # then: ollama pull llama3.2
+# sdd setup --ai kilo           # Kilo Code CLI
 
 sdd doctor
-sdd new "My first change" -w hotfix -y
+sdd go "My first change"
 ```
+
+`sdd init --here --ai copilot` installs that same host when you want to choose the workflow with `sdd new` yourself.
 
 That’s it for day one. The AI often opens after process commands so it can help with the current step.
 
 **Learn without the AI opening?** Add `--no-agent` (see [tutorial](../tutorials/first-change)).
 
-**No AI host at all?** Run `sdd init --here --no-agent` instead of `--ai …`. sdd installs no host files and no `AGENTS.md`, and nothing ever launches. `sdd doctor` treats this as a valid setup.
+**No AI host at all?** Run `sdd setup --no-agent` or `sdd init --here --no-agent`. sdd installs no host files and no `AGENTS.md`, and nothing ever launches. `sdd doctor` treats this as a valid setup.
 
 **Switch AI later:**
 

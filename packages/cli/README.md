@@ -22,11 +22,12 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude | ollama | kilo
-sdd doctor
-sdd new "Add expense CSV export" -w feature -y
-# edit feature.md, then sdd next … sdd complete
+sdd setup --ai copilot          # or grok | claude | ollama | kilo
+sdd go "Add expense CSV export"
+# answer each question, then the next role drafts its stage
 ```
+
+`sdd init --here --ai copilot` then `sdd new "…" -w feature -y` is the same host when you want to walk the stages yourself.
 
 **New product:**
 
