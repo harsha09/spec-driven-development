@@ -33,6 +33,25 @@ fi
 cp .npmrc packages/core/.npmrc
 cp .npmrc packages/cli/.npmrc
 
+registry_has() {
+  local name="$1"
+  npm view "${name}@${VERSION}" version 2>/dev/null | grep -q "${VERSION}"
+}
+
+# npm can accept a publish and still hide it from npm view for a few minutes.
+wait_for_registry() {
+  local name="$1"
+  local i
+  for i in $(seq 1 20); do
+    if registry_has "$name"; then
+      return 0
+    fi
+    echo "Waiting for registry to show ${name}@${VERSION} (attempt ${i})..."
+    sleep 15
+  done
+  return 1
+}
+
 publish_pkg() {
   local dir="$1"
   local name="$2"
@@ -40,6 +59,12 @@ publish_pkg() {
   echo ">>> Publishing ${name}@${VERSION} from ${dir}"
   local log
   log="$(mktemp)"
+
+  if registry_has "$name"; then
+    echo "Already on npm: ${name}@${VERSION}. Continuing."
+    rm -f "$log"
+    return 0
+  fi
 
   # Publish from the package directory so pnpm treats it as a single package
   set +e
@@ -53,6 +78,11 @@ publish_pkg() {
   cat "$log"
 
   if [ "$code" -ne 0 ]; then
+    if grep -qiE "cannot publish over|previously published" "$log" && wait_for_registry "$name"; then
+      echo "Already on npm: ${name}@${VERSION}. Continuing."
+      rm -f "$log"
+      return 0
+    fi
     echo "::error::pnpm publish failed for ${name} (exit ${code})"
     if grep -qiE "(404|not found|permission|access|403|unauthorized|E404)" "$log"; then
       cat <<'EOM' >&2
@@ -82,22 +112,17 @@ EOM
   fi
 
   if grep -qi "no new packages that should be published" "$log"; then
+    if wait_for_registry "$name"; then
+      echo "Already on npm: ${name}@${VERSION}. Continuing."
+      rm -f "$log"
+      return 0
+    fi
     echo "::error::pnpm skipped ${name}@${VERSION}. Is this version already on npm?"
     rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
     exit 1
   fi
 
-  # Verify registry actually has the version (eventual consistency: retry)
-  local ok=0
-  for i in 1 2 3 4 5 6; do
-    if npm view "${name}@${VERSION}" version 2>/dev/null | grep -q "${VERSION}"; then
-      ok=1
-      break
-    fi
-    echo "Waiting for registry to show ${name}@${VERSION} (attempt ${i})..."
-    sleep 5
-  done
-  if [ "$ok" -ne 1 ]; then
+  if ! wait_for_registry "$name"; then
     echo "::error::Published ${name} but npm view ${name}@${VERSION} failed. Check npm access for scope @structured-vibe-coding."
     rm -f "$log" packages/core/.npmrc packages/cli/.npmrc
     exit 1
