@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Issue 63 SHA-bound sign-off** · `2026-10-29-issue-63-sha-bound-sign-off`
+# Local verify results
 
-## Results
+> Change: Issue 63 SHA-bound sign-off
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="7782d53e70308237bae46a934f02abcb77b6f621" result_count="1" -->
+> At: 2026-10-29T07:28:54.442Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
