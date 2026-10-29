@@ -1,0 +1,41 @@
+id: 2026-10-29-issue-64-per-bot-brain
+title: Issue 64 per-bot brain
+workflow: feature
+created: 2026-10-29T08:15:08.812Z
+updated: 2026-10-29T08:41:56.872Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue and the implementation plan already name the files, the commands, and the
+      acceptance lines.
+    at: 2026-10-29T08:38:52.115Z
+  - stage: brainstorm
+    reason: The implementation plan is the approach. Old mode stays. A bot uses the loop.
+    at: 2026-10-29T08:38:52.908Z
+  - stage: clarify_design
+    reason: The seams are the team modules, the memory path, and the runRole branch. Critique prompts stay.
+    at: 2026-10-29T08:38:54.570Z
+  - stage: clarify_tasks
+    reason: The tasks are the modules, the CLI, the docs, and the four test files.
+    at: 2026-10-29T08:38:56.208Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 907691b8b852eec3b5c4b090436c1e95eb4f3b32
+    at: 2026-10-29T08:41:56.872Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

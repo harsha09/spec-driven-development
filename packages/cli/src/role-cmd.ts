@@ -1,5 +1,6 @@
 import {
   acceptNetwork,
+  addLesson,
   allowRole,
   createRole,
   createRoleFromTemplate,
@@ -18,6 +19,7 @@ import {
   runNetwork,
   runRole,
   setRoleMessaging,
+  showMemory,
   showRoleGroup,
   showRoles,
   spawnModelCommand,
@@ -421,6 +423,36 @@ const take = defineCommand({
   },
 });
 
+const memory = defineCommand({
+  meta: { name: "memory", description: "Print a bot's memory" },
+  args: {
+    bot: { type: "positional", description: "Bot name", required: true },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await showMemory(root, args.bot));
+    });
+  },
+});
+
+const lessonAdd = defineCommand({
+  meta: { name: "add", description: "Append a lesson a person wrote" },
+  args: {
+    bot: { type: "positional", description: "Bot name", required: true },
+    text: { type: "positional", description: "Lesson text", required: true },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await addLesson(root, args.bot, args.text));
+    });
+  },
+});
+
+const lesson = defineCommand({
+  meta: { name: "lesson", description: "Record a lesson a person wrote" },
+  subCommands: { add: lessonAdd },
+});
+
 export const roleCmd = defineCommand({
   meta: {
     name: "role",
@@ -444,5 +476,7 @@ export const roleCmd = defineCommand({
     queue,
     take,
     decide,
+    memory,
+    lesson,
   },
 });
