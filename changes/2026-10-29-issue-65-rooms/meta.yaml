@@ -2,7 +2,7 @@ id: 2026-10-29-issue-65-rooms
 title: Issue 65 rooms
 workflow: feature
 created: 2026-10-29T10:28:50.488Z
-updated: 2026-10-29T10:43:42.822Z
+updated: 2026-10-29T10:45:40.112Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -30,4 +30,12 @@ skipped:
     reason: The tasks are the schema, the room module, the loop hook, the CLI, and the tests.
     at: 2026-10-29T10:43:42.065Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 296aa003fc691dd2605dcc8f74a26633f14a2da8
+    at: 2026-10-29T10:45:40.112Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
