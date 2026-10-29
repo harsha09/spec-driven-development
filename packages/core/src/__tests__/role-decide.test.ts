@@ -355,6 +355,112 @@ describe("route decides only when no rule matched", () => {
     ).toBe(true);
   });
 
+  it("fetches http://127.0.0.1:11434/api/chat when OLLAMA_HOST has no scheme", async () => {
+    const root = await project();
+    await writeFile(join(root, ".sdd/models.yaml"), modelsYaml("nearby"), "utf8");
+    const fetches: string[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      fetches.push(String(input));
+      expect(String(init?.body)).toContain("qwen2.5:7b");
+      return new Response(
+        JSON.stringify({
+          model: "qwen2.5:latest",
+          message: { content: reply("developer", 0.9, 1, false) },
+          prompt_eval_count: 11,
+          eval_count: 5,
+        }),
+        { status: 200 },
+      );
+    };
+    const picked = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { OLLAMA_HOST: "127.0.0.1:11434", SDD_ROLE_MODEL: "strong" },
+        fetch: fetchImpl,
+        now: () => new Date("2026-01-01T00:00:00.000Z"),
+      },
+    );
+    expect(picked.stdout).toContain("role developer");
+    expect(fetches).toEqual(["http://127.0.0.1:11434/api/chat"]);
+
+    fetches.length = 0;
+    const local = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { OLLAMA_HOST: "localhost:11434", SDD_ROLE_MODEL: "strong" },
+        fetch: fetchImpl,
+        now: () => new Date("2026-01-01T00:00:00.000Z"),
+      },
+    );
+    expect(local.stdout).toContain("role developer");
+    expect(fetches).toEqual(["http://localhost:11434/api/chat"]);
+
+    fetches.length = 0;
+    const tls = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { OLLAMA_HOST: "https://example.test:11434", SDD_ROLE_MODEL: "strong" },
+        fetch: fetchImpl,
+        now: () => new Date("2026-01-01T00:00:00.000Z"),
+      },
+    );
+    expect(tls.stdout).toContain("role developer");
+    expect(fetches).toEqual(["https://example.test:11434/api/chat"]);
+  });
+
+  it("does not fetch or record a row when the Ollama host is unset, blank, or still not a URL", async () => {
+    const root = await project();
+    await writeFile(join(root, ".sdd/models.yaml"), modelsYaml("nearby"), "utf8");
+    let fetched = false;
+    const commands: string[] = [];
+    const deps = {
+      fetch: async () => {
+        fetched = true;
+        throw new Error("socket");
+      },
+      runCommand: async (command: string) => {
+        commands.push(command);
+        return reply("architect", 0.9);
+      },
+    };
+    const unset = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { SDD_ROLE_MODEL: "strong" },
+        ...deps,
+      },
+    );
+    const blank = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { OLLAMA_HOST: "   ", SDD_ROLE_MODEL: "strong" },
+        ...deps,
+      },
+    );
+    const unusable = await routeRole(
+      root,
+      { artifact: "no-such-owns-phrase" },
+      {
+        env: { OLLAMA_HOST: "not a url", SDD_ROLE_MODEL: "strong" },
+        ...deps,
+      },
+    );
+    expect(unset.stdout).toBe("Ask the human.\nNo rule matched.");
+    expect(blank.stdout).toBe("Ask the human.\nNo rule matched.");
+    expect(unusable.stdout).toBe("Ask the human.\nNo rule matched.");
+    expect(fetched).toBe(false);
+    expect(commands).toEqual([]);
+    const config = await loadConfig(root);
+    const active = (await readFile(join(root, "changes/.active"), "utf8")).trim();
+    const metrics = await readChangeMetrics(root, config, active);
+    expect(metrics.decisions ?? []).toEqual([]);
+  });
+
   it("rejects a probability total outside the tolerance and a pick outside the options", async () => {
     const root = await project();
     await writeFile(join(root, ".sdd/models.yaml"), modelsYaml("local"), "utf8");
