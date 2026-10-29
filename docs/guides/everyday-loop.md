@@ -79,6 +79,25 @@ sdd next --no-agent           # move stages without launching AI
 
 ---
 
+## Name a team (optional)
+
+The loops above do not need this. Use it when more than one role works in the repo.
+
+```bash
+sdd team init --template software
+sdd team show
+sdd role room
+sdd role room post "The list stays empty when the query is blank."
+```
+
+`sdd role room` prints the active change. `sdd role room --stage=<stage>` prints that stage. A change id in that position is read as a command. On `post`, `--change` and `--stage` select the file.
+
+A run named as a bot can read a file, search, run one allowlisted check, write a file, and commit on its own branch. The check result is `changes/<id>/evidence/<sha>.json`. Push and merge stay with a person.
+
+Details: [CLI reference](../reference/cli).
+
+---
+
 ## Related
 
 - [Simple feature](./simple-feature)  

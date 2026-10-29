@@ -92,6 +92,19 @@ They only say “read the live context, then the playbook.” Grok and Ollama us
 
 ---
 
+## A product team is a different set of files
+
+The host files above point an AI at the playbook. A product team is `.sdd/team.yaml` plus role files under `.sdd/roles/`.
+
+```bash
+sdd team init --template software
+sdd team show
+```
+
+Room and check commands are in the [everyday loop](./everyday-loop) and the [CLI reference](../reference/cli).
+
+---
+
 ## Related
 
 - [Start in 10 minutes](../tutorials/first-change)  
