@@ -237,6 +237,7 @@ export async function matchRoute(
   if (listed && listed.names.length > 1) {
     return { ok: true, match: { kind: "ask", reason: "Two roles own this." } };
   }
+
   if (listed && listed.names.length === 1) {
     const role = listed.names[0] ?? "";
     if (listed.rule === "owns") {
@@ -259,6 +260,25 @@ export async function matchRoute(
         rule: "skill",
       },
     };
+  }
+
+  if (item.stage) {
+    const named = roles.filter((role) => role.stages.includes(item.stage ?? ""));
+    if (named.length > 1) {
+      return { ok: true, match: { kind: "ask", reason: "Two roles list this stage." } };
+    }
+    if (named.length === 1) {
+      const role = named[0]?.name ?? "";
+      return {
+        ok: true,
+        match: {
+          kind: "role",
+          role,
+          reason: `Role ${role} lists stage ${item.stage}.`,
+          rule: "role-stage",
+        },
+      };
+    }
   }
 
   if (item.stage) {

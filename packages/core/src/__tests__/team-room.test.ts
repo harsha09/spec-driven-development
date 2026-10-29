@@ -14,6 +14,7 @@ import {
   showRoom,
 } from "../index.js";
 import type { RoleModel } from "../role/types.js";
+import { stageMemberNames } from "../team/room.js";
 
 const temps: string[] = [];
 
@@ -301,5 +302,14 @@ describe("rooms", () => {
     expect(body).toContain("prior room sentence");
     expect(body).toContain('"type":"post"');
     expect(body).toContain("loop posted");
+  });
+});
+
+describe("stage members", () => {
+  it("uses the roles that list the stage when the workflow names nobody", () => {
+    expect(
+      stageMemberNames({ owner: "architect", collaborates: ["dev-lead"] }, ["analyst"]),
+    ).toEqual(["architect", "dev-lead"]);
+    expect(stageMemberNames({}, ["analyst", "builder"])).toEqual(["analyst", "builder"]);
   });
 });
