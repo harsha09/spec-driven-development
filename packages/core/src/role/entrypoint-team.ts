@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "pathe";
 import { listFiles, pathExists } from "../fs.js";
-import { readRole } from "./profile.js";
+import { canonicalRoleName, readRole } from "./profile.js";
 import { readTeamConfig } from "./team.js";
 import type { RoleProfile } from "./types.js";
 
@@ -46,38 +46,40 @@ function toMember(
   };
 }
 
-async function parsedRoles(root: string): Promise<RoleProfile[]> {
+async function listedRoles(root: string): Promise<{ name: string; role: RoleProfile | null }[]> {
   const dir = join(root, ".sdd", "roles");
   if (!(await pathExists(dir))) return [];
-  const roles: RoleProfile[] = [];
+  const listed: { name: string; role: RoleProfile | null }[] = [];
   for (const file of await listFiles(dir)) {
     if (!file.endsWith(".md")) continue;
-    const role = await readRole(root, file.slice(0, -".md".length));
-    if (role) roles.push(role);
+    const name = file.slice(0, -".md".length);
+    if (canonicalRoleName(name) !== name) continue;
+    listed.push({ name, role: await readRole(root, name) });
   }
-  return roles;
+  return listed;
 }
 
-function byName(roles: RoleProfile[]): string[] {
-  return roles
-    .filter((role) => !role.hidden)
-    .map((role) => role.name)
+function byName(listed: { name: string; role: RoleProfile | null }[]): string[] {
+  return listed
+    .filter((item) => !item.role?.hidden)
+    .map((item) => item.name)
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**
- * Team for one root. `null` means this root has no team file and no role file,
- * so a caller may look at the user default. An empty list means a team file or
- * a role file is present and the other source must not replace it.
+ * Team for one root. `null` means this root has no team file and no canonical
+ * role file, so a caller may look at the user default. A role file that does
+ * not parse still counts. An empty list means a team file or a role file is
+ * present and the other source must not replace it.
  */
 async function membersFrom(
   root: string,
   source: ProductTeamMember["source"],
 ): Promise<ProductTeamMember[] | null> {
-  const roles = await parsedRoles(root);
+  const listed = await listedRoles(root);
   const teamFile = await pathExists(join(root, ".sdd", "team.yaml"));
-  if (!teamFile && roles.length === 0) return null;
-  const known = new Map(roles.map((role) => [role.name, role]));
+  if (!teamFile && listed.length === 0) return null;
+  const known = new Map(listed.map((item) => [item.name, item.role]));
   let names: string[];
   if (teamFile) {
     const loaded = await readTeamConfig(root);
@@ -90,10 +92,10 @@ async function membersFrom(
         names.push(bot.role);
       }
     } else {
-      names = byName(roles);
+      names = byName(listed);
     }
   } else {
-    names = byName(roles);
+    names = byName(listed);
   }
   return names.map((name, index) => toMember(known.get(name) ?? null, name, index + 1, source));
 }

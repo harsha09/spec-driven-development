@@ -160,6 +160,24 @@ describe("product team on the host entrypoint", () => {
     expect(protocol).toContain("Source: user default (`~/.sdd`)");
   });
 
+  it("lists an unparsed role file and does not use the user default", async () => {
+    const home = await tempDir();
+    process.env.SDD_HOME = home;
+    await createRole(home, {
+      name: "global-role",
+      label: "Global",
+      job: "Must not appear",
+      approvers: ["human"],
+    });
+    const root = await project();
+    await writeText(join(root, ".sdd/roles/qa.md"), "not a role\n");
+    await installAgentIntegration({ projectRoot: root, target: "grok", force: true });
+    const protocol = await readFile(join(root, ".sdd/protocol.md"), "utf8");
+    expect(protocol).toContain("`qa` — not named. Accepts: not named. File: `.sdd/roles/qa.md`");
+    expect(protocol).not.toContain("global-role");
+    expect(protocol).not.toContain("user default");
+  });
+
   it("keeps the team in the handoff and after a second refresh", async () => {
     process.env.SDD_HOME = await tempDir();
     const root = await project();
