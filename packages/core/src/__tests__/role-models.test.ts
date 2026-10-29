@@ -136,6 +136,39 @@ describe("model config", () => {
     expect(missingEnv.success).toBe(false);
   });
 
+  it("loads a long model id and still rejects a secret in the model field", async () => {
+    const root = await project();
+    const id = "hf.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF:Q4_K_M";
+    await writeFile(join(root, ".sdd/models.yaml"), modelsYaml().replace("qwen2.5:7b", id), "utf8");
+    const loaded = await loadModels(root);
+    expect(loaded).toMatchObject({
+      config: { version: 1, models: { nearby: { model: id } } },
+    });
+    expect((await initTeam(root, "software", "Ada Lovelace")).exitCode).toBe(0);
+    expect(await checkTeam(root)).toMatchObject({
+      exitCode: 0,
+      stdout: "Team config is valid.",
+    });
+
+    await writeFile(
+      join(root, ".sdd/models.yaml"),
+      modelsYaml().replace("qwen2.5:7b", "-----BEGIN FAKE-----"),
+      "utf8",
+    );
+    const pem = await loadModels(root);
+    expect(pem).toEqual({ error: "models.yaml has a secret value." });
+    expect(JSON.stringify(pem)).not.toContain("BEGIN");
+
+    await writeFile(
+      join(root, ".sdd/models.yaml"),
+      modelsYaml().replace("qwen2.5:7b", `TOKEN=${token}`),
+      "utf8",
+    );
+    const assigned = await loadModels(root);
+    expect(assigned).toEqual({ error: "models.yaml has a secret value." });
+    expect(JSON.stringify(assigned)).not.toContain(token);
+  });
+
   it("picks bot, then stage, then role, then the work type, then the fallback", async () => {
     const root = await project();
     await writeFile(join(root, ".sdd/models.yaml"), modelsYaml(), "utf8");
