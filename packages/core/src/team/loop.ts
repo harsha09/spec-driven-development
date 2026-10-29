@@ -9,6 +9,7 @@ import type { RoleCommandResult, RoleModel } from "../role/types.js";
 import type { Brain } from "./brain.js";
 import { addReviewerLesson } from "./memory.js";
 import { postLoopDone, roomForPrompt } from "./room.js";
+import { passClaimRefusal, runTool } from "./tools.js";
 
 const planStep = z.object({ step: z.literal("plan"), items: z.array(z.string()) }).strict();
 const toolStep = z
@@ -34,6 +35,7 @@ const doneStep = z
     step: z.literal("done"),
     summary: z.string(),
     outputs: z.array(z.string()),
+    evidence: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -71,7 +73,13 @@ export async function runLoop(input: {
 }): Promise<RoleCommandResult> {
   const max = input.cfg.limits?.loop_max_steps ?? 8;
   const room = await roomForPrompt(input.root);
-  const prompt = room ? `${input.brain.prompt}\nRoom:\n${room}` : input.brain.prompt;
+  const base = room ? `${input.brain.prompt}\nRoom:\n${room}` : input.brain.prompt;
+  let tools = "";
+  const promptFor = (): string => (tools ? `${base}\nTools:\n${tools}` : base);
+  const remember = (text: string): void => {
+    const piece = text.trim().slice(-4000);
+    tools = `${tools}\n${piece}`.trim().slice(-8000);
+  };
   let taken = 0;
   let copied = false;
   const copyReviewer = async (): Promise<void> => {
@@ -85,7 +93,7 @@ export async function runLoop(input: {
   while (taken < max) {
     let raw: string;
     try {
-      raw = await input.model.complete({ roleId: input.roleName, prompt });
+      raw = await input.model.complete({ roleId: input.roleName, prompt: promptFor() });
     } catch {
       await appendLine(input.file, { type: "bad_call", roleId: input.roleName });
       return fail("A loop step is not valid.");
@@ -112,10 +120,21 @@ export async function runLoop(input: {
         continue;
       }
       if (body.step === "tool") {
-        await appendLine(input.file, { type: "step", step: "tool", name: body.name, stub: true });
+        const ran = await runTool(input.root, input.cfg, input.brain.bot.name, {
+          name: body.name,
+          args: body.args,
+        });
+        remember(ran.text);
+        await appendLine(input.file, { type: "step", step: "tool", name: body.name, ok: ran.ok });
         continue;
       }
       if (body.step === "check") {
+        const refusal = await passClaimRefusal(input.root, body.claim, body.evidence ?? []);
+        if (refusal) {
+          remember(refusal);
+          await appendLine(input.file, { type: "step", step: "refused", text: refusal });
+          continue;
+        }
         await appendLine(input.file, {
           type: "step",
           step: "check",
@@ -125,9 +144,16 @@ export async function runLoop(input: {
         continue;
       }
       if (body.step === "ask") return ask(input.root, input.file, body.question, body.options);
+      const cites = body.evidence ?? [];
+      const refusal = await passClaimRefusal(input.root, body.summary, cites);
+      if (refusal) {
+        remember(refusal);
+        await appendLine(input.file, { type: "step", step: "refused", text: refusal });
+        continue;
+      }
       await appendLine(input.file, { type: "step", step: "done", summary: body.summary });
       await copyReviewer();
-      await postLoopDone(input.root, input.brain.bot.name, body.summary);
+      await postLoopDone(input.root, input.brain.bot.name, body.summary, cites[0]);
       return ok(body.summary);
     }
   }

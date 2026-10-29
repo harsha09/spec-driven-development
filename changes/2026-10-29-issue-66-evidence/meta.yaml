@@ -1,0 +1,32 @@
+id: 2026-10-29-issue-66-evidence
+title: Issue 66 evidence
+workflow: feature
+created: 2026-10-29T11:20:32.642Z
+updated: 2026-10-29T11:21:28.195Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: Issue 66 names the tools, the worktree, and the evidence file.
+    at: 2026-10-29T11:21:23.074Z
+  - stage: brainstorm
+    reason: The worktree and the bot branch are the reading. Sandbox stays on issue 54.
+    at: 2026-10-29T11:21:23.837Z
+  - stage: clarify_design
+    reason: One tools module. run.ts and verify.ts stay.
+    at: 2026-10-29T11:21:25.636Z
+  - stage: clarify_tasks
+    reason: Tools, loop, room cite, tests, and one docs paragraph.
+    at: 2026-10-29T11:21:27.398Z
+gates: {}
+verify_results: {}
