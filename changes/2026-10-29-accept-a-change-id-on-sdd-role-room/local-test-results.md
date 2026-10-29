@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Accept a change id on sdd role room** · `2026-10-29-accept-a-change-id-on-sdd-role-room`
+# Local verify results
 
-## Results
+> Change: Accept a change id on sdd role room
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="219ae2898598bbe8b16ee253eb99faa822c5ecd1" result_count="1" -->
+> At: 2026-10-29T16:47:05.020Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->

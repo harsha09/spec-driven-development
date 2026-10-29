@@ -2,7 +2,7 @@ id: 2026-10-29-accept-a-change-id-on-sdd-role-room
 title: Accept a change id on sdd role room
 workflow: feature
 created: 2026-10-29T16:41:45.441Z
-updated: 2026-10-29T16:43:32.370Z
+updated: 2026-10-29T16:47:05.022Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the parser, the test, and the docs.
     at: 2026-10-29T16:42:59.356Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 219ae2898598bbe8b16ee253eb99faa822c5ecd1
+    at: 2026-10-29T16:47:05.022Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
