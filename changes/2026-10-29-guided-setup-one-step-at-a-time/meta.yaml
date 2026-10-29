@@ -2,7 +2,7 @@ id: 2026-10-29-guided-setup-one-step-at-a-time
 title: Guided setup one step at a time
 workflow: feature
 created: 2026-10-29T15:11:47.399Z
-updated: 2026-10-29T15:24:18.395Z
+updated: 2026-10-29T15:28:28.414Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the tour, the tests, and the docs.
     at: 2026-10-29T15:12:12.852Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 8c47ba7f7e805f014d95b6bc04f9b38f1428d1c9
+    at: 2026-10-29T15:28:28.414Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
