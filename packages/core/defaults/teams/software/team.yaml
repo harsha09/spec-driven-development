@@ -17,5 +17,8 @@ bots:
   - name: developer
     role: developer
     wip: 1
+  - name: qa
+    role: qa
+    wip: 1
 role_wip:
   developer: 2
