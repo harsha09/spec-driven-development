@@ -1,0 +1,40 @@
+id: 2026-10-29-guide-a-first-time-user-and-hand-each-stage-to-the-role-that
+title: Guide a first-time user and hand each stage to the role that lists it
+workflow: feature
+created: 2026-10-29T13:00:52.684Z
+updated: 2026-10-29T13:08:37.735Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The guide asks the role's questions one at a time.
+    at: 2026-10-29T13:01:18.439Z
+  - stage: brainstorm
+    reason: The three roles are the approach.
+    at: 2026-10-29T13:01:19.273Z
+  - stage: clarify_design
+    reason: The guide and the stage handoff are the design.
+    at: 2026-10-29T13:01:21.027Z
+  - stage: clarify_tasks
+    reason: The tasks are setup, go, and the purview check.
+    at: 2026-10-29T13:01:22.732Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 920cae9e9afba93e3a8df35edef86ce2857a4559
+    at: 2026-10-29T13:08:37.735Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

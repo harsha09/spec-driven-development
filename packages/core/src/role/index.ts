@@ -9,6 +9,8 @@ export {
 } from "./handoff.js";
 export { allowRole, runRole } from "./run.js";
 export { roleContextBody, setRoleContext } from "./context.js";
+export { dutyForStage, prepareGuide, runGuide } from "./guide.js";
+export type { Duty } from "./guide.js";
 export { recordDecisionRequest, recordSignoff } from "./signoff.js";
 export type { AllowRoleInput, RunRoleInput } from "./run.js";
 export {

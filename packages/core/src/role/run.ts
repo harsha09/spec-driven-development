@@ -1,5 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { isAbsolute, join } from "pathe";
+import { isSecretPath } from "../code-context/secrets.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
@@ -65,6 +66,8 @@ export interface RunRoleInput {
   stop?: boolean;
   model?: RoleModel;
   now?: () => Date;
+  /** One draft for the guide. Writes stay inside this role, and a team file is not used. */
+  guide?: { changeDir: string };
 }
 
 export interface AllowRoleInput {
@@ -275,14 +278,26 @@ function citeOk(cite: string, section: AcceptedSection): boolean {
   return section.checks.includes(cite) || cite === `${section.id}:${section.decision}`;
 }
 
+function purviewLines(role: RoleProfile): string[] {
+  const rows: string[] = [];
+  if (role.stages.length > 0) rows.push(`Stages: ${role.stages.join(", ")}`);
+  if (role.owns.length > 0) rows.push(`Owns: ${role.owns.join(", ")}`);
+  if (role.skills.length > 0) rows.push(`Skills: ${role.skills.join(", ")}`);
+  if (role.never.length > 0) rows.push(`Never: ${role.never.join(", ")}`);
+  if (role.askHumanWhen.length > 0) rows.push(`Ask when: ${role.askHumanWhen.join(", ")}`);
+  if (rows.length > 0) rows.push("Stay inside this role.");
+  return rows;
+}
+
 function authorPrompt(
   role: RoleProfile,
   task: string,
   kind: string,
   section?: AcceptedSection,
   context = "",
+  guide = false,
 ): string {
-  const rows = [`Job: ${role.job}`, `Description: ${role.description}`];
+  const rows = [`Job: ${role.job}`, `Description: ${role.description}`, ...purviewLines(role)];
   if (context.trim()) rows.push(`Context:\n${context.trim()}`);
   rows.push(`Task: ${task}`, `Kind: ${kind}`);
   if (section) {
@@ -294,7 +309,30 @@ function authorPrompt(
     );
     rows.push("Section text:", section.body);
   }
+  if (guide) {
+    rows.push('If one fact is missing, reply with one line that starts with "Question: ".');
+    rows.push("Otherwise write the draft for this stage.");
+  }
   return rows.join("\n");
+}
+
+function neverBlocks(role: RoleProfile, action: ModelAction): boolean {
+  const words = action.words.trim().toLowerCase();
+  const name = action.name.trim().toLowerCase();
+  return role.never.some((item) => {
+    const line = item.trim().toLowerCase();
+    return line.length > 0 && (line === words || line === name);
+  });
+}
+
+function lockedToChange(role: RoleProfile): boolean {
+  return role.never.some((item) => item.trim().toLowerCase() === "write product code");
+}
+
+function outsideChange(changeDir: string, rel: string): boolean {
+  const path = rel.replace(/\\/g, "/").replace(/^\.\//, "");
+  const dir = changeDir.replace(/\\/g, "/").replace(/\/$/, "");
+  return path !== dir && !path.startsWith(`${dir}/`);
 }
 
 export async function acceptedFile(root: string, changeId: string): Promise<string> {
@@ -388,6 +426,40 @@ async function applyAction(
   return { exitCode: 0, stdout: "", applied: true };
 }
 
+async function finishGuideRun(
+  root: string,
+  file: string,
+  role: RoleProfile,
+  final: ModelReply,
+  runId: string,
+  changeDir: string,
+): Promise<RoleCommandResult> {
+  if (final.text.trim().startsWith("Question:")) return ok(final.text, runId);
+  const action = final.action;
+  if (!action) return ok(final.text, runId);
+  if (FORBIDDEN.has(action.name) || UNAVAILABLE.has(action.name) || neverBlocks(role, action)) {
+    await appendJson(file, { type: "rejected" });
+    return fail("This role does not do that.", runId);
+  }
+  if (action.name !== "write_file") {
+    await appendJson(file, { type: "rejected" });
+    return fail(ROLE_TEXT.cannot, runId);
+  }
+  const path = action.inputs.path;
+  const contents = action.inputs.contents;
+  if (typeof path !== "string" || typeof contents !== "string" || !isSafeProductPath(path)) {
+    await appendJson(file, { type: "rejected" });
+    return fail(ROLE_TEXT.cannot, runId);
+  }
+  if (isSecretPath(path) || (lockedToChange(role) && outsideChange(changeDir, path))) {
+    await appendJson(file, { type: "rejected" });
+    return fail("That file is outside this role.", runId);
+  }
+  const applied = await applyAction(root, file, role.name, action, "once");
+  if (applied.exitCode !== 0) return fail(applied.stdout || ROLE_TEXT.cannot, runId);
+  return ok(final.text, runId);
+}
+
 async function finishRun(
   root: string,
   file: string,
@@ -396,7 +468,9 @@ async function finishRun(
   minutes: number,
   now: Date,
   runId: string,
+  guide?: { changeDir: string },
 ): Promise<RoleCommandResult> {
+  if (guide) return finishGuideRun(root, file, role, final, runId, guide.changeDir);
   const action = final.action;
   if (!action) return ok(final.text, runId);
   if (
@@ -527,7 +601,7 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     });
   }
 
-  if (team && botName) {
+  if (team && botName && !input.guide) {
     let budget = 12000;
     try {
       const search = await loadSearchConfig(root);
@@ -553,7 +627,14 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     input.model,
     file,
     role.name,
-    authorPrompt(role, task, kind, section, await roleContextBody(root, role.name)),
+    authorPrompt(
+      role,
+      task,
+      kind,
+      section,
+      await roleContextBody(root, role.name),
+      input.guide !== undefined,
+    ),
     1,
   );
   if (!draft) return fail("", runId);
@@ -590,7 +671,7 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
       final = revision;
     }
   }
-  return finishRun(root, file, role, final, minutes, now, runId);
+  return finishRun(root, file, role, final, minutes, now, runId, input.guide);
 }
 
 function openPending(lines: unknown[]): PendingStop | null {
