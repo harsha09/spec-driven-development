@@ -44,6 +44,7 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { factCmd } from "./fact-cmd.js";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
@@ -1374,6 +1375,7 @@ export const commands = {
   agents,
   role: roleCmd,
   team: teamCmd,
+  fact: factCmd,
   models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,
