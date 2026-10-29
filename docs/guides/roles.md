@@ -119,7 +119,7 @@ sdd go --answer "An empty list shows a message" --no-agent
 
 The first command prints `Who is this for?` The second prints `How will you know it worked?` On a terminal, `sdd go` asks in place, so you can type the answer there.
 
-The questions do not need a model. The draft does. Set `SDD_ROLE_MODEL` to a command that reads one JSON object (`roleId` and `prompt`) on stdin and writes one JSON object on stdout. With that set, the `sdd go` that finishes the planner's questions writes the reading, skips the optional clarify and brainstorm stages, and prints `Handoff: planner to architect.` The architect then asks which module owns the change. After that answer, the architect writes the design and the builder takes the tasks. Without the variable, that step prints `No role model is configured.`
+The questions do not need a model. The draft does. Set `SDD_ROLE_MODEL` to a command that reads one JSON object (`roleId` and `prompt`) on stdin and writes one JSON object on stdout. With that set, the `sdd go` that finishes the planner's questions writes the reading under the feature headings, skips the optional clarify and brainstorm stages, and prints `Handoff: planner to architect.` Design and tasks are separate files under their own headings. The local test results file says no command was run. Implement has no file, so it is not sent to the model. The architect then asks which module owns the change. After that answer, the architect writes the design and the builder takes the tasks. Without the variable, that step prints `No role model is configured.`
 
 `--no-agent` means no AI host is installed. It does not set `SDD_ROLE_MODEL`. `--ai copilot` installs the host that `sdd new` and `sdd next` open. The guide still writes through `SDD_ROLE_MODEL`.
 
