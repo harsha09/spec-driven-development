@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
@@ -11,6 +12,8 @@ import {
   initProject,
   loadConfig,
   loadWorkflow,
+  pathExists,
+  recordSignoff,
 } from "../index.js";
 import { WorkflowSchema } from "../schemas.js";
 import { syncStageItems } from "../stage-items.js";
@@ -26,6 +29,38 @@ afterEach(async () => {
     if (dir) await rm(dir, { recursive: true, force: true });
   }
 });
+
+function git(root: string, args: string[]): string {
+  const result = spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout || "git failed");
+  return result.stdout.trim();
+}
+
+async function teamRepo(root: string, human = "Ada Lovelace"): Promise<void> {
+  await writeFile(
+    join(root, ".sdd", "team.yaml"),
+    [
+      "branch: bot/{bot}/{change}",
+      "rooms:",
+      "  commit: false",
+      "bots:",
+      "  - name: product-manager",
+      "    role: product-manager",
+      "    wip: 1",
+      "humans:",
+      `  - name: ${human}`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  git(root, ["init", "-b", "main"]);
+  git(root, ["config", "user.email", "ada@example.com"]);
+  git(root, ["config", "user.name", human]);
+  git(root, ["config", "commit.gpgsign", "false"]);
+  await writeFile(join(root, "README.md"), "team\n", "utf8");
+  git(root, ["add", "README.md"]);
+  git(root, ["commit", "-m", "init"]);
+}
 
 async function project(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "sdd-team-wf-"));
@@ -60,6 +95,11 @@ describe("team-software workflow", () => {
     expect(story?.artifacts[0]?.path).toBe("stories/S-001.md");
     expect(tasks?.artifacts[0]?.path).toBe("tasks/T-001.md");
     expect(review?.artifacts[0]?.path).toBe("reviews/R-001.md");
+    expect(review?.gate.type).toBe("soft");
+    expect(review?.gate.approvers).toEqual(["architect", "dev-lead"]);
+    expect(team.stages.find((stage) => stage.id === "acceptance")?.gate.approvers).toEqual([
+      "human",
+    ]);
     const implement = team.stages.find((stage) => stage.id === "implement");
     expect(implement?.owner).toBe("developer");
     expect(implement?.items_from).toBe("tasks/T-*.md");
@@ -79,7 +119,7 @@ describe("team-software workflow", () => {
     expect(bad.success).toBe(false);
   });
 
-  it("stops on the requirements gate until a person approves it", async () => {
+  it("stops on the requirements gate until a person signs this commit", async () => {
     const root = await project();
     const config = await loadConfig(root);
     const ctx = await createChange({
@@ -97,10 +137,107 @@ describe("team-software workflow", () => {
     expect(handoff).toContain("Works with: architect");
     expect(handoff).toContain("Approvers: human");
 
-    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/Hard gate|gate/i);
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/team config|sign-off/i);
     await approveGate(root, config, ctx.id, "requirements", "the person accepted the reading");
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/team config|sign-off/i);
+
+    await teamRepo(root);
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sign-off/i);
+    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
+      0,
+    );
+    git(root, ["commit", "--allow-empty", "-m", "later"]);
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sign-off/i);
+    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
+      0,
+    );
     const next = await advanceStage(root, config, ctx.id);
     expect(next.to).toBe("architecture");
+  });
+
+  it("leaves a human gate when the person waives it", async () => {
+    const root = await project();
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Waived reading",
+      workflowName: "team-software",
+    });
+    await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
+    await approveGate(root, config, ctx.id, "requirements", "waived for this try", "waived");
+    const next = await advanceStage(root, config, ctx.id);
+    expect(next.to).toBe("architecture");
+  });
+
+  it("stays on a human gate when the gate is failed", async () => {
+    const root = await project();
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Failed reading",
+      workflowName: "team-software",
+    });
+    await teamRepo(root);
+    await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
+    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
+      0,
+    );
+    await approveGate(root, config, ctx.id, "requirements", "the person stopped this", "failed");
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/not approved|gate/i);
+  });
+
+  it("lets a soft pull-request review advance without a human file", async () => {
+    const root = await project();
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Review without a human file",
+      workflowName: "team-software",
+    });
+    await teamRepo(root);
+    await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
+    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
+      0,
+    );
+    let stage = "requirements";
+    const bodies: Array<[string, string]> = [
+      ["architecture", "architecture.md"],
+      ["stories", "stories/S-001.md"],
+      ["plan", "plan.md"],
+      ["tasks", "tasks/T-001.md"],
+    ];
+    for (const [id, path] of bodies) {
+      const moved = await advanceStage(root, config, ctx.id);
+      stage = moved.ctx.meta.stage;
+      expect(stage).toBe(id);
+      await writeFile(join(ctx.path, path), meat(id), "utf8");
+    }
+    const implement = await advanceStage(root, config, ctx.id);
+    expect(implement.to).toBe("implement");
+    const review = await advanceStage(root, config, ctx.id);
+    expect(review.to).toBe("pr_review");
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/R-001/i);
+    const reviewPath = join(ctx.path, "reviews", "R-001.md");
+    const distinctive = meat("Pull request review");
+    await writeFile(reviewPath, distinctive, "utf8");
+    const sha = git(root, ["rev-parse", "HEAD"]);
+    const signoffPath = join(ctx.path, "reviews", `pr_review-${sha}.md`);
+    expect(await pathExists(signoffPath)).toBe(false);
+    const accepted = await advanceStage(root, config, ctx.id);
+    expect(accepted.to).toBe("acceptance");
+    expect(
+      (await recordSignoff(root, { note: "prepared the review", stage: "pr_review" })).exitCode,
+    ).toBe(0);
+    expect(await readFile(reviewPath, "utf8")).toBe(distinctive);
+    expect(await readFile(signoffPath, "utf8")).toContain("reviewer: Ada Lovelace");
+    await writeFile(join(ctx.path, "acceptance.md"), meat("Acceptance"), "utf8");
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sign-off/i);
+    expect((await recordSignoff(root, { note: "the person tried the change" })).exitCode).toBe(0);
+    const done = await advanceStage(root, config, ctx.id);
+    expect(done.to).toBeNull();
   });
 
   it("writes one implement item per task file and keeps done", async () => {

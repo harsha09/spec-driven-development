@@ -1,4 +1,10 @@
-import { checkTeam, gitUserName, initTeam, showTeam } from "@structured-vibe-coding/core";
+import {
+  checkTeam,
+  gitUserName,
+  initTeam,
+  recordSignoff,
+  showTeam,
+} from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
 import { withProject } from "./project.js";
 
@@ -43,10 +49,30 @@ const show = defineCommand({
   },
 });
 
+const signoff = defineCommand({
+  meta: { name: "signoff", description: "Record a human sign-off for this commit" },
+  args: {
+    note: { type: "string", description: "The person's words", required: true },
+    stage: { type: "string", description: "Stage id. Default is the current stage" },
+    change: { type: "string", description: "Change id" },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await recordSignoff(root, {
+          note: textArg(args.note),
+          stage: textArg(args.stage),
+          change: textArg(args.change),
+        }),
+      );
+    });
+  },
+});
+
 export const teamCmd = defineCommand({
   meta: {
     name: "team",
     description: "Install a role team from a template and show it",
   },
-  subCommands: { init, show, check },
+  subCommands: { init, show, check, signoff },
 });
