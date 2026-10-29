@@ -21,7 +21,7 @@ sdd go "What you want to build"
 sdd go --answer "The answer to the question it printed"
 ```
 
-`sdd setup` creates planner, architect, and builder when the folder has no role files. Pass `-w` to follow another workflow. `sdd go` asks, drafts, and hands off. Give a role extra context with `sdd role context <name> --text "..."`.
+`sdd setup` creates planner, architect, and builder when the folder has no role files. Pass `-w` to follow another workflow. `sdd go` asks, drafts, and hands off. The duty each role follows, and the stage map for every workflow, are in [Roles, duties, and the workflow they follow](../reference/workflows#roles-duties-and-the-workflow-they-follow). Give a role extra context with `sdd role context <name> --text "..."`.
 
 ---
 
@@ -106,7 +106,7 @@ sdd role room
 sdd role room post "The list stays empty when the query is blank."
 ```
 
-`team-software` is requirements, clarifications, high-level design, low-level design, plan, test plan, development, pull-request review, QA testing, QA sign-off, product-owner review, and product-owner sign-off. Each stage waits for `sdd team signoff` on that commit. A role prepares the page and does not sign. The stage list is [Workflows](../reference/workflows).
+`team-software` is requirements, clarifications, high-level design, low-level design, plan, test plan, development, pull-request review, QA testing, QA sign-off, product-owner review, and product-owner sign-off. Each stage waits for `sdd team signoff` on that commit. A role prepares the page and does not sign. The owners, the duties, and the stage map are in [Roles, duties, and the workflow they follow](../reference/workflows#roles-duties-and-the-workflow-they-follow).
 
 `sdd role room` prints the active change. `sdd role room --stage=<stage>` prints that stage. A change id in that position is read as a command. On `post`, `--change` and `--stage` select the file.
 

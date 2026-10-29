@@ -77,6 +77,7 @@ https://harsha09.github.io/spec-driven-development/reference/cli/
 | MCP sources | https://harsha09.github.io/spec-driven-development/guides/mcp/ |
 | Simple feature | https://harsha09.github.io/spec-driven-development/guides/simple-feature/ |
 | CLI | https://harsha09.github.io/spec-driven-development/reference/cli/ |
+| Roles, duties, and workflows | https://harsha09.github.io/spec-driven-development/reference/workflows/#roles-duties-and-the-workflow-they-follow |
 
 ## License
 
