@@ -4,8 +4,8 @@
 
 > Change: Write each guide draft under its own headings
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="a380fd0a1d0bca9512c84fd4249df91671412977" result_count="1" -->
-> At: 2026-10-29T17:18:55.844Z
+<!-- sdd:verify stage="local_verify" head_sha="db9041ec696f81c68a9b719c2d7d8c8958f3cfe4" result_count="1" -->
+> At: 2026-10-29T17:24:31.133Z
 > Overall: PASS
 
 ## Commands

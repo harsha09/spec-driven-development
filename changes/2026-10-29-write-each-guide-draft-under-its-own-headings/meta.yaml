@@ -2,7 +2,7 @@ id: 2026-10-29-write-each-guide-draft-under-its-own-headings
 title: Write each guide draft under its own headings
 workflow: feature
 created: 2026-10-29T17:14:05.487Z
-updated: 2026-10-29T17:18:55.846Z
+updated: 2026-10-29T17:24:31.135Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -33,8 +33,8 @@ verify_results:
   local_verify:
     ok: true
     status: pass
-    head_sha: a380fd0a1d0bca9512c84fd4249df91671412977
-    at: 2026-10-29T17:18:55.846Z
+    head_sha: db9041ec696f81c68a9b719c2d7d8c8958f3cfe4
+    at: 2026-10-29T17:24:31.135Z
     results:
       - name: Workspace tests
         exitCode: 0
