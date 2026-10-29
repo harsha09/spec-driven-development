@@ -1,4 +1,5 @@
 import { pathExists, readText } from "../fs.js";
+import { roleContextBody } from "../role/context.js";
 import { readRole, roleFilePath } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { ROLE_TEXT, type RoleProfile } from "../role/types.js";
@@ -42,11 +43,13 @@ export async function loadBrain(
   const file = roleFilePath(root, spec.role);
   if (!(await pathExists(file))) return { error: ROLE_TEXT.notFound };
   const roleText = await readText(file);
+  const context = await roleContextBody(root, spec.role);
   const memoryAll = await readMemory(root, spec.name);
   const lessonsNewest = (await readLessons(root, spec.name)).slice().reverse();
   const factsNewest = (await getFacts(root, { query: item.text })).slice().reverse();
   const packed = pack({
     roleText,
+    context,
     memoryAll,
     lessons: lessonsNewest,
     facts: factsNewest,
@@ -67,6 +70,7 @@ export async function loadBrain(
 
 function pack(input: {
   roleText: string;
+  context: string;
   memoryAll: string;
   lessons: Lesson[];
   facts: Fact[];
@@ -76,12 +80,14 @@ function pack(input: {
   let memory = input.memoryAll;
   let lessons = input.lessons.slice();
   let facts = input.facts.slice();
+  let context = input.context;
   let warning = "";
   const itemBlock = `Item:\n${input.item}`;
 
   const render = (): string => {
     const parts = [input.roleText.trimEnd()];
     if (warning) parts.push(warning);
+    if (context.trim()) parts.push(`Context:\n${context.trimEnd()}`);
     if (memory.trim()) parts.push(`Memory:\n${memory.trimEnd()}`);
     if (lessons.length > 0) {
       parts.push(`Lessons:\n${lessons.map((lesson) => `- ${lesson.text}`).join("\n")}`);
@@ -98,9 +104,12 @@ function pack(input: {
     memory = "";
     lessons = [];
     facts = [];
+    context = "";
     warning = input.memoryAll.trim() ? WARNING : "";
     return { memory, lessons, facts, prompt: render(), warning };
   }
+
+  if (countTokens(render()) > input.budget && context.trim()) context = "";
 
   while (countTokens(render()) > input.budget && facts.length > 0) facts.pop();
   while (countTokens(render()) > input.budget && lessons.length > 0) lessons.pop();

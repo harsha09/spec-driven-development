@@ -20,6 +20,7 @@ import {
   routeRole,
   runNetwork,
   runRole,
+  setRoleContext,
   setRoleMessaging,
   showMemory,
   showRoleGroup,
@@ -187,6 +188,35 @@ const show = defineCommand({
   async run({ args }) {
     await withProject(async ({ root }) => {
       emit(await showRoles(root, { name: textArg(args.name), all: args.all === true }));
+    });
+  },
+});
+
+const context = defineCommand({
+  meta: { name: "context", description: "Show, provide, or generate context for one role" },
+  args: {
+    name: { type: "positional", description: "Role name", required: true },
+    text: { type: "string", description: "Context the developer provides" },
+    knowledge: {
+      type: "string",
+      description: "Optional knowledge kept when this role generates context",
+    },
+    generate: {
+      type: "boolean",
+      description: "Build context from the repo, the role name, and any knowledge",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await setRoleContext(root, {
+          name: args.name,
+          text: textArg(args.text),
+          knowledge: textArg(args.knowledge),
+          generate: args.generate === true,
+        }),
+      );
     });
   },
 });
@@ -571,6 +601,7 @@ export const roleCmd = defineCommand({
     pin: named("pin", "Pin a role to the top of the list", pinRole),
     hide: named("hide", "Hide a role from the default list", hideRole),
     show,
+    context,
     duplicate: named("duplicate", "Copy a role profile to <name> copy", duplicateRole),
     delete: named("delete", "Delete one role, its conversation, and its memory", deleteRole),
     run,

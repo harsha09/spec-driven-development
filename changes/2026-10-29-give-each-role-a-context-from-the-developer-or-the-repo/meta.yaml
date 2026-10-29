@@ -1,0 +1,40 @@
+id: 2026-10-29-give-each-role-a-context-from-the-developer-or-the-repo
+title: Give each role a context from the developer or the repo
+workflow: feature
+created: 2026-10-29T12:24:09.289Z
+updated: 2026-10-29T12:30:31.186Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The context and the knowledge are already named.
+    at: 2026-10-29T12:27:38.341Z
+  - stage: brainstorm
+    reason: The role file keeps the context, and generation reads the repo.
+    at: 2026-10-29T12:27:39.157Z
+  - stage: clarify_design
+    reason: The context file and the run prompt are the design.
+    at: 2026-10-29T12:27:41.393Z
+  - stage: clarify_tasks
+    reason: The tasks are the context file, the run, and the docs.
+    at: 2026-10-29T12:27:43.361Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: eb64f1f3f1cf0dfa3709e729677dda77ee9c5355
+    at: 2026-10-29T12:30:31.186Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
