@@ -10,3 +10,13 @@ These notes are not a QA sign-off. The person has not signed them.
 | `npm view` | Core lists 0.19.0. CLI latest is 0.18.0. CLI 0.19.0 is absent. |
 
 `pnpm test` is the workspace command and is not stamped yet. The publish script was not run locally.
+
+---
+
+## Latest run (2026-10-29T11:52:09.591Z)
+
+> Overall: PASS
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="e4497754c3fda39e62c668bb516101144931422a" result_count="1" -->
+
+- **Workspace tests**: exit 0 (`pnpm test`)

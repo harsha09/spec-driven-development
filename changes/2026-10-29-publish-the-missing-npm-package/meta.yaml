@@ -2,7 +2,7 @@ id: 2026-10-29-publish-the-missing-npm-package
 title: Publish the missing npm package
 workflow: feature
 created: 2026-10-29T11:49:51.765Z
-updated: 2026-10-29T11:50:17.304Z
+updated: 2026-10-29T11:52:09.591Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the two scripts and the maintainer page.
     at: 2026-10-29T11:50:16.507Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: e4497754c3fda39e62c668bb516101144931422a
+    at: 2026-10-29T11:52:09.591Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
