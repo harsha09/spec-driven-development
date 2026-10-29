@@ -1,6 +1,6 @@
 {
   "name": "@structured-vibe-coding/cli",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "sdd — local Spec-Driven Development CLI from Structured Vibe Coding. Keep intent and progress in git (Copilot, Claude Code, Grok, Ollama, Kilo Code).",
   "type": "module",
   "bin": {
