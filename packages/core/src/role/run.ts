@@ -4,6 +4,9 @@ import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
+import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
+import { loadBrain } from "../team/brain.js";
+import { runLoop } from "../team/loop.js";
 import {
   allowFilePath,
   canonicalRoleName,
@@ -12,6 +15,8 @@ import {
   readAllowFile,
   readRole,
 } from "./profile.js";
+import type { TeamConfig } from "./schema.js";
+import { readTeamConfig, resolveBot } from "./team.js";
 import { ROLE_TEXT, type RoleCommandResult, type RoleModel, type RoleProfile } from "./types.js";
 
 const DRAFT_KINDS = new Set(["code", "scenario", "release"]);
@@ -493,7 +498,22 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     await appendJson(latest, { type: "stopped" });
     return ok();
   }
-  const role = await readRole(root, name);
+  let roleName = name;
+  let team: TeamConfig | null = null;
+  let botName = "";
+  if (await pathExists(join(root, ".sdd", "team.yaml"))) {
+    const loaded = await readTeamConfig(root);
+    if ("error" in loaded) return fail(loaded.error);
+    const resolved = resolveBot(loaded.team, name);
+    if ("error" in resolved) {
+      if (resolved.error === "Name the bot.") return fail(resolved.error);
+    } else {
+      team = loaded.team;
+      botName = resolved.name;
+      roleName = resolved.role;
+    }
+  }
+  const role = await readRole(root, roleName);
   if (!role) return fail(ROLE_TEXT.notFound);
   if (!role.job.trim()) return fail(ROLE_TEXT.needsJob);
   const task = input.task ?? "";
@@ -536,6 +556,28 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
       ids: section.checks,
       section: section.id,
       decision: section.decision,
+    });
+  }
+
+  if (team && botName) {
+    let budget = 12000;
+    try {
+      const search = await loadSearchConfig(root);
+      budget = budgetForStage(search, undefined);
+    } catch (error) {
+      if (error instanceof SearchConfigError) return fail("search.yaml is invalid", runId);
+      throw error;
+    }
+    const brain = await loadBrain(root, team, botName, { text: task }, budget);
+    if ("error" in brain) return fail(brain.error, runId);
+    return runLoop({
+      root,
+      cfg: team,
+      brain,
+      model: input.model,
+      file,
+      roleName: role.name,
+      logName: name,
     });
   }
 

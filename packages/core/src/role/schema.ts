@@ -29,6 +29,12 @@ export const TeamSchema = z
     bots: z.array(botSchema).min(1),
     humans: z.array(humanSchema).default([]),
     role_wip: z.record(z.string().trim().min(1), z.number().int().positive()).optional(),
+    limits: z
+      .object({
+        loop_max_steps: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((team, ctx) => {

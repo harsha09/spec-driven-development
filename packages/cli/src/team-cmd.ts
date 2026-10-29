@@ -2,6 +2,7 @@ import {
   checkTeam,
   gitUserName,
   initTeam,
+  migrateTeamMemory,
   recordSignoff,
   showTeam,
 } from "@structured-vibe-coding/core";
@@ -69,10 +70,19 @@ const signoff = defineCommand({
   },
 });
 
+const migrate = defineCommand({
+  meta: { name: "migrate", description: "Move role-run memory into the bot directory" },
+  async run() {
+    await withProject(async ({ root }) => {
+      emit(await migrateTeamMemory(root));
+    });
+  },
+});
+
 export const teamCmd = defineCommand({
   meta: {
     name: "team",
     description: "Install a role team from a template and show it",
   },
-  subCommands: { init, show, check, signoff },
+  subCommands: { init, show, check, signoff, migrate },
 });
