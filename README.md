@@ -31,13 +31,13 @@ npm install -g @structured-vibe-coding/cli
 
 ```bash
 cd your-app
-sdd setup --no-agent
+sdd setup
 sdd go "Fix empty list crash" --no-agent
 # answer the question it prints
 sdd go --answer "People who open an empty list" --no-agent
 ```
 
-`sdd setup` creates three roles when the folder has no roles yet. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans the change, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks one question at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
+On a terminal, `sdd setup` asks one piece at a time. Press Enter to create three roles when the folder has no roles yet. `sdd setup --yes --no-agent` writes those roles without questions. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans the change, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks one question at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
 
 What they are, why that split helps, and how to set up a software team: [docs/guides/roles.md](./docs/guides/roles.md).
 
