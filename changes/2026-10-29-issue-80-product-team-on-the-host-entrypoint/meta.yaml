@@ -1,0 +1,40 @@
+id: 2026-10-29-issue-80-product-team-on-the-host-entrypoint
+title: Issue 80 product team on the host entrypoint
+workflow: feature
+created: 2026-10-29T05:55:22.602Z
+updated: 2026-10-29T06:01:46.409Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue already names the files, the line, and who must not override the repo.
+    at: 2026-10-29T05:58:00.659Z
+  - stage: brainstorm
+    reason: Option 1 is the issue recommendation. team.yaml order, otherwise role files by name.
+    at: 2026-10-29T05:58:01.413Z
+  - stage: clarify_design
+    reason: "The seams are in the design. One gap: an unparsed role file still counts as the repo team."
+    at: 2026-10-29T05:58:03.039Z
+  - stage: clarify_tasks
+    reason: The task list is the one roster gap. The rest of the entrypoint is already on this branch.
+    at: 2026-10-29T05:58:04.696Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 5b08deb3638395aa5df39ed60dcf34b4b4ece776
+    at: 2026-10-29T05:59:58.176Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
