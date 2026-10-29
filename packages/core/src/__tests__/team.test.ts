@@ -34,10 +34,13 @@ describe("team config", () => {
     expect(await readFile(join(root, ".sdd/roles/product-manager.md"), "utf8")).toContain(
       "accept a spec",
     );
+    expect(team).toContain("role: qa");
+    expect(await readFile(join(root, ".sdd/roles/qa.md"), "utf8")).toContain("record a QA result");
     const shown = await showTeam(root, "Ada Lovelace");
     expect(shown.stdout).toContain("Ada Lovelace (you)");
     expect(shown.stdout).toContain("rooms.commit: false");
     expect(shown.stdout).toContain("developer 2");
+    expect(shown.stdout).toContain("- qa role qa wip 1");
     expect(await readFile(join(root, ".sdd/routing.yaml"), "utf8")).toContain("stage: implement");
 
     const again = await initTeam(root, "software", "Ada Lovelace");
@@ -50,6 +53,10 @@ describe("team config", () => {
     const solo = await initTeam(root, "solo", null);
     expect(solo.exitCode).toBe(0);
     expect(await pathExists(join(root, ".sdd/routing.yaml"))).toBe(false);
+    expect(await pathExists(join(root, ".sdd/roles/qa.md"))).toBe(false);
+    const researchRoot = await project();
+    expect((await initTeam(researchRoot, "research", null)).exitCode).toBe(0);
+    expect(await pathExists(join(researchRoot, ".sdd/roles/qa.md"))).toBe(false);
     expect((await showTeam(root, null)).stdout).toContain("- (none)");
     await rm(join(root, ".sdd/team.yaml"));
     const blocked = await initTeam(root, "software", null);
@@ -75,6 +82,13 @@ describe("team config", () => {
     expect(text).toContain("name: builder");
     expect(text).toContain("owns:");
     expect(text).toContain("the short reading");
+    const qa = await createRoleFromTemplate(root, { name: "checker", template: "software/qa" });
+    expect(qa.exitCode).toBe(0);
+    const qaText = await readFile(join(root, ".sdd/roles/checker.md"), "utf8");
+    expect(qaText).toContain("name: checker");
+    expect(qaText).toContain("owns:");
+    expect(qaText).toContain("record a QA result");
+    expect(qaText).toContain("approvers:");
     await editRole(root, "builder", { job: "Keep the reading" });
     const edited = await readFile(join(root, ".sdd/roles/builder.md"), "utf8");
     expect(edited).toContain("job: Keep the reading");
