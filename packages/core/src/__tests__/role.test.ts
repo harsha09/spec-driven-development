@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
@@ -26,6 +27,22 @@ afterEach(async () => {
     if (dir) await rm(dir, { recursive: true, force: true });
   }
 });
+
+function git(root: string, args: string[]): string {
+  const result = spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout || "git failed");
+  return result.stdout.trim();
+}
+
+async function gitRepo(root: string): Promise<void> {
+  git(root, ["init", "-b", "main"]);
+  git(root, ["config", "user.email", "ada@example.com"]);
+  git(root, ["config", "user.name", "Ada Lovelace"]);
+  git(root, ["config", "commit.gpgsign", "false"]);
+  await writeFile(join(root, "keep.txt"), "keep\n", "utf8");
+  git(root, ["add", "keep.txt"]);
+  git(root, ["commit", "-m", "init"]);
+}
 
 async function project(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "sdd-role-"));
@@ -595,6 +612,60 @@ describe("role run", () => {
         expect(await pathExists(join(root, target))).toBe(false);
       }
     }
+  });
+
+  it("asks again after a new commit and ignores a rule with no sha", async () => {
+    const root = await project();
+    await builder(root);
+    await gitRepo(root);
+    const action = {
+      name: "write_file",
+      words: "Save the empty state",
+      inputs: { path: "src/a.ts", contents: "ok\n" },
+    };
+    const first = fake([json({ text: "draft", action })]);
+    await runRole(root, { name: "builder", task: "save", model: first.model, now: clock(0) });
+    expect(
+      (await allowRole(root, { runId: stamp(0), mode: "always", now: clock(30) })).exitCode,
+    ).toBe(0);
+    const head = git(root, ["rev-parse", "HEAD"]);
+    const allow = JSON.parse(await readFile(join(root, ".sdd/role-runs/allow.json"), "utf8")) as {
+      builder: { sha?: string };
+    };
+    expect(allow.builder.sha).toBe(head);
+    const second = fake([json({ text: "again", action })]);
+    const repeated = await runRole(root, {
+      name: "builder",
+      task: "save",
+      model: second.model,
+      now: clock(1),
+    });
+    expect(repeated.stdout).toBe("again");
+    git(root, ["commit", "--allow-empty", "-m", "later"]);
+    const third = fake([json({ text: "later", action })]);
+    const stale = await runRole(root, {
+      name: "builder",
+      task: "save",
+      model: third.model,
+      now: clock(2),
+    });
+    expect(stale.stdout).toContain(CHOICE);
+    expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("ok\n");
+
+    const bare = await project();
+    await builder(bare);
+    await gitRepo(bare);
+    await mkdir(join(bare, ".sdd/role-runs"), { recursive: true });
+    await writeFile(
+      join(bare, ".sdd/role-runs/allow.json"),
+      `${JSON.stringify({
+        builder: { tool: "write_file", inputs: { path: "src/a.ts", contents: "ok\n" } },
+      })}\n`,
+    );
+    const { model } = fake([json({ text: "draft", action })]);
+    const unmatched = await runRole(bare, { name: "builder", task: "save", model, now: clock(3) });
+    expect(unmatched.stdout).toContain(CHOICE);
+    expect(await pathExists(join(bare, "src/a.ts"))).toBe(false);
   });
 
   it("stays stopped when ask first is set, even if an always-allow rule matches", async () => {

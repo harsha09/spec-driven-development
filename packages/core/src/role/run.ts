@@ -2,6 +2,7 @@ import { appendFile } from "node:fs/promises";
 import { isAbsolute, join } from "pathe";
 import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
+import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
 import {
   allowFilePath,
@@ -367,13 +368,19 @@ async function readRule(root: string, roleName: string): Promise<StoredRule | nu
     typeof rec.tool === "string" ? rec.tool : typeof rec.name === "string" ? rec.name : "";
   if (!name) return null;
   if (!rec.inputs || typeof rec.inputs !== "object" || Array.isArray(rec.inputs)) return null;
+  const stored = typeof rec.sha === "string" ? rec.sha : "";
+  const head = await getHeadSha(root);
+  if (head && stored !== head) return null;
   return { name, inputs: rec.inputs as Record<string, unknown> };
 }
 
 async function saveRule(root: string, roleName: string, rule: StoredRule): Promise<void> {
   const path = allowFilePath(root);
   const existing = (await readAllowFile(root)) ?? {};
-  existing[roleName] = { tool: rule.name, inputs: rule.inputs };
+  const head = await getHeadSha(root);
+  existing[roleName] = head
+    ? { tool: rule.name, inputs: rule.inputs, sha: head }
+    : { tool: rule.name, inputs: rule.inputs };
   await writeText(path, `${JSON.stringify(existing, null, 2)}\n`);
 }
 
