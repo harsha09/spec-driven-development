@@ -1,0 +1,32 @@
+id: 2026-10-29-guided-setup-one-step-at-a-time
+title: Guided setup one step at a time
+workflow: feature
+created: 2026-10-29T15:11:47.399Z
+updated: 2026-10-29T15:24:18.395Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The tutorial steps are the reading.
+    at: 2026-10-29T15:12:10.407Z
+  - stage: brainstorm
+    reason: One command, a step table, and the existing writers.
+    at: 2026-10-29T15:12:11.250Z
+  - stage: clarify_design
+    reason: The steps and the file guards are the design.
+    at: 2026-10-29T15:12:12.072Z
+  - stage: clarify_tasks
+    reason: The tasks are the tour, the tests, and the docs.
+    at: 2026-10-29T15:12:12.852Z
+gates: {}
+verify_results: {}

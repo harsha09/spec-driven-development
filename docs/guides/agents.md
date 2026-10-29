@@ -15,7 +15,7 @@ You only need **one** AI coding tool. `sdd` installs a few small files for that 
 ## Just set it up (this is enough)
 
 ```bash
-# In your app folder — pick ONE:
+# In your app folder — pick ONE host, then press Enter through setup:
 sdd setup --ai copilot          # GitHub Copilot, plus planner, architect, and builder
 # sdd setup --ai grok
 # sdd setup --ai claude
@@ -26,6 +26,8 @@ sdd doctor
 sdd go "My first change"
 ```
 
+`sdd setup --yes --ai copilot` writes the same host and the three duties without the questions.
+
 `sdd init --here --ai copilot` installs that same host when you want to choose the workflow with `sdd new` yourself.
 
 `sdd setup` also writes planner, architect, and builder when you have no roles yet. Those are the three duties: planning, architecture, and construction. Each one follows the stages of the workflow you name, and `sdd go` hands the next stage to the next role. [Roles and duties](./roles) explains what they are, why that helps, and how to set up a software team instead.
@@ -34,7 +36,7 @@ That’s it for day one. The AI often opens after process commands so it can hel
 
 **Learn without the AI opening?** Add `--no-agent` (see [tutorial](../tutorials/first-change)).
 
-**No AI host at all?** Run `sdd setup --no-agent` or `sdd init --here --no-agent`. sdd installs no host files and no `AGENTS.md`, and nothing ever launches. `sdd doctor` treats this as a valid setup.
+**No AI host at all?** Run `sdd setup --yes --no-agent`, or `sdd setup --no-agent` and press Enter. `sdd init --here --no-agent` is the same host-free folder. sdd installs no host files and no `AGENTS.md`, and nothing ever launches. `sdd doctor` treats this as a valid setup.
 
 **Switch AI later:**
 
