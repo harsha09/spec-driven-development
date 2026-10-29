@@ -4,7 +4,7 @@
 
 > Change: Issue 80 product team on the host entrypoint
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="9b11cde7029d9366fcc66bde5c836576f876a6b2" result_count="1" -->
+<!-- sdd:verify stage="local_verify" head_sha="5b08deb3638395aa5df39ed60dcf34b4b4ece776" result_count="1" -->
 > At: 2026-10-29T05:59:58.175Z
 > Overall: PASS
 
