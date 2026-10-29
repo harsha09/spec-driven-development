@@ -108,7 +108,7 @@ sdd role room post "The list stays empty when the query is blank."
 
 `team-software` is requirements, clarifications, high-level design, low-level design, plan, test plan, development, pull-request review, QA testing, QA sign-off, product-owner review, and product-owner sign-off. Each stage waits for `sdd team signoff` on that commit. A role prepares the page and does not sign. Who prepares each stage, and how to assign those stages, are in [Roles and duties](../guides/roles).
 
-`sdd role room` prints the active change. `sdd role room --stage=<stage>` prints that stage. A change id in that position is read as a command. On `post`, `--change` and `--stage` select the file.
+`sdd role room` prints the active change. `sdd role room <change-id>` prints that change. `sdd role room --stage <stage>` and `sdd role room --stage=<stage>` print that stage. On `post`, `--change` and `--stage` select the file.
 
 A run named as a bot can read a file, search, run one allowlisted check, write a file, and commit on its own branch. The check result is `changes/<id>/evidence/<sha>.json`. Push and merge stay with a person.
 
