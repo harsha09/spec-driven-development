@@ -2,7 +2,7 @@ id: 2026-10-29-document-the-team-commands-that-work
 title: Document the team commands that work
 workflow: feature
 created: 2026-10-29T11:35:53.846Z
-updated: 2026-10-29T11:37:42.584Z
+updated: 2026-10-29T11:40:07.037Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the six pages.
     at: 2026-10-29T11:37:41.810Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 06d528420e5e3163e2f4938ec0e5c61216de7b26
+    at: 2026-10-29T11:40:07.037Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
