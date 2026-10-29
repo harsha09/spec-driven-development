@@ -1,0 +1,40 @@
+id: 2026-10-29-roles-follow-the-workflow-you-name
+title: Roles follow the workflow you name
+workflow: feature
+created: 2026-10-29T12:09:13.804Z
+updated: 2026-10-29T12:16:22.911Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The workflow and the stage list are already named.
+    at: 2026-10-29T12:09:33.399Z
+  - stage: brainstorm
+    reason: The role file lists the stage ids of the workflow the person starts.
+    at: 2026-10-29T12:09:34.239Z
+  - stage: clarify_design
+    reason: The route order and the routing file are the design.
+    at: 2026-10-29T12:09:36.061Z
+  - stage: clarify_tasks
+    reason: The tasks are the role file, the route, the room, and the docs.
+    at: 2026-10-29T12:09:37.883Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 0aa059c92f2d26e32fc2e2c741c42b76573d7622
+    at: 2026-10-29T12:16:22.911Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

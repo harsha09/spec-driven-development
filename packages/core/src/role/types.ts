@@ -1,4 +1,5 @@
 export interface RoleLists {
+  stages: string[];
   owns: string[];
   inputs: string[];
   outputs: string[];
@@ -24,6 +25,7 @@ export interface RoleProfile extends RoleLists {
 
 export function emptyRoleLists(): RoleLists {
   return {
+    stages: [],
     owns: [],
     inputs: [],
     outputs: [],
