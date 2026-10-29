@@ -31,10 +31,21 @@ npm install -g @structured-vibe-coding/cli
 
 ```bash
 cd your-app
+sdd setup --no-agent
+sdd go "Fix empty list crash" --no-agent
+# answer the question it prints
+sdd go --answer "People who open an empty list" --no-agent
+```
+
+`sdd setup` creates three roles when the folder has no roles yet. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans the change, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks one question at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
+
+What they are, why that split helps, and how to set up a software team: [docs/guides/roles.md](./docs/guides/roles.md).
+
+To pick one AI host yourself:
+
+```bash
 sdd init --here --ai copilot     # or grok | claude | ollama | kilo
-sdd doctor
 sdd new "Fix empty list crash" -w hotfix -y --no-agent
-# open the intent.md path it prints → write a few real sentences
 sdd next --no-agent
 sdd complete --no-agent
 ```
@@ -60,6 +71,7 @@ sdd backlog start F-001
 | Guide | Link |
 |-------|------|
 | Start in 10 minutes | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
+| Roles and duties | [docs/guides/roles.md](./docs/guides/roles.md) |
 | Everyday commands | [docs/guides/everyday-loop.md](./docs/guides/everyday-loop.md) |
 | New product | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
 | Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
@@ -73,9 +85,12 @@ The first loop does not need this.
 ```bash
 sdd team init --template software
 sdd team show
-sdd role room
-sdd role room post "The list stays empty when the query is blank."
+sdd role context developer --text "This app uses pnpm."
+sdd new "Ship the export" -w team-software -y
+sdd team signoff --note "I accept this stage"
 ```
+
+`team-software` stops on every stage until a person signs that commit. A role prepares the page and does not sign. Merge stays with you after product-owner sign-off. Who owns each stage, and the commands that assign those stages, are in [docs/guides/roles.md](./docs/guides/roles.md).
 
 `sdd role room` prints the active change. A change id in that position is read as a command. Notes: [docs/reference/cli.md](./docs/reference/cli.md).
 

@@ -22,11 +22,14 @@ Binary: **`sdd`**
 
 ```bash
 cd my-app
-sdd init --here --ai copilot    # or grok | claude | ollama | kilo
-sdd doctor
-sdd new "Add expense CSV export" -w feature -y
-# edit feature.md, then sdd next … sdd complete
+sdd setup --ai copilot          # or grok | claude | ollama | kilo
+sdd go "Add expense CSV export"
+# answer each question, then the next role drafts its stage
 ```
+
+`sdd init --here --ai copilot` then `sdd new "…" -w feature -y` is the same host when you want to walk the stages yourself.
+
+Setup writes three roles when the folder has none. The planner plans, the architect names the modules, and the builder builds the change pack. Each one follows the stages of the workflow you name, and `sdd go` hands the next stage to the next role. What they are, why that helps, and how to set up a software team: https://harsha09.github.io/spec-driven-development/guides/roles/
 
 **New product:**
 
@@ -76,6 +79,7 @@ https://harsha09.github.io/spec-driven-development/reference/cli/
 | MCP sources | https://harsha09.github.io/spec-driven-development/guides/mcp/ |
 | Simple feature | https://harsha09.github.io/spec-driven-development/guides/simple-feature/ |
 | CLI | https://harsha09.github.io/spec-driven-development/reference/cli/ |
+| Roles and duties | https://harsha09.github.io/spec-driven-development/guides/roles/ |
 
 ## License
 

@@ -13,6 +13,18 @@ Do the [10-minute tutorial](../tutorials/first-change) once first. It includes a
 
 ---
 
+## First time
+
+```bash
+sdd setup
+sdd go "What you want to build"
+sdd go --answer "The answer to the question it printed"
+```
+
+`sdd setup` creates planner, architect, and builder when the folder has no role files. The planner plans, the architect names the modules, and the builder builds the change pack. Pass `-w` to map those duties onto another workflow. `sdd go` asks, drafts, and hands the next stage to the next role. What they are, why that helps, and the setup commands are in [Roles and duties](../guides/roles). Give a role extra context with `sdd role context <name> --text "..."`.
+
+---
+
 ## Tiny fix
 
 ```bash
@@ -86,9 +98,15 @@ The loops above do not need this. Use it when more than one role works in the re
 ```bash
 sdd team init --template software
 sdd team show
+sdd role edit developer --stages implement
+sdd role context developer --text "This app uses pnpm."
+sdd new "Ship the export" -w team-software -y
+sdd team signoff --note "I accept this stage"
 sdd role room
 sdd role room post "The list stays empty when the query is blank."
 ```
+
+`team-software` is requirements, clarifications, high-level design, low-level design, plan, test plan, development, pull-request review, QA testing, QA sign-off, product-owner review, and product-owner sign-off. Each stage waits for `sdd team signoff` on that commit. A role prepares the page and does not sign. Who prepares each stage, and how to assign those stages, are in [Roles and duties](../guides/roles).
 
 `sdd role room` prints the active change. `sdd role room --stage=<stage>` prints that stage. A change id in that position is read as a command. On `post`, `--change` and `--stage` select the file.
 

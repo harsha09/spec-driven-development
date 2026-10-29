@@ -1,7 +1,8 @@
 name: team-software
 description: >
-  Software team — requirements, architecture, stories, plan, tasks,
-  implement, pull-request review, acceptance
+  Software team sign-off — requirements, clarifications, high-level design,
+  low-level design, plan, test plan, development, pull-request review,
+  QA testing, QA sign-off, product-owner review, and product-owner sign-off
 version: 1
 recommendation:
   priority: 10
@@ -14,7 +15,7 @@ stages:
     kind: standard
     skippable: false
     owner: product-manager
-    collaborates: [architect]
+    collaborates: [architect, research-assistant]
     artifacts:
       - id: requirements
         path: requirements.md
@@ -25,46 +26,83 @@ stages:
       mode: human_approval
       approvers: [human]
       checklist:
-        - "The person accepted the reading"
+        - "The person signed the reading"
     agent_context:
       instructions: |
         Write the short reading in requirements.md. Do not accept the spec.
-        The person signs this gate.
+        The person signs this stage.
 
-  - id: architecture
-    title: Architecture
-    summary: Module boundaries for this change
+  - id: clarifications
+    title: Clarifications
+    summary: Questions the reading still needs answered
+    kind: standard
+    skippable: false
+    owner: product-manager
+    collaborates: [research-assistant]
+    artifacts:
+      - id: clarifications
+        path: clarifications.md
+        template: clarify.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the clarifications"
+    agent_context:
+      instructions: |
+        Write the open questions and the answers the person gave.
+        A role does not sign this stage.
+
+  - id: hld
+    title: High-level design
+    summary: Modules and the seams between them
     kind: standard
     skippable: false
     owner: architect
     collaborates: [product-manager]
     artifacts:
-      - id: architecture
-        path: architecture.md
-        template: greenfield-architecture.md
+      - id: hld
+        path: hld.md
+        template: hl-design.md
         required: true
     gate:
-      type: soft
-      approvers: [architect]
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the high-level design"
+    agent_context:
+      instructions: |
+        Name the modules. Do not accept the spec.
+        The person signs this stage.
 
-  - id: stories
-    title: Stories
-    summary: One story file the product owner can ask about
+  - id: lld
+    title: Low-level design
+    summary: How one module does the change
     kind: standard
     skippable: false
-    owner: product-owner
-    collaborates: [dev-lead]
+    owner: architect
+    collaborates: [developer]
     artifacts:
-      - id: story
-        path: stories/S-001.md
-        template: story.md
+      - id: lld
+        path: lld.md
+        template: lld.md
         required: true
     gate:
-      type: soft
-      approvers: [product-owner]
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the low-level design"
+    agent_context:
+      instructions: |
+        Name the functions and the data for this change.
+        A role does not sign this stage.
 
   - id: plan
-    title: Plan
+    title: Plan approval
     summary: How the work is split
     kind: standard
     skippable: false
@@ -75,39 +113,64 @@ stages:
         path: plan.md
         template: plan.md
         required: true
-    gate:
-      type: soft
-      approvers: [dev-lead]
-
-  - id: tasks
-    title: Tasks
-    summary: One file per task
-    kind: standard
-    skippable: false
-    owner: dev-lead
-    collaborates: [developer]
-    artifacts:
       - id: task
         path: tasks/T-001.md
         template: task.md
         required: true
     gate:
-      type: soft
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the plan"
+    agent_context:
+      instructions: |
+        Write the order of work and the first task file.
+        A role does not sign this stage.
+
+  - id: test_plan
+    title: Test plan
+    summary: What QA will try before the change is called done
+    kind: standard
+    skippable: false
+    owner: qa
+    collaborates: [developer]
+    artifacts:
+      - id: test-plan
+        path: test-plan.md
+        template: local-test-plan.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the test plan"
+    agent_context:
+      instructions: |
+        Write what to try. Do not record a result.
+        The person signs this stage.
 
   - id: implement
-    title: Implement
+    title: Development
     summary: One item for each task file
     kind: standard
     skippable: false
     owner: developer
+    collaborates: [dev-lead]
     items_from: tasks/T-*.md
     artifacts: []
     gate:
-      type: soft
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the development"
     agent_context:
       instructions: |
         When this stage starts, items.yaml has one row per tasks/T-*.md file.
         Build those tasks. Do not accept a spec.
+        The person signs this stage.
 
   - id: pr_review
     title: Pull request review
@@ -122,31 +185,108 @@ stages:
         template: review.md
         required: true
     gate:
-      type: soft
-      approvers: [architect, dev-lead]
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the pull-request review"
+    agent_context:
+      instructions: |
+        Write the review. Do not merge.
+        The person signs this stage.
 
-  - id: acceptance
-    title: Acceptance
-    summary: The person tries the change and keeps the final say
+  - id: qa_testing
+    title: QA testing
+    summary: What QA tried on this commit
     kind: standard
     skippable: false
-    owner: product-owner
-    collaborates: [product-manager, architect]
+    owner: qa
+    collaborates: [developer]
     artifacts:
-      - id: acceptance
-        path: acceptance.md
-        template: acceptance.md
+      - id: qa-testing
+        path: qa-testing.md
+        template: qa-testing.md
         required: true
     gate:
       type: hard
       mode: human_approval
       approvers: [human]
       checklist:
-        - "The person recorded what they saw"
+        - "The person signed the QA testing note"
     agent_context:
       instructions: |
-        Write what the person can try. Do not record the QA result.
-        The person signs this gate.
+        Write what was tried. Do not record a pass, and do not sign.
+        The person signs this stage.
+
+  - id: qa_signoff
+    title: QA sign-off
+    summary: The person's QA words for this commit
+    kind: standard
+    skippable: false
+    owner: qa
+    collaborates: [product-owner]
+    artifacts:
+      - id: qa-signoff
+        path: qa-signoff.md
+        template: signoff.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed QA for this commit"
+    agent_context:
+      instructions: |
+        Prepare what the person is asked to sign.
+        A role cannot sign. The sign-off stores the person's words and the git SHA.
+
+  - id: po_review
+    title: Product-owner review
+    summary: Whether the change matches the reading
+    kind: standard
+    skippable: false
+    owner: product-owner
+    collaborates: [product-manager]
+    artifacts:
+      - id: po-review
+        path: po-review.md
+        template: review.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed the product-owner review"
+    agent_context:
+      instructions: |
+        Write whether the change matches the reading. Do not accept it.
+        The person signs this stage.
+
+  - id: po_signoff
+    title: Product-owner sign-off
+    summary: The person's final words for this commit
+    kind: standard
+    skippable: false
+    owner: product-owner
+    collaborates: [qa]
+    artifacts:
+      - id: po-signoff
+        path: po-signoff.md
+        template: signoff.md
+        required: true
+    gate:
+      type: hard
+      mode: human_approval
+      approvers: [human]
+      checklist:
+        - "The person signed off for this commit"
+    agent_context:
+      instructions: |
+        Prepare what the person is asked to sign.
+        A role cannot sign. The sign-off stores the person's words and the git SHA.
+        Merge stays a person action after this sign-off.
 
 on_complete:
   archive: false

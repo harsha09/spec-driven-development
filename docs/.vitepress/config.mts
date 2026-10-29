@@ -167,9 +167,11 @@ export default defineConfig({
     siteTitle: "sdd",
     nav: [
       { text: "Start (10 min)", link: "/tutorials/first-change" },
+      { text: "Roles", link: "/guides/roles" },
       {
         text: "Guides",
         items: [
+          { text: "Roles and duties", link: "/guides/roles" },
           { text: "Everyday loop", link: "/guides/everyday-loop" },
           { text: "Simple feature", link: "/guides/simple-feature" },
           { text: "New product", link: "/guides/greenfield" },
@@ -207,6 +209,7 @@ export default defineConfig({
       {
         text: "Do the work",
         items: [
+          { text: "Roles and duties", link: "/guides/roles" },
           { text: "Everyday loop", link: "/guides/everyday-loop" },
           { text: "Simple feature", link: "/guides/simple-feature" },
           { text: "New product", link: "/guides/greenfield" },
