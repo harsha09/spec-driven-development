@@ -1,8 +1,72 @@
 const SLUG_MAX = 60;
 
+function isSpace(ch: string): boolean {
+  if (ch.length !== 1) return false;
+  const code = ch.charCodeAt(0);
+  return (
+    code === 9 ||
+    code === 10 ||
+    code === 11 ||
+    code === 12 ||
+    code === 13 ||
+    code === 32 ||
+    code === 0xa0 ||
+    code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code === 0x2028 ||
+    code === 0x2029 ||
+    code === 0x202f ||
+    code === 0x205f ||
+    code === 0x3000 ||
+    code === 0xfeff
+  );
+}
+
+function isDigit(ch: string): boolean {
+  return ch.length === 1 && ch >= "0" && ch <= "9";
+}
+
+function isSlugChar(ch: string): boolean {
+  return ch.length === 1 && ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9"));
+}
+
 /** Trailing `#152` or `(#152)`. Leading zeros are kept. Bare numbers are ordinary tokens. */
 function trailingIssueRef(input: string): string | undefined {
-  return input.match(/#\s*(\d+)\s*\)?\s*$/)?.[1];
+  let i = input.length - 1;
+  while (i >= 0 && isSpace(input[i] ?? "")) i -= 1;
+  if (i >= 0 && input[i] === ")") {
+    i -= 1;
+    while (i >= 0 && isSpace(input[i] ?? "")) i -= 1;
+  }
+  const digits: string[] = [];
+  while (i >= 0 && isDigit(input[i] ?? "")) {
+    digits.push(input[i] ?? "");
+    i -= 1;
+  }
+  if (digits.length === 0) return undefined;
+  while (i >= 0 && isSpace(input[i] ?? "")) i -= 1;
+  if (input[i] !== "#") return undefined;
+  digits.reverse();
+  return digits.join("");
+}
+
+function collapse(input: string): string {
+  let out = "";
+  let dash = false;
+  for (const ch of input) {
+    if (ch === "'" || ch === '"') continue;
+    if (isSlugChar(ch)) {
+      out += ch;
+      dash = false;
+      continue;
+    }
+    if (!dash && out.length > 0) {
+      out += "-";
+      dash = true;
+    }
+  }
+  if (out.endsWith("-")) return out.slice(0, -1);
+  return out;
 }
 
 /**
@@ -11,12 +75,7 @@ function trailingIssueRef(input: string): string | undefined {
  * A trailing `#NNN` is kept whole when it fits, never sliced into a shorter number.
  */
 export function slugify(input: string): string {
-  const normalized = input
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const normalized = collapse(input.toLowerCase().trim());
 
   if (normalized.length <= SLUG_MAX) return normalized;
 
