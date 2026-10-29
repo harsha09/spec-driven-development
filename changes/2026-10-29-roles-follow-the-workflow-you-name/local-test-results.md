@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Roles follow the workflow you name** · `2026-10-29-roles-follow-the-workflow-you-name`
+# Local verify results
 
-## Results
+> Change: Roles follow the workflow you name
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="0aa059c92f2d26e32fc2e2c741c42b76573d7622" result_count="1" -->
+> At: 2026-10-29T12:16:22.909Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
