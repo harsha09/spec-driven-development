@@ -2,7 +2,7 @@ id: 2026-10-29-give-each-role-a-context-from-the-developer-or-the-repo
 title: Give each role a context from the developer or the repo
 workflow: feature
 created: 2026-10-29T12:24:09.289Z
-updated: 2026-10-29T12:27:44.154Z
+updated: 2026-10-29T12:30:31.186Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the context file, the run, and the docs.
     at: 2026-10-29T12:27:43.361Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: eb64f1f3f1cf0dfa3709e729677dda77ee9c5355
+    at: 2026-10-29T12:30:31.186Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

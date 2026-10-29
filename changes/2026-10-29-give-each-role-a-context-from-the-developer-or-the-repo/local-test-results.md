@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Give each role a context from the developer or the repo** · `2026-10-29-give-each-role-a-context-from-the-developer-or-the-repo`
+# Local verify results
 
-## Results
+> Change: Give each role a context from the developer or the repo
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="eb64f1f3f1cf0dfa3709e729677dda77ee9c5355" result_count="1" -->
+> At: 2026-10-29T12:30:31.184Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
