@@ -2,7 +2,7 @@ id: 2026-10-29-issue-66-evidence
 title: Issue 66 evidence
 workflow: feature
 created: 2026-10-29T11:20:32.642Z
-updated: 2026-10-29T11:21:28.195Z
+updated: 2026-10-29T11:25:11.308Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: Tools, loop, room cite, tests, and one docs paragraph.
     at: 2026-10-29T11:21:27.398Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: a51d81326c3ee86914c0de848fcc015a63cf2643
+    at: 2026-10-29T11:25:11.308Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
