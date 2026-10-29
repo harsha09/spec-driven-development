@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Issue 74 AIDLC sign-off sequence before merge** · `2026-10-29-issue-74-aidlc-sign-off-sequence-before-merge`
+# Local verify results
 
-## Results
+> Change: Issue 74 AIDLC sign-off sequence before merge
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="141079003966e823395a8f2ef9cc4f0f08a82356" result_count="1" -->
+> At: 2026-10-29T14:30:14.532Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
