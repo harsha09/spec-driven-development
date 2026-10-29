@@ -16,6 +16,8 @@ hero:
 features:
   - title: Simple commands
     details: "setup → go, or new → fill a short file → next → complete. You always know where you are with sdd status."
+  - title: Roles with a duty
+    details: "Planner, architect, and builder each follow the stages of the workflow you name. sdd go asks their questions, and with a role model it hands the next stage to the next role. You still decide."
   - title: As light or as heavy as you need
     details: Tiny fix? Three steps. Real feature? A bit more. New product or big platform work? Longer path. Same tool.
   - title: Works with your AI
@@ -33,7 +35,11 @@ sdd setup --no-agent
 sdd go "Fix empty list crash" --no-agent
 ```
 
-`sdd setup` writes planner, architect, and builder when you have no roles yet. `sdd go` asks their questions one at a time. A named host is `sdd setup --ai copilot`, or `sdd init --here --ai copilot` when you want to pick the workflow yourself.
+`sdd setup` writes three roles when you have no roles yet. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks their questions one at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
+
+What they are, why that split helps, and the setup for a software team: **[Roles and duties](./guides/roles)**.
+
+A named host is `sdd setup --ai copilot`, or `sdd init --here --ai copilot` when you want to pick the workflow yourself.
 
 Full walkthrough with a paste-ready example: **[Start in 10 minutes](./tutorials/first-change)**.
 
@@ -48,13 +54,13 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | I want to… | Open this |
 |------------|-----------|
 | **Learn sdd right now** | [Start in 10 minutes](./tutorials/first-change) |
+| **Set up roles and duties** | [Roles and duties](./guides/roles) |
 | **See the daily commands** | [Everyday loop](./guides/everyday-loop) |
 | **Add a feature to my app** | [Simple feature](./guides/simple-feature) |
 | **Build a new product from an idea** | [New product (greenfield)](./guides/greenfield) |
 | **Do serious / multi-team work** | [Enterprise path](./guides/enterprise) |
 | **Look up a command** | [CLI reference](./reference/cli) |
-| **See which role follows which stage** | [Roles, duties, and workflows](./reference/workflows#roles-duties-and-the-workflow-they-follow) |
-| **Name a team in the repo** | [Everyday loop](./guides/everyday-loop) |
+| **Name a team in the repo** | [Roles and duties](./guides/roles) |
 
 ---
 

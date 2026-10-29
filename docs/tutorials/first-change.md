@@ -83,7 +83,17 @@ sdd go "Fix empty list crash" --no-agent
 sdd go --answer "People who open an empty list" --no-agent
 ```
 
-`sdd setup` writes planner, architect, and builder when `.sdd/roles` is empty. `sdd go` asks one question, drafts the stage, and hands the next stage to the role that lists it. A hard gate that needs you stops. The role does not sign it. The duty each role follows, and the stage map for every workflow, are in [Roles, duties, and the workflow they follow](../reference/workflows#roles-duties-and-the-workflow-they-follow).
+`sdd setup` writes three roles when `.sdd/roles` is empty:
+
+| Role | Duty | What you get |
+|------|------|----------------|
+| planner | planning | Asks who this is for, and how you will know it worked |
+| architect | architecture | Asks which module owns the change, and names the modules |
+| builder | construction | Takes the tasks and the implementation note |
+
+That split is the mapping: each duty follows the stages of the `feature` workflow. `sdd go` asks one question at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. A hard gate that needs you stops. The role does not sign it.
+
+What the duties are, why they help, and how to point them at another workflow or a software team: [Roles and duties](../guides/roles).
 
 Pick **one** AI tool when you want that host installed (you can change later):
 
