@@ -168,7 +168,22 @@ export function formatTeam(team: TeamConfig, gitUser: string | null): string {
       lines.push(`- ${name} ${team.role_wip[name]}`);
     }
   }
+  if (team.limits?.loop_max_steps) {
+    lines.push(`limits.loop_max_steps: ${team.limits.loop_max_steps}`);
+  }
   return lines.join("\n");
+}
+
+export function resolveBot(
+  team: TeamConfig,
+  name: string,
+): TeamConfig["bots"][number] | { error: string } {
+  const byName = team.bots.find((bot) => bot.name === name);
+  if (byName) return byName;
+  const byRole = team.bots.filter((bot) => bot.role === name);
+  if (byRole.length === 1) return byRole[0]!;
+  if (byRole.length > 1) return { error: "Name the bot." };
+  return { error: "Bot not found." };
 }
 
 export async function showTeam(root: string, gitUser: string | null): Promise<RoleCommandResult> {

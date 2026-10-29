@@ -28,7 +28,8 @@ export function conversationDir(root: string, name: string): string {
   return join(root, ".sdd", "role-runs", "conversation", name);
 }
 
-export function memoryDir(root: string, name: string): string {
+export function memoryDir(root: string, name: string, team = false): string {
+  if (team) return join(root, ".sdd", "agents", name);
   return join(root, ".sdd", "role-runs", "memory", name);
 }
 
@@ -262,9 +263,36 @@ export async function deleteRole(root: string, nameInput: string): Promise<RoleC
   if (!(await pathExists(path))) return fail(ROLE_TEXT.notFound);
   await removePath(path);
   await removePath(conversationDir(root, name));
+  await removeBotBrain(root, name);
   await removePath(memoryDir(root, name));
   await removeAllowKey(root, name);
   return ok();
+}
+
+/** Team mode keeps the inbox. Only the brain files for that role's bots go. */
+async function removeBotBrain(root: string, roleName: string): Promise<void> {
+  const teamPath = join(root, ".sdd", "team.yaml");
+  if (!(await pathExists(teamPath))) return;
+  let raw: unknown;
+  try {
+    raw = parseYaml(await readText(teamPath));
+  } catch {
+    return;
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+  const bots = (raw as { bots?: unknown }).bots;
+  if (!Array.isArray(bots)) return;
+  for (const bot of bots) {
+    if (!bot || typeof bot !== "object" || Array.isArray(bot)) continue;
+    const rec = bot as { name?: unknown; role?: unknown };
+    const botName = typeof rec.name === "string" ? rec.name : "";
+    const botRole = typeof rec.role === "string" ? rec.role : "";
+    if (botName !== roleName && botRole !== roleName) continue;
+    if (!canonicalRoleName(botName)) continue;
+    const dir = memoryDir(root, botName, true);
+    await removePath(join(dir, "memory.md"));
+    await removePath(join(dir, "lessons.jsonl"));
+  }
 }
 
 async function removeAllowKey(root: string, name: string): Promise<void> {
