@@ -138,6 +138,71 @@ export function isSubstantiveArtifactContent(content: string): boolean {
   return meaningful.length >= 32;
 }
 
+/** Level-2 heading text. A `.+?` match against draft text is polynomial. */
+export function h2Title(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("##") || trimmed.startsWith("###")) return null;
+  const rest = trimmed.slice(2);
+  if (!rest.startsWith(" ") && !rest.startsWith("\t")) return null;
+  const text = rest.trim();
+  return text.length > 0 ? text : null;
+}
+
+function isTaskStub(line: string): boolean {
+  const text = line
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/, "")
+    .replace(/^\[[ xX]\]\s*/, "")
+    .trim();
+  return /^Task \d+$/i.test(text);
+}
+
+function h2Sections(content: string): Map<string, string> {
+  const buffers = new Map<string, string[]>();
+  let current: string | null = null;
+  for (const line of content.split(/\r?\n/)) {
+    const title = h2Title(line);
+    if (title) {
+      current = title;
+      if (!buffers.has(current)) buffers.set(current, []);
+      continue;
+    }
+    if (current) buffers.get(current)?.push(line);
+  }
+  const sections = new Map<string, string>();
+  for (const [heading, lines] of buffers) sections.set(heading, lines.join("\n"));
+  return sections;
+}
+
+function sectionHasLine(body: string): boolean {
+  const rawLines = body.split(/\r?\n/);
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i] ?? "";
+    const trimmed = line.trim();
+    if (!trimmed || /^Request:/.test(trimmed) || /^#{1,6}\s+/.test(trimmed)) continue;
+    if (isTableRow(trimmed)) {
+      const next = rawLines[i + 1]?.trim() ?? "";
+      if (isSeparatorRow(trimmed) || isSeparatorRow(next)) continue;
+      const kept = tableRowToText(trimmed);
+      if (!kept || isTaskStub(kept) || isInstructionalLine(kept)) continue;
+      return true;
+    }
+    if (isInstructionalLine(line) || isTaskStub(line)) continue;
+    return true;
+  }
+  return false;
+}
+
+/** Guide-only. `sdd next` keeps using `isSubstantiveArtifactContent`. */
+export function headingsFilled(content: string, headings: string[]): boolean {
+  if (headings.length === 0) return true;
+  const sections = h2Sections(content);
+  for (const heading of headings) {
+    const body = sections.get(heading);
+    if (body === undefined || !sectionHasLine(body)) return false;
+  }
+  return true;
+}
+
 export function incompleteArtifactReason(path: string, content: string | null): string | null {
   if (content == null) {
     return `Missing required artifact: ${path}`;
