@@ -2,7 +2,7 @@ id: 2026-10-29-roles-follow-the-workflow-you-name
 title: Roles follow the workflow you name
 workflow: feature
 created: 2026-10-29T12:09:13.804Z
-updated: 2026-10-29T12:09:38.748Z
+updated: 2026-10-29T12:16:22.911Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: The tasks are the role file, the route, the room, and the docs.
     at: 2026-10-29T12:09:37.883Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 0aa059c92f2d26e32fc2e2c741c42b76573d7622
+    at: 2026-10-29T12:16:22.911Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
