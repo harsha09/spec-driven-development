@@ -42,6 +42,17 @@ function textArg(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function stageList(value: unknown): string[] | undefined | "bad" {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") return "bad";
+  const parts = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (parts.length === 0) return "bad";
+  return parts;
+}
+
 function boolArg(value: unknown): boolean | undefined | "bad" {
   if (value === undefined) return undefined;
   if (value === true || value === "true") return true;
@@ -58,11 +69,20 @@ const create = defineCommand({
     job: { type: "string", description: "One job for this role" },
     description: { type: "string", description: "Durable description" },
     template: { type: "string", description: "Shipped role template, such as software/developer" },
+    stages: {
+      type: "string",
+      description: "Comma-separated stage ids of the workflow this role follows",
+    },
     "ask-first": { type: "string", description: "true or false. Default false" },
   },
   async run({ args }) {
     const ask = boolArg(args["ask-first"]);
     if (ask === "bad") process.exit(1);
+    const stages = stageList(args.stages);
+    if (stages === "bad") {
+      process.stdout.write("A stage list is not valid.\n");
+      process.exit(1);
+    }
     const positional = textArg(args.roleName);
     const flagged = textArg(args.name);
     if (positional && flagged && positional !== flagged) {
@@ -73,15 +93,18 @@ const create = defineCommand({
     await withProject(async ({ root }) => {
       const template = textArg(args.template);
       if (template) {
-        emit(
-          await createRoleFromTemplate(root, {
-            name,
-            template,
-            label: textArg(args.label),
-            job: textArg(args.job),
-            description: textArg(args.description),
-          }),
-        );
+        const created = await createRoleFromTemplate(root, {
+          name,
+          template,
+          label: textArg(args.label),
+          job: textArg(args.job),
+          description: textArg(args.description),
+        });
+        if (created.exitCode !== 0 || !stages) {
+          emit(created);
+          return;
+        }
+        emit(await editRole(root, name, { stages }));
         return;
       }
       if (!textArg(args.label)) {
@@ -95,6 +118,7 @@ const create = defineCommand({
           job: textArg(args.job) ?? "",
           description: textArg(args.description),
           askFirst: ask === true,
+          stages,
         }),
       );
     });
@@ -108,11 +132,20 @@ const edit = defineCommand({
     label: { type: "string", description: "New label" },
     job: { type: "string", description: "New job" },
     description: { type: "string", description: "New description" },
+    stages: {
+      type: "string",
+      description: "Comma-separated stage ids of the workflow this role follows",
+    },
     "ask-first": { type: "string", description: "true or false" },
   },
   async run({ args }) {
     const ask = boolArg(args["ask-first"]);
     if (ask === "bad") process.exit(1);
+    const stages = stageList(args.stages);
+    if (stages === "bad") {
+      process.stdout.write("A stage list is not valid.\n");
+      process.exit(1);
+    }
     await withProject(async ({ root }) => {
       emit(
         await editRole(root, args.name, {
@@ -120,6 +153,7 @@ const edit = defineCommand({
           job: textArg(args.job),
           description: textArg(args.description),
           askFirst: typeof ask === "boolean" ? ask : undefined,
+          stages,
         }),
       );
     });

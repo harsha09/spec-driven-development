@@ -41,7 +41,9 @@ describe("team config", () => {
     expect(shown.stdout).toContain("rooms.commit: true");
     expect(shown.stdout).toContain("developer 2");
     expect(shown.stdout).toContain("- qa role qa wip 1");
-    expect(await readFile(join(root, ".sdd/routing.yaml"), "utf8")).toContain("stage: implement");
+    const routing = await readFile(join(root, ".sdd/routing.yaml"), "utf8");
+    expect(routing).toContain("name the next owner");
+    expect(routing).not.toContain("stage:");
 
     const again = await initTeam(root, "software", "Ada Lovelace");
     expect(again.stdout).toContain("Nothing was written");

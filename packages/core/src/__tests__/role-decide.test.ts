@@ -135,6 +135,11 @@ describe("route decides only when no rule matched", () => {
       return reply("developer", 0.9);
     };
     const deps = { env: { SDD_DECIDE_MODEL: "decide" }, runCommand };
+    await writeFile(
+      join(root, ".sdd/routing.yaml"),
+      "rules:\n  - id: implement\n    stage: implement\n    role: developer\n",
+      "utf8",
+    );
     expect((await routeRole(root, { stage: "implement" }, deps)).stdout).toContain(
       "rule implement",
     );

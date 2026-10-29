@@ -31,7 +31,7 @@ describe("role router", () => {
     const routed = await routeRole(root, { stage: "implement", artifact: "tasks/T-001.md" });
     expect(routed).toMatchObject({
       exitCode: 0,
-      stdout: "role developer\nreason Rule implement matches.\nrule implement",
+      stdout: "Ask the human.\nNo rule matched.",
     });
 
     await writeFile(
@@ -93,6 +93,52 @@ describe("role router", () => {
     });
     expect((await takeRole(root, { artifact: "the change pack for one service" })).exitCode).toBe(
       1,
+    );
+  });
+
+  it("follows the stages a role lists on the workflow that was started", async () => {
+    const root = await project();
+    await initProject({ projectRoot: root });
+    const config = await loadConfig(root);
+    const change = await createChange({
+      projectRoot: root,
+      config,
+      title: "Add a filter",
+      workflowName: "feature",
+    });
+    await setActiveChange(root, config, change.id);
+    await createRole(root, {
+      name: "analyst",
+      label: "Analyst",
+      job: "Write the reading",
+      stages: ["intent", "design"],
+    });
+    await createRole(root, {
+      name: "builder",
+      label: "Builder",
+      job: "Build the change",
+      stages: ["implement"],
+    });
+
+    const reading = await routeRole(root, {});
+    expect(reading.stdout).toBe(
+      "role analyst\nreason Role analyst lists stage intent.\nrule role-stage",
+    );
+    expect((await routeRole(root, { stage: "tasks" })).stdout).toBe(
+      "Ask the human.\nNo rule matched.",
+    );
+    expect((await routeRole(root, { stage: "implement" })).stdout).toBe(
+      "role builder\nreason Role builder lists stage implement.\nrule role-stage",
+    );
+
+    await createRole(root, {
+      name: "second",
+      label: "Second",
+      job: "Also write the reading",
+      stages: ["intent"],
+    });
+    expect((await routeRole(root, { stage: "intent" })).stdout).toBe(
+      "Ask the human.\nTwo roles list this stage.",
     );
   });
 

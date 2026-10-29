@@ -7,7 +7,7 @@ import { ensureDir, pathExists, readText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { decide } from "../role/models/decide.js";
 import { loadModels } from "../role/models/schema.js";
-import { readRole } from "../role/profile.js";
+import { readRole, rolesListingStage } from "../role/profile.js";
 import { critiquePrompt, revisionPrompt } from "../role/prompts.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
@@ -143,6 +143,17 @@ async function openChange(root: string, change?: string): Promise<Opened | RoleC
 
 function isFailure(value: object): value is RoleCommandResult {
   return "exitCode" in value;
+}
+
+export function stageMemberNames(
+  stage: { owner?: string; collaborates?: string[] },
+  listed: string[],
+): string[] {
+  const named = [stage.owner, ...(stage.collaborates ?? [])].filter(
+    (name): name is string => !!name,
+  );
+  if (named.length > 0) return named;
+  return listed;
 }
 
 function memberBots(
@@ -312,10 +323,15 @@ export async function reviewRoom(
   if (!safeId(stageId)) return fail("A stage id is not valid.");
   const stage = getStage(opened.workflow, opened.meta, stageId);
   if (!stage) return fail("Stage not found.");
+  const baked = stageMemberNames(stage, []);
+  let listed: string[] = [];
+  if ((!input.roles || input.roles.length === 0) && baked.length === 0) {
+    const found = await rolesListingStage(root, stageId);
+    if ("error" in found) return fail(found.error);
+    listed = found;
+  }
   const names =
-    input.roles && input.roles.length > 0
-      ? input.roles
-      : [stage.owner, ...(stage.collaborates ?? [])].filter((name): name is string => !!name);
+    input.roles && input.roles.length > 0 ? input.roles : stageMemberNames(stage, listed);
   const bots = memberBots(loaded.team, names);
   if ("error" in bots) return fail(bots.error);
   const file = roomPath(root, opened.id, stageId);
@@ -340,7 +356,8 @@ export async function reviewRoom(
     if (section.checks.length === 0) section.checks = ["room"];
     const rows = [critiquePrompt(role, section, draft || "(none)"), "Room:"];
     for (const entry of prior) rows.push(formatEntry(entry));
-    const owner = stage.owner === bot.role || stage.owner === bot.name;
+    const listedOwner = stage.owner ?? (listed.length === 1 ? listed[0] : undefined);
+    const owner = listedOwner === bot.role || listedOwner === bot.name;
     if (owner && before.open.length > 0) {
       rows.push(
         revisionPrompt(
