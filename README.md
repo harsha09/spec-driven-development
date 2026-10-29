@@ -66,6 +66,21 @@ sdd backlog start F-001
 
 ---
 
+## Name a team (optional)
+
+The first loop does not need this.
+
+```bash
+sdd team init --template software
+sdd team show
+sdd role room
+sdd role room post "The list stays empty when the query is blank."
+```
+
+`sdd role room` prints the active change. A change id in that position is read as a command. Notes: [docs/reference/cli.md](./docs/reference/cli.md).
+
+---
+
 ## Develop this monorepo
 
 ```bash

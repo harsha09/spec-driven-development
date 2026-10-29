@@ -53,6 +53,7 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | **Build a new product from an idea** | [New product (greenfield)](./guides/greenfield) |
 | **Do serious / multi-team work** | [Enterprise path](./guides/enterprise) |
 | **Look up a command** | [CLI reference](./reference/cli) |
+| **Name a team in the repo** | [Everyday loop](./guides/everyday-loop) |
 
 ---
 
