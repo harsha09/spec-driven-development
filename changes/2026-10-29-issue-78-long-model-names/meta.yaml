@@ -1,0 +1,33 @@
+id: 2026-10-29-issue-78-long-model-names
+title: Issue 78 long model names
+workflow: feature
+created: 2026-10-29T06:29:05.805Z
+updated: 2026-10-29T06:35:20.382Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue already names the model field and the two shapes that stay rejected.
+    at: 2026-10-29T06:33:13.667Z
+  - stage: brainstorm
+    reason: The model key is the option this change builds. A higher bound and dropping the length rule
+      are not this change.
+    at: 2026-10-29T06:33:14.414Z
+  - stage: clarify_design
+    reason: The change is the object walk in containsSecret. routing.ts and team.ts stay.
+    at: 2026-10-29T06:33:16.055Z
+  - stage: clarify_tasks
+    reason: The tasks are the model exemption, the files that stay, and the Vitest cases.
+    at: 2026-10-29T06:33:17.708Z
+gates: {}
+verify_results: {}
