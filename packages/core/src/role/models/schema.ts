@@ -143,7 +143,16 @@ function looksSecret(value: string): boolean {
 function containsSecret(value: unknown): boolean {
   if (typeof value === "string") return looksSecret(value);
   if (Array.isArray(value)) return value.some(containsSecret);
-  if (value && typeof value === "object") return Object.values(value).some(containsSecret);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, entry]) => {
+      if (key === "model" && typeof entry === "string") {
+        if (entry.includes("-----BEGIN")) return true;
+        if (!/\s/.test(entry) && ASSIGNMENT.test(entry)) return true;
+        return false;
+      }
+      return containsSecret(entry);
+    });
+  }
   return false;
 }
 
