@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Issue 78 long model names** · `2026-10-29-issue-78-long-model-names`
+# Local verify results
 
-## Results
+> Change: Issue 78 long model names
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="1ae0efefa3086b614a2ff712d66028d7ba260e9b" result_count="1" -->
+> At: 2026-10-29T06:38:07.133Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
