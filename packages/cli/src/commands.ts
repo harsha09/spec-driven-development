@@ -17,17 +17,21 @@ import {
   installAgentIntegration,
   isInitialized,
   listBacklogFeatures,
+  listBundledWorkflowNames,
   listChanges,
   listWorkflowNames,
   loadConfig,
   loadInstalledAgent,
   loadWorkflow,
   missingBundledWorkflows,
+  modelFromEnv,
   parseStoryDraft,
+  prepareGuide,
   readChangeMetrics,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
+  runGuide,
   runLocalVerify,
   setActiveChange,
   skipStage,
@@ -1255,11 +1259,7 @@ const doctor = defineCommand({
     );
 
     const initialized = await isInitialized(root);
-    line(
-      "SDD init",
-      initialized,
-      initialized ? ".sdd/config.yaml found" : "run: sdd init --here --ai copilot",
-    );
+    line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd setup");
 
     if (initialized) {
       const config = await loadConfig(root);
@@ -1305,6 +1305,8 @@ const help = defineCommand({
     consola.log(pc.dim("  Needs: Node 24+ · about 10 minutes for your first loop"));
     consola.log("");
     consola.log(pc.bold("First time (learn without the AI popping up):"));
+    consola.log(`  ${pc.cyan("sdd setup")}   # init, planner, architect, and builder`);
+    consola.log(`  ${pc.cyan('sdd go "I want to build this"')}`);
     consola.log(
       `  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama | kilo`,
     );
@@ -1352,7 +1354,164 @@ const help = defineCommand({
       const active = await getActiveChangeId(root, config);
       if (active) consola.log(pc.dim(`Active change: ${active}`));
     } else {
-      consola.log(pc.dim("Not set up here yet. Run: sdd init --here --ai copilot"));
+      consola.log(pc.dim("Not set up here yet. Run: sdd setup"));
+    }
+  },
+});
+
+function guideText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function writeGuide(result: { exitCode: number; stdout: string }): void {
+  if (result.stdout.length > 0) {
+    process.stdout.write(result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}\n`);
+  }
+}
+
+async function guideWorkflow(
+  root: string,
+  given: string | undefined,
+  interactive: boolean,
+): Promise<string> {
+  if (given) return given;
+  if (!interactive) return "feature";
+  const names = (await isInitialized(root))
+    ? await listWorkflowNames(root)
+    : await listBundledWorkflowNames();
+  const picked = await consola.prompt("Which workflow should the roles follow?", {
+    type: "select",
+    options: names,
+    initial: names.includes("feature") ? "feature" : names[0],
+  });
+  return typeof picked === "string" && picked.trim() ? picked.trim() : "feature";
+}
+
+async function guideAgents(
+  args: Record<string, unknown>,
+  root: string,
+  interactive: boolean,
+): Promise<false | Awaited<ReturnType<typeof selectIntegration>>> {
+  if (noAgentRequested(args)) return false;
+  const named = guideText(args.ai) ?? guideText(args.integration);
+  if (!named && (!interactive || (await isInitialized(root)))) return false;
+  return selectIntegration({ ai: guideText(args.ai), integration: guideText(args.integration) });
+}
+
+const setup = defineCommand({
+  meta: {
+    name: "setup",
+    description: "Set up this folder and give planner, architect, and builder their stages",
+  },
+  args: {
+    workflow: {
+      type: "string",
+      description: "Workflow the roles follow. Default feature",
+      alias: "w",
+    },
+    yes: { type: "boolean", description: "Do not prompt", alias: "y", default: false },
+    ai: { type: "string", description: "Install this AI host while setting up" },
+    integration: { type: "string", description: "Alias for --ai" },
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    const root = projectRoot();
+    const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && args.yes !== true;
+    try {
+      const workflow = await guideWorkflow(root, guideText(args.workflow), interactive);
+      const agents = await guideAgents(args, root, interactive);
+      const prepared = await prepareGuide(root, { workflow, agents });
+      writeGuide(prepared);
+      if (prepared.exitCode !== 0) process.exit(prepared.exitCode);
+      if (!interactive) return;
+      const title = await consola.prompt("What do you want to build? Leave empty to stop here.", {
+        type: "text",
+      });
+      if (typeof title !== "string" || !title.trim()) return;
+      await runGo(root, { title: title.trim(), workflow, agents, interactive: true });
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  },
+});
+
+async function runGo(
+  root: string,
+  input: {
+    title?: string;
+    answer?: string;
+    workflow?: string;
+    agents: false | Awaited<ReturnType<typeof selectIntegration>>;
+    interactive: boolean;
+  },
+): Promise<void> {
+  let title = input.title;
+  let answer = input.answer;
+  for (;;) {
+    const result = await runGuide(root, {
+      title,
+      answer,
+      workflow: input.workflow,
+      agents: input.agents,
+      model: modelFromEnv(process.env),
+    });
+    writeGuide(result);
+    if (result.exitCode !== 0) process.exit(result.exitCode);
+    if (!input.interactive || !result.stdout.startsWith("Question:")) return;
+    const picked = await consola.prompt("Answer:", { type: "text" });
+    if (typeof picked !== "string" || !picked.trim()) {
+      process.stdout.write("Stopped.\n");
+      return;
+    }
+    title = undefined;
+    answer = picked.trim();
+  }
+}
+
+const go = defineCommand({
+  meta: {
+    name: "go",
+    description: "Open a change and let each role ask, draft, and hand off",
+  },
+  args: {
+    title: { type: "positional", description: "What you want to build", required: false },
+    answer: { type: "string", description: "Answer the question the current role asked" },
+    workflow: {
+      type: "string",
+      description: "Workflow for a new change. Default feature",
+      alias: "w",
+    },
+    yes: { type: "boolean", description: "Do not prompt", alias: "y", default: false },
+    ai: { type: "string", description: "Install this AI host if this folder is not set up" },
+    integration: { type: "string", description: "Alias for --ai" },
+    "no-agent": noAgentArg,
+  },
+  async run({ args }) {
+    const root = projectRoot();
+    const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && args.yes !== true;
+    try {
+      let title = guideText(args.title);
+      if (!title && interactive && !guideText(args.answer)) {
+        const picked = await consola.prompt("What do you want to build?", { type: "text" });
+        if (typeof picked !== "string" || !picked.trim()) {
+          process.stdout.write("Stopped.\n");
+          return;
+        }
+        title = picked.trim();
+      }
+      const workflow = guideText(args.workflow);
+      const agents = await guideAgents(args, root, interactive && !title);
+      await runGo(root, {
+        title,
+        answer: guideText(args.answer),
+        workflow,
+        agents,
+        interactive,
+      });
+    } catch (err) {
+      consola.error(err instanceof Error ? err.message : err);
+      process.exit(1);
     }
   },
 });
@@ -1360,6 +1519,8 @@ const help = defineCommand({
 export const commands = {
   init,
   new: newCmd,
+  setup,
+  go,
   greenfield,
   backlog,
   feature,

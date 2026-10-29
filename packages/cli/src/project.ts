@@ -40,6 +40,7 @@ export async function withProject(work: (ctx: ProjectCtx) => Promise<void>): Pro
   if (!(await isInitialized(root))) {
     consola.error("SDD is not initialized here. Run `sdd init` first.");
     consola.info("Example: sdd init --here --ai copilot");
+    consola.info("Or run sdd setup.");
     process.exit(1);
   }
   try {
@@ -56,6 +57,7 @@ export async function withInitialized(work: (root: string) => Promise<void>): Pr
   if (!(await isInitialized(root))) {
     consola.error("SDD is not initialized here. Run `sdd init` first.");
     consola.info("Example: sdd init --here --ai copilot");
+    consola.info("Or run sdd setup.");
     process.exit(1);
   }
   try {
