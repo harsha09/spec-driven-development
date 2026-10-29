@@ -1,6 +1,6 @@
 ---
 title: Built-in sdd workflows
-description: Default Spec-Driven Development workflow packs — hotfix, patch, feature, greenfield, spike, enterprise-feature, team-software — stages and when to use each.
+description: Default Spec-Driven Development workflow packs — hotfix, patch, feature, greenfield, spike, enterprise-feature, team-software — plus the roles, duties, and the stage each duty follows.
 ---
 
 # Built-in workflows
@@ -33,7 +33,7 @@ sdd new "Fix null pointer on empty list" -y
 | **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd backlog start F-001`) |
 | **`spike`** | Time-boxed research / PoC | intent → research → outcome |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
-| **`team-software`** | An optional stage pack you can name with `-w` | requirements (hard gate) → architecture → stories → plan → tasks → implement → pr_review → acceptance (hard gate) |
+| **`team-software`** | An optional stage pack you can name with `-w` | requirements → clarifications → hld → lld → plan → test_plan → implement → pr_review → qa_testing → qa_signoff → po_review → po_signoff. Each stage is a hard human gate |
 
 Prefer the CLI entrypoint for product bootstrap:
 
@@ -51,9 +51,51 @@ See [Greenfield guide](../guides/greenfield).
 
 `sdd new` scores keywords and complexity hints in the title (e.g. “typo” → hotfix, “ARB” / “migration” → enterprise-feature). You can always force `-w <name>`. `team-software` is selected by name, or when the title contains `team-software`. It is one stage pack.
 
-## Roles follow the workflow you name
+## Roles, duties, and the workflow they follow
 
-A role is a file you create. The stages it follows are the stages of the workflow you pass to `sdd new -w`.
+::: tip Start here
+[Roles and duties](../guides/roles) is the description: what a role is, what a duty is, why the split helps, and the commands that set it up. The lists on this page are the same stage map.
+:::
+
+A role is a markdown file in `.sdd/roles`. A duty is the kind of work that role does. `sdd setup` writes planner (planning), architect (architecture), and builder (construction) when that folder has no markdown files. Pass `-w` to name the workflow those lists come from. The default is `feature`. Role files that are already there stay as they are, and setup prints `Roles are already here.`
+
+### The three duties
+
+`sdd setup` writes these roles. Each one proposes. The person decides.
+
+| Role | Duty | Job | Owns | Skill | Never | Asks |
+|------|------|-----|------|-------|-------|------|
+| planner | planning | Plan the change | the request, the plan | plan the change | accept a spec, write product code | Who is this for? How will you know it worked? |
+| architect | architecture | Name the modules | the design | name the modules | accept a spec, write product code | Which module owns this change? |
+| builder | construction | Build the change | the change pack | build the change | accept a spec, generate a release | |
+
+Builder has an empty ask list.
+
+A named stage id keeps that duty on every workflow:
+
+| Duty | Stage ids |
+|------|-----------|
+| planning | intent, vision, requirements, feature, stories, clarify_intent, brainstorm, hl_arb, research, outcome, plan |
+| architecture | design, architecture, clarify_design, lld, db_design, code_research |
+| construction | tasks, clarify_tasks, implement, local_verify, acceptance, pr_review |
+
+A stage id outside those lists takes its duty from where it sits in that workflow. Before the first architecture id, it is planning. From the first construction id onward, it is construction. Between those two, it is architecture. On `team-software`, `clarifications` and `hld` sit before `lld`, so they are planning. `test_plan` sits between `lld` and `implement`, so it is architecture. `qa_testing`, `qa_signoff`, `po_review`, and `po_signoff` sit at or after `implement`, so they are construction. `stories` and `plan` are named planning ids, so they stay planning after the architecture stages.
+
+### Which duty follows which stage
+
+`sdd setup -w <workflow>` gives each role the stages of that one workflow. A stage id is shared, so a role that lists `intent` also matches `hotfix`, `patch`, `feature`, and `spike`.
+
+| Workflow | Planner (planning) | Architect (architecture) | Builder (construction) |
+|----------|--------------------|--------------------------|------------------------|
+| hotfix | intent | no stage on this workflow | implement, local_verify |
+| patch | intent | no stage on this workflow | acceptance, implement, local_verify |
+| feature | intent, clarify_intent, brainstorm | design, clarify_design | tasks, clarify_tasks, implement, local_verify |
+| greenfield | vision, requirements, features | architecture | no stage on this workflow |
+| spike | intent, research, outcome | no stage on this workflow | no stage on this workflow |
+| enterprise-feature | feature, hl_arb, stories | lld, db_design, code_research | tasks, implement, local_verify |
+| team-software | requirements, clarifications, hld, plan | lld, test_plan | implement, pr_review, qa_testing, qa_signoff, po_review, po_signoff |
+
+Name your own roles and the stages they follow:
 
 ```bash
 sdd role create analyst --label "Analyst" --job "Write the reading" --stages intent,design
@@ -62,11 +104,61 @@ sdd new "Add CSV export" -w feature -y
 sdd role route
 ```
 
-`--stages` is a comma-separated list of stage ids from that workflow. The same role can list ids from more than one workflow, such as `intent` on `feature` and `intent` on `hotfix`. `sdd role route` uses the list for the active stage. Two roles listing the same stage asks you. When no role lists the stage, a workflow that already names an `owner` still uses that owner. `sdd role edit <name> --stages ...` replaces the list.
+`--stages` is a comma-separated list of stage ids. `sdd role edit <name> --stages ...` replaces the list. Two roles listing the same stage asks you.
+
+### Software roles and the team-software owners
+
+`sdd team init --template software` writes six roles. Each file carries the job, what the role owns, and what it never does. Add stage ids with `--stages`. Until you do, `sdd role route` uses the workflow stage `owner` when a role file of that name exists. `solo` writes one developer whose job is "Build the accepted change on your own." `research` writes one researcher whose job is "Answer one question and leave the notes in the repo."
+
+| Role | Job |
+|------|-----|
+| product-manager | Turn a request into a short reading the person can accept |
+| architect | Name the modules and the seams between them |
+| product-owner | Say whether the reading matches the request |
+| dev-lead | Name who builds the next piece when more than one role is involved |
+| developer | Build the accepted change for one service |
+| qa | Propose what to try and the evidence the person can record |
+
+The shipped routing file has one rule. The skill `name the next owner` goes to dev-lead.
+
+Setup's architect and the software template's architect are the same file, `.sdd/roles/architect.md`. Setup writes that file when `.sdd/roles` has no markdown files. With the software roles already present, add stages with `sdd role edit architect --stages lld,pr_review`.
+
+On `team-software`, each stage names an owner and who they work with:
+
+| Stage | Owner | Works with |
+|-------|-------|------------|
+| requirements | product-manager | architect, research-assistant |
+| clarifications | product-manager | research-assistant |
+| hld | architect | product-manager |
+| lld | architect | developer |
+| plan | dev-lead | architect, developer |
+| test_plan | qa | developer |
+| implement | developer | dev-lead |
+| pr_review | architect | dev-lead |
+| qa_testing | qa | developer |
+| qa_signoff | qa | product-owner |
+| po_review | product-owner | product-manager |
+| po_signoff | product-owner | qa |
+
+`research-assistant` is the collaborator on requirements and clarifications. Create that role when you want it in the repo. The six roles above are the ones the software template writes.
+
+A role prepares the page. The person signs with `sdd team signoff`. Every `team-software` gate is a hard human gate. Merge stays a person action after `po_signoff`.
+
+### How a stage picks a role
+
+`sdd role route` tries these, in order:
+
+1. A rule in `.sdd/routing.yaml` whose stage, artifact, owns, or skill matches.
+2. One role whose `owns` list names the artifact, or whose `skills` list names the skill. Two matches print `Ask the human.` and `Two roles own this.`
+3. One role whose `stages` list contains the stage id. Two matches print `Ask the human.` and `Two roles list this stage.`
+4. The workflow stage's `owner`, when a role file has that name.
+5. `Ask the human.` and `No rule matched.`
+
+The handoff writes `Owner` from the workflow stage's `owner` field. Hotfix, patch, feature, greenfield, spike, and enterprise-feature leave that field unset, so the handoff has no Owner line. `team-software` sets it to the owner in the table above.
 
 ## Stage owners
 
-A stage may name who produces it and who they work with. A gate may name who approves it. Older packs omit these fields and keep working.
+The people for `team-software`, and how to assign their stages, are in [Roles and duties](../guides/roles). A stage may name who produces it and who they work with. A gate may name who approves it. Older packs omit these fields and keep working.
 
 ```yaml
 owner: product-manager
@@ -77,7 +169,7 @@ gate:
   approvers: [human]
 ```
 
-`items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement. Requirements and acceptance use a hard gate, so `sdd next` waits for `sdd gate approve`.
+`items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement, and the plan stage writes `tasks/T-001.md`. Every `team-software` stage is a hard gate whose approver is `human`, so `sdd next` waits for `sdd team signoff` on that commit. Merge stays a person action after `po_signoff`.
 
 ## Per-change controls
 
@@ -89,6 +181,7 @@ sdd gate approve -n "ARB approved with condition …"
 
 ## Related
 
+- [Roles and duties](../guides/roles)  
 - [Greenfield (new product)](../guides/greenfield)  
 - [Simple feature](../guides/simple-feature)  
 - [Enterprise guide](../guides/enterprise)  

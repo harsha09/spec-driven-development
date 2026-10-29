@@ -1,0 +1,40 @@
+id: 2026-10-29-issue-74-aidlc-sign-off-sequence-before-merge
+title: Issue 74 AIDLC sign-off sequence before merge
+workflow: feature
+created: 2026-10-29T14:25:02.618Z
+updated: 2026-10-29T14:30:14.534Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue text is the reading.
+    at: 2026-10-29T14:26:02.580Z
+  - stage: brainstorm
+    reason: Extend team-software. A second workflow is not the approach.
+    at: 2026-10-29T14:26:03.455Z
+  - stage: clarify_design
+    reason: The twelve stages and the human sign-off are the design.
+    at: 2026-10-29T14:26:04.300Z
+  - stage: clarify_tasks
+    reason: The tasks are the workflow, the test, and the docs sentence.
+    at: 2026-10-29T14:26:05.216Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 141079003966e823395a8f2ef9cc4f0f08a82356
+    at: 2026-10-29T14:30:14.534Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
