@@ -70,7 +70,7 @@ sdd role room
 sdd role room post "The list stays empty when the query is blank."
 ```
 
-`sdd role room` prints the active change. `sdd role room --stage=<stage>` prints that stage. A change id in that position is read as a command. On `post`, `--change` and `--stage` select the file. A bot run can read, search, run one allowlisted check, write, and commit on its own branch. The check result is `changes/<id>/evidence/<sha>.json`. Push and merge stay with a person.
+`sdd role room` prints the active change. `sdd role room <change-id>` prints that change. `sdd role room --stage <stage>` and `sdd role room --stage=<stage>` print that stage. On `post`, `--change` and `--stage` select the file. A bot run can read, search, run one allowlisted check, write, and commit on its own branch. The check result is `changes/<id>/evidence/<sha>.json`. Push and merge stay with a person.
 
 https://harsha09.github.io/spec-driven-development/reference/cli/
 
