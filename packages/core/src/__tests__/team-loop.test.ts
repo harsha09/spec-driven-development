@@ -115,6 +115,7 @@ describe("team loop", () => {
     });
     expect(result.stdout).toBe("stopped");
     expect(fake.prompts).toHaveLength(4);
+    expect(fake.prompts[2]).toContain("That file cannot be written.");
     const steps = (await log(root)).filter((line) => line.type === "step").map((line) => line.step);
     expect(steps).toEqual(["plan", "tool", "check", "done"]);
     expect(await pathExists(join(root, "notes/draft.md"))).toBe(false);
