@@ -1,0 +1,33 @@
+id: 2026-10-29-issue-65-rooms
+title: Issue 65 rooms
+workflow: feature
+created: 2026-10-29T10:28:50.488Z
+updated: 2026-10-29T10:43:42.822Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The issue and the implementation plan already name the room, the commands, and the round cap.
+    at: 2026-10-29T10:43:38.041Z
+  - stage: brainstorm
+    reason: The room uses the stage owner and collaborates. The old critique loop stays for a run with
+      no team file.
+    at: 2026-10-29T10:43:38.788Z
+  - stage: clarify_design
+    reason: The seams are the room module, the ignore switch, and the critique prompt calls.
+    at: 2026-10-29T10:43:40.412Z
+  - stage: clarify_tasks
+    reason: The tasks are the schema, the room module, the loop hook, the CLI, and the tests.
+    at: 2026-10-29T10:43:42.065Z
+gates: {}
+verify_results: {}
