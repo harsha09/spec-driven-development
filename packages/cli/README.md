@@ -23,9 +23,12 @@ Binary: **`sdd`**
 ```bash
 cd my-app
 sdd setup --ai copilot          # or grok | claude | ollama | kilo
+# press Enter through the pieces
 sdd go "Add expense CSV export"
 # answer each question, then the next role drafts its stage
 ```
+
+`sdd setup --yes --ai copilot` writes the host and the three duties without the questions. `sdd setup --step model` comes back to one piece.
 
 `sdd init --here --ai copilot` then `sdd new "…" -w feature -y` is the same host when you want to walk the stages yourself.
 

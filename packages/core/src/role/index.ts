@@ -10,6 +10,21 @@ export {
 export { allowRole, runRole } from "./run.js";
 export { roleContextBody, setRoleContext } from "./context.js";
 export { dutyForStage, prepareGuide, runGuide } from "./guide.js";
+export {
+  SETUP_STEP_IDS,
+  SETUP_WHY,
+  formatSetupStatus,
+  parseSetupStep,
+  readSetupStatus,
+  runSetupStep,
+} from "./setup-tour.js";
+export type {
+  SetupModelState,
+  SetupRolesChoice,
+  SetupStatus,
+  SetupStepId,
+  SetupStepInput,
+} from "./setup-tour.js";
 export type { Duty } from "./guide.js";
 export { recordDecisionRequest, recordSignoff } from "./signoff.js";
 export type { AllowRoleInput, RunRoleInput } from "./run.js";

@@ -21,7 +21,7 @@ sdd go "What you want to build"
 sdd go --answer "The answer to the question it printed"
 ```
 
-`sdd setup` creates planner, architect, and builder when the folder has no role files. The planner plans, the architect names the modules, and the builder builds the change pack. Pass `-w` to map those duties onto another workflow. `sdd go` asks, drafts, and hands the next stage to the next role. What they are, why that helps, and the setup commands are in [Roles and duties](../guides/roles). Give a role extra context with `sdd role context <name> --text "..."`.
+On a terminal, `sdd setup` walks folder, workflow, host, roles, model, a check, and an optional first change. Press Enter to create planner, architect, and builder when the folder has no role files. Set up one missing piece later with `sdd setup --step model`. The planner plans, the architect names the modules, and the builder builds the change pack. Pass `-w` to map those duties onto another workflow. `sdd go` asks, drafts, and hands the next stage to the next role. What they are, why that helps, and the setup commands are in [Roles and duties](../guides/roles). Give a role extra context with `sdd role context <name> --text "..."`.
 
 ---
 

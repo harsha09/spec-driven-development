@@ -56,12 +56,46 @@ With `SDD_ROLE_MODEL` set:
 
 ---
 
-## Set up the three duties
+## Walk through setup
 
-Run this in your app folder **before any role files exist**:
+On a terminal, `sdd setup` asks one piece at a time. Each question starts with why, then a choice. Press Enter through the full walk:
+
+- The folder is initialized.
+- The workflow stays `feature`.
+- No host is installed.
+- Planner, architect, and builder are written when `.sdd/roles` has no markdown files.
+- A line says a draft needs `SDD_ROLE_MODEL`. Setup leaves that command out of the repo.
+- An empty answer on the first change stops there.
+
+A later visit prints what is already in place. Pick one piece, or walk all of them again. Files that are already there stay.
 
 ```bash
-sdd setup --no-agent
+sdd setup
+sdd setup --step model
+sdd setup --step roles
+sdd setup --step check
+```
+
+The pieces are `folder`, `workflow`, `host`, `roles`, `model`, `check`, and `start`.
+
+On the roles piece the choices are the three duties, the software team, or keep what is here. Enter on the full walk writes the three duties when the roles folder is empty, and keeps the files when any role markdown is already there. Choose the software team on that piece when you want the named jobs. Both architects are `.sdd/roles/architect.md`. When `team.yaml` or `routing.yaml` is already there, the team writer stops and writes nothing. When a software role file is already there, it prints `Role already exists: … Nothing was written.`
+
+One missing duty file next to other role files stays missing. Add stages with `sdd role edit <name> --stages ...`. Add context with `sdd role context <name> --text "..."`.
+
+`sdd setup --yes`, and a run that has no terminal, keep the short path. The workflow is `feature` unless you pass `-w`. The three duties are written only when the roles folder is empty. A host is installed when you pass `--ai`. `--no-agent` installs no host. The short path leaves the software team unwritten, leaves the model file unwritten, and leaves the first change for `sdd go`.
+
+`--step` off a terminal needs `--yes`. `check` only prints, so it runs without `--yes`. `sdd setup --yes --step roles` means the three duties. `sdd setup --yes --step host` installs a host when `--ai` is set and no host is installed yet. Switching a host stays `sdd agents install --force`. `sdd setup --yes --step model` exits with `No role model is configured.` when nothing is configured, and creates no file. `sdd setup --yes --step start` prints `Next: sdd go "what you want to build"` and leaves the change unopened.
+
+A host is separate from the role model. `--ai` leaves `SDD_ROLE_MODEL` unset.
+
+---
+
+## Set up the three duties
+
+Run this in your app folder **before any role files exist** when you want the short path:
+
+```bash
+sdd setup --yes --no-agent
 ```
 
 Setup initializes the folder and writes planner, architect, and builder for the `feature` workflow. You should see:
@@ -107,7 +141,7 @@ sdd doctor
 sdd go "Fix empty list crash"
 ```
 
-When role files are already in `.sdd/roles`, setup prints `Roles are already here.` and leaves them. Change a list with `sdd role edit`.
+When role files are already in `.sdd/roles`, setup prints `Roles are already here.` and leaves them, including a folder that has only one of the three duty files. Change a list with `sdd role edit`.
 
 Give a role facts about this repo. The next run includes them:
 
@@ -173,13 +207,15 @@ sdd role route
 
 ## Set up a software team
 
-Use this when you want named jobs and a sign-off on every stage. Start from a folder that does **not** already have `.sdd/roles/architect.md`. Setup's architect and this template's architect are that same file, and the template writes nothing if one of its role files is already there.
+Use this when you want named jobs and a sign-off on every stage. On a terminal, `sdd setup`, choose the roles piece, and pick the software team. The same writer is:
 
 ```bash
 sdd team init --template software
 sdd team show
 sdd new "Ship the export" -w team-software -y
 ```
+
+Start from a folder that has no `.sdd/roles/architect.md`. Setup's architect and this template's architect are that same file, and the template writes nothing if one of its role files is already there. The shipped template still has no stage list. Add those with `sdd role edit --stages` after init.
 
 The template writes six roles. Each file carries the job, what the role owns, and what it never does. It does not list stage ids. `solo` writes one developer whose job is "Build the accepted change on your own." `research` writes one researcher whose job is "Answer one question and leave the notes in the repo."
 

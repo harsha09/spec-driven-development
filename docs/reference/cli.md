@@ -25,7 +25,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 `sdd new` and `sdd backlog start` both open a **change pack**. The difference is the **source**: free-form title vs backlog id.
 `-w feature` is a **workflow pack name**, not the same as `sdd backlog` / the old `sdd feature` alias.
 
-`sdd setup` is the first-time path. It initializes this folder and, when no role files exist yet, writes planner, architect, and builder. Each role lists the stages of the workflow you pass with `-w`. The default workflow is `feature`. What a role and a duty are, why they help, and the setup for each workflow are in [Roles and duties](../guides/roles). `sdd go "I want to build this"` opens the change and runs the role for the current stage. That role asks the questions in its `ask_human_when` list, one at a time. Answer with `sdd go --answer "..."`. On a terminal, `sdd go` asks in place. When the draft is written, the guide moves to the next stage and hands the work to the role that lists it. Optional clarify and brainstorm stages are skipped. A hard gate that needs you stops and says so. The role does not sign it. A role whose `never` list says `write product code` can write only inside the change pack. Push, a pull request, and merge stay refused.
+`sdd setup` is the first-time path. On a terminal it walks folder, workflow, host, roles, model, a check, and an optional first change. Enter initializes the folder, keeps the `feature` workflow, skips the host, and writes planner, architect, and builder when no role file exists yet. Each new duty file lists the stages of the workflow you pass with `-w`. Come back to one piece with `sdd setup --step model` (also `folder`, `workflow`, `host`, `roles`, `check`, or `start`). `sdd setup --yes` keeps the short path: the three duties when the roles folder is empty, a host only with `--ai`, and no model file. What a role and a duty are, why they help, and the setup for each workflow are in [Roles and duties](../guides/roles). `sdd go "I want to build this"` opens the change and runs the role for the current stage. That role asks the questions in its `ask_human_when` list, one at a time. Answer with `sdd go --answer "..."`. On a terminal, `sdd go` asks in place. When the draft is written, the guide moves to the next stage and hands the work to the role that lists it. Optional clarify and brainstorm stages are skipped. A hard gate that needs you stops and says so. The role does not sign it. A role whose `never` list says `write product code` can write only inside the change pack. Push, a pull request, and merge stay refused.
 
 ---
 
@@ -34,6 +34,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | Goal | Command |
 |------|---------|
 | Set up this project | `sdd setup` |
+| Set up one piece | `sdd setup --step model` |
 | Set up and name the AI host | `sdd init --here --ai copilot` |
 | Set up without any AI host | `sdd init --here --no-agent` |
 | Build something with the roles | `sdd go "I want to build this"` |
@@ -62,7 +63,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 
 | Command | What it does | When |
 |---------|--------------|------|
-| `sdd setup` | Initialize this folder and create planner, architect, and builder for the workflow you name | First time |
+| `sdd setup` | Walk setup on a terminal. Enter writes the folder, the feature workflow, and the three duties when no role file exists. `--yes` keeps that short path. `--step` runs one piece | First time, or one missing piece |
 | `sdd go "title"` | Open a change, ask each role's questions, draft the stage, and hand off to the next role | After setup |
 | `sdd go --answer "..."` | Give the answer the current role is waiting for | When a role asks |
 | `sdd init` | Create sdd files + one AI setup | Once per app |

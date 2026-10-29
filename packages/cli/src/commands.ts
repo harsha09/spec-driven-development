@@ -1,5 +1,6 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
+  SETUP_WHY,
   advanceStage,
   approveGate,
   buildContext,
@@ -25,14 +26,18 @@ import {
   loadWorkflow,
   missingBundledWorkflows,
   modelFromEnv,
+  parseIntegration,
+  parseSetupStep,
   parseStoryDraft,
   prepareGuide,
   readChangeMetrics,
+  readSetupStatus,
   recommendWorkflow,
   refreshActiveAgentContext,
   resolveChangeId,
   runGuide,
   runLocalVerify,
+  runSetupStep,
   setActiveChange,
   skipStage,
   startFeatureFromBacklog,
@@ -1305,7 +1310,7 @@ const help = defineCommand({
     consola.log(pc.dim("  Needs: Node 24+ · about 10 minutes for your first loop"));
     consola.log("");
     consola.log(pc.bold("First time (learn without the AI popping up):"));
-    consola.log(`  ${pc.cyan("sdd setup")}   # init, planner, architect, and builder`);
+    consola.log(`  ${pc.cyan("sdd setup")}   # walk the pieces; Enter writes the three duties`);
     consola.log(`  ${pc.cyan('sdd go "I want to build this"')}`);
     consola.log(
       `  ${pc.cyan("sdd init --here --ai copilot")}   # or grok | claude | ollama | kilo`,
@@ -1398,16 +1403,203 @@ async function guideAgents(
   return selectIntegration({ ai: guideText(args.ai), integration: guideText(args.integration) });
 }
 
+const SETUP_MENU = ["all", "folder", "workflow", "host", "roles", "model", "check", "start"];
+const SETUP_HOSTS = ["none", "copilot", "grok", "claude", "ollama", "kilo"];
+const SETUP_ROLE_CHOICES = [
+  "planner, architect, and builder",
+  "software team",
+  "keep what is here",
+];
+
+function setupInteractive(yes: boolean): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY) && !yes;
+}
+
+function writeStopped(): void {
+  process.stdout.write("Stopped.\n");
+}
+
+async function promptChoice(
+  message: string,
+  options: string[],
+  initial: string,
+): Promise<string | null> {
+  const picked = await consola.prompt(message, { type: "select", options, initial });
+  return typeof picked === "string" && picked.trim() ? picked.trim() : null;
+}
+
+function printWhy(step: NonNullable<ReturnType<typeof parseSetupStep>>): void {
+  process.stdout.write(`Why: ${SETUP_WHY[step]}\n`);
+}
+
+async function chosenHost(
+  args: Record<string, unknown>,
+  ask: boolean,
+): Promise<false | Awaited<ReturnType<typeof parseIntegration>> | null> {
+  if (noAgentRequested(args)) return false;
+  const named = guideText(args.ai) ?? guideText(args.integration);
+  if (named) return parseIntegration(named);
+  if (!ask) return false;
+  const picked = await promptChoice("Which AI host?", SETUP_HOSTS, "none");
+  if (!picked) return null;
+  if (picked === "none") return false;
+  return parseIntegration(picked);
+}
+
+function rolesChoice(label: string): "duties" | "software" | "keep" {
+  if (label === "software team") return "software";
+  if (label === "keep what is here") return "keep";
+  return "duties";
+}
+
+type SetupWalk = { workflow: string };
+
+function hostWasNamed(args: Record<string, unknown>): boolean {
+  return Boolean(guideText(args.ai) ?? guideText(args.integration));
+}
+
+async function runSetupPiece(
+  root: string,
+  args: Record<string, unknown>,
+  step: NonNullable<ReturnType<typeof parseSetupStep>>,
+  interactive: boolean,
+  workflowFlag: string | undefined,
+  askRoles: boolean,
+  walk: SetupWalk,
+): Promise<"ok" | "stop" | "fail"> {
+  if (step === "folder") {
+    const status = await readSetupStatus(root);
+    if (interactive && !status.folder) {
+      printWhy("folder");
+      const picked = await promptChoice("Set up this folder?", ["yes", "stop"], "yes");
+      if (picked !== "yes") {
+        writeStopped();
+        return "stop";
+      }
+    }
+    const ran = await runSetupStep(root, { step: "folder" });
+    writeGuide(ran);
+    return ran.exitCode === 0 ? "ok" : "fail";
+  }
+
+  if (step === "workflow") {
+    const status = await readSetupStatus(root);
+    if (interactive && status.roles.length === 0 && !workflowFlag) {
+      printWhy("workflow");
+      walk.workflow = await guideWorkflow(root, undefined, true);
+    } else if (workflowFlag) {
+      walk.workflow = workflowFlag;
+    }
+    const ran = await runSetupStep(root, { step: "workflow", workflow: walk.workflow });
+    writeGuide(ran);
+    return ran.exitCode === 0 ? "ok" : "fail";
+  }
+
+  if (step === "host") {
+    const installed = await loadInstalledAgent(root);
+    if (installed || noAgentRequested(args)) {
+      const ran = await runSetupStep(root, { step: "host", host: false });
+      writeGuide(ran);
+      return ran.exitCode === 0 ? "ok" : "fail";
+    }
+    const ask = interactive && !hostWasNamed(args);
+    if (ask) printWhy("host");
+    const host = await chosenHost(args, ask);
+    if (host === null) {
+      writeStopped();
+      return "stop";
+    }
+    const ran = await runSetupStep(root, { step: "host", host });
+    writeGuide(ran);
+    return ran.exitCode === 0 ? "ok" : "fail";
+  }
+
+  if (step === "roles") {
+    const status = await readSetupStatus(root);
+    const rolesHere = status.roles.length > 0;
+    let choice: "duties" | "software" | "keep" = rolesHere ? "keep" : "duties";
+    if (interactive && askRoles) {
+      printWhy("roles");
+      const picked = await promptChoice(
+        "Which roles?",
+        SETUP_ROLE_CHOICES,
+        rolesHere ? "keep what is here" : "planner, architect, and builder",
+      );
+      if (!picked) {
+        writeStopped();
+        return "stop";
+      }
+      choice = rolesChoice(picked);
+    }
+    const ran = await runSetupStep(root, {
+      step: "roles",
+      roles: choice,
+      workflow: walk.workflow,
+    });
+    writeGuide(ran);
+    return ran.exitCode === 0 ? "ok" : "fail";
+  }
+
+  if (step === "model") {
+    const status = await readSetupStatus(root);
+    if (interactive && status.model === "missing") {
+      printWhy("model");
+      const picked = await promptChoice("Continue without a model?", ["yes", "stop"], "yes");
+      if (picked !== "yes") {
+        writeStopped();
+        return "stop";
+      }
+    }
+    const ran = await runSetupStep(root, { step: "model", requireModel: !interactive });
+    writeGuide(ran);
+    return ran.exitCode === 0 ? "ok" : "fail";
+  }
+
+  if (step === "start") {
+    if (!interactive) {
+      const ran = await runSetupStep(root, { step: "start" });
+      writeGuide(ran);
+      return ran.exitCode === 0 ? "ok" : "fail";
+    }
+    printWhy("start");
+    const title = await consola.prompt("What do you want to build? Leave empty to stop here.", {
+      type: "text",
+    });
+    if (typeof title !== "string" || !title.trim()) {
+      const ran = await runSetupStep(root, { step: "start" });
+      writeGuide(ran);
+      return "ok";
+    }
+    const agents = await guideAgents(args, root, false);
+    await runGo(root, {
+      title: title.trim(),
+      workflow: walk.workflow,
+      agents,
+      interactive: true,
+    });
+    return "ok";
+  }
+
+  if (interactive) printWhy("check");
+  const ran = await runSetupStep(root, { step });
+  writeGuide(ran);
+  return ran.exitCode === 0 ? "ok" : "fail";
+}
+
 const setup = defineCommand({
   meta: {
     name: "setup",
-    description: "Set up this folder and give planner, architect, and builder their stages",
+    description: "Walk setup, or set up one piece with --step",
   },
   args: {
     workflow: {
       type: "string",
       description: "Workflow the roles follow. Default feature",
       alias: "w",
+    },
+    step: {
+      type: "string",
+      description: "One piece: folder, workflow, host, roles, model, check, or start",
     },
     yes: { type: "boolean", description: "Do not prompt", alias: "y", default: false },
     ai: { type: "string", description: "Install this AI host while setting up" },
@@ -1416,19 +1608,74 @@ const setup = defineCommand({
   },
   async run({ args }) {
     const root = projectRoot();
-    const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && args.yes !== true;
+    const yes = args.yes === true;
+    const interactive = setupInteractive(yes);
+    const workflowFlag = guideText(args.workflow);
+    const named = guideText(args.step);
+    const walk: SetupWalk = { workflow: workflowFlag || "feature" };
     try {
-      const workflow = await guideWorkflow(root, guideText(args.workflow), interactive);
-      const agents = await guideAgents(args, root, interactive);
-      const prepared = await prepareGuide(root, { workflow, agents });
-      writeGuide(prepared);
-      if (prepared.exitCode !== 0) process.exit(prepared.exitCode);
-      if (!interactive) return;
-      const title = await consola.prompt("What do you want to build? Leave empty to stop here.", {
-        type: "text",
-      });
-      if (typeof title !== "string" || !title.trim()) return;
-      await runGo(root, { title: title.trim(), workflow, agents, interactive: true });
+      if (named) {
+        const step = parseSetupStep(named);
+        if (!step) {
+          process.stdout.write(
+            "A setup step is not valid. Choose folder, workflow, host, roles, model, check, or start.\n",
+          );
+          process.exit(1);
+        }
+        if (!interactive && !yes && step !== "check") {
+          process.stdout.write("This setup step needs a terminal. Pass --yes.\n");
+          process.exit(1);
+        }
+        const outcome = await runSetupPiece(
+          root,
+          args,
+          step,
+          interactive,
+          workflowFlag,
+          true,
+          walk,
+        );
+        if (outcome === "fail") process.exit(1);
+        return;
+      }
+      if (!interactive) {
+        const workflow = workflowFlag || "feature";
+        const agents = await guideAgents(args, root, false);
+        const prepared = await prepareGuide(root, { workflow, agents });
+        writeGuide(prepared);
+        if (prepared.exitCode !== 0) process.exit(prepared.exitCode);
+        return;
+      }
+      const opening = await runSetupStep(root, { step: "check" });
+      writeGuide(opening);
+      const picked = await promptChoice("What do you want to set up?", SETUP_MENU, "all");
+      if (!picked) {
+        writeStopped();
+        return;
+      }
+      if (picked === "all") {
+        for (const id of [
+          "folder",
+          "workflow",
+          "host",
+          "roles",
+          "model",
+          "check",
+          "start",
+        ] as const) {
+          const outcome = await runSetupPiece(root, args, id, true, workflowFlag, false, walk);
+          if (outcome === "stop") return;
+          if (outcome === "fail") process.exit(1);
+        }
+        return;
+      }
+      const step = parseSetupStep(picked);
+      if (!step) {
+        writeStopped();
+        return;
+      }
+      const outcome = await runSetupPiece(root, args, step, true, workflowFlag, true, walk);
+      if (outcome === "fail") process.exit(1);
     } catch (err) {
       consola.error(err instanceof Error ? err.message : err);
       process.exit(1);

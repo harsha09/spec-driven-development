@@ -75,15 +75,17 @@ cd ~/projects/my-app
 
 ## Step 3 — One-time setup
 
-The shortest start lets sdd create three roles and walk the change:
+On a terminal, `sdd setup` asks one piece at a time. Press Enter to initialize the folder, keep the `feature` workflow, skip the host, write planner, architect, and builder when `.sdd/roles` is empty, and stop before the first change. A later visit can set up one piece with `sdd setup --step model`.
+
+The short path writes those three roles without questions:
 
 ```bash
-sdd setup --no-agent
+sdd setup --yes --no-agent
 sdd go "Fix empty list crash" --no-agent
 sdd go --answer "People who open an empty list" --no-agent
 ```
 
-`sdd setup` writes three roles when `.sdd/roles` is empty:
+`sdd setup --yes` writes three roles when `.sdd/roles` is empty:
 
 | Role | Duty | What you get |
 |------|------|----------------|
