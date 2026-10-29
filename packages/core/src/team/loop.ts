@@ -8,6 +8,7 @@ import { recordDecisionRequest } from "../role/signoff.js";
 import type { RoleCommandResult, RoleModel } from "../role/types.js";
 import type { Brain } from "./brain.js";
 import { addReviewerLesson } from "./memory.js";
+import { postLoopDone, roomForPrompt } from "./room.js";
 
 const planStep = z.object({ step: z.literal("plan"), items: z.array(z.string()) }).strict();
 const toolStep = z
@@ -69,6 +70,8 @@ export async function runLoop(input: {
   logName: string;
 }): Promise<RoleCommandResult> {
   const max = input.cfg.limits?.loop_max_steps ?? 8;
+  const room = await roomForPrompt(input.root);
+  const prompt = room ? `${input.brain.prompt}\nRoom:\n${room}` : input.brain.prompt;
   let taken = 0;
   let copied = false;
   const copyReviewer = async (): Promise<void> => {
@@ -82,7 +85,7 @@ export async function runLoop(input: {
   while (taken < max) {
     let raw: string;
     try {
-      raw = await input.model.complete({ roleId: input.roleName, prompt: input.brain.prompt });
+      raw = await input.model.complete({ roleId: input.roleName, prompt });
     } catch {
       await appendLine(input.file, { type: "bad_call", roleId: input.roleName });
       return fail("A loop step is not valid.");
@@ -124,6 +127,7 @@ export async function runLoop(input: {
       if (body.step === "ask") return ask(input.root, input.file, body.question, body.options);
       await appendLine(input.file, { type: "step", step: "done", summary: body.summary });
       await copyReviewer();
+      await postLoopDone(input.root, input.brain.bot.name, body.summary);
       return ok(body.summary);
     }
   }

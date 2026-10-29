@@ -15,6 +15,8 @@ import {
   readAllowFile,
   readRole,
 } from "./profile.js";
+import { critiquePrompt, revisionPrompt } from "./prompts.js";
+import type { AcceptedSection } from "./prompts.js";
 import type { TeamConfig } from "./schema.js";
 import { readTeamConfig, resolveBot } from "./team.js";
 import { ROLE_TEXT, type RoleCommandResult, type RoleModel, type RoleProfile } from "./types.js";
@@ -31,13 +33,6 @@ const FORBIDDEN = new Set([
 ]);
 const UNAVAILABLE = new Set(["commit", "push", "tag", "pull_request", "merge", "deploy"]);
 const CLOSED = new Set(["applied", "denied", "rejected", "unavailable", "stopped", "expired"]);
-
-interface AcceptedSection {
-  id: string;
-  decision: string;
-  checks: string[];
-  body: string;
-}
 
 interface ModelAction {
   name: string;
@@ -301,32 +296,6 @@ function authorPrompt(
     rows.push("Section text:", section.body);
   }
   return rows.join("\n");
-}
-
-function critiquePrompt(role: RoleProfile, section: AcceptedSection, draft: string): string {
-  return [
-    `Job: ${role.job}`,
-    "Check ids:",
-    ...section.checks,
-    `Cite: ${section.id}:${section.decision}`,
-    "Draft:",
-    draft,
-  ].join("\n");
-}
-
-function revisionPrompt(
-  role: RoleProfile,
-  draft: string,
-  gaps: { cite: string; text: string }[],
-): string {
-  return [
-    `Job: ${role.job}`,
-    "Draft:",
-    draft,
-    "Gaps:",
-    ...gaps.map((gap) => `${gap.cite}: ${gap.text}`),
-    "changed must list every gap cite.",
-  ].join("\n");
 }
 
 export async function acceptedFile(root: string, changeId: string): Promise<string> {

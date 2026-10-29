@@ -125,6 +125,7 @@ export async function initTeam(
   }
   await writeText(teamPath, stringifyYaml(checked.data, { lineWidth: 100 }));
   if (copyRouting) await writeText(routingDest, await readText(routingSrc));
+  await syncRoomIgnore(root, checked.data);
   return ok(`Wrote .sdd/team.yaml from ${template}.`);
 }
 
@@ -143,6 +144,7 @@ export async function readTeamConfig(
   }
   const parsed = TeamSchema.safeParse(raw);
   if (!parsed.success) return { error: formatTeamError(parsed.error) };
+  await syncRoomIgnore(root, parsed.data);
   return { team: parsed.data };
 }
 
@@ -171,7 +173,29 @@ export function formatTeam(team: TeamConfig, gitUser: string | null): string {
   if (team.limits?.loop_max_steps) {
     lines.push(`limits.loop_max_steps: ${team.limits.loop_max_steps}`);
   }
+  if (team.limits?.room_rounds) {
+    lines.push(`limits.room_rounds: ${team.limits.room_rounds}`);
+  }
   return lines.join("\n");
+}
+
+/** Ignore rooms only when the team says so. A true switch removes that one line. */
+export async function syncRoomIgnore(root: string, team: TeamConfig): Promise<void> {
+  const file = join(root, ".sdd", ".gitignore");
+  const existed = await pathExists(file);
+  const original = existed ? await readText(file) : "";
+  const lines = original.split(/\r?\n/);
+  if (!team.rooms.commit) {
+    if (lines.some((line) => line.trim() === "rooms/")) return;
+    const next = original.length > 0 && !original.endsWith("\n") ? `${original}\n` : original;
+    await writeText(file, `${next}rooms/\n`);
+    return;
+  }
+  if (!existed) return;
+  const kept = lines.filter((line) => line.trim() !== "rooms/");
+  if (kept.length === lines.length) return;
+  const body = kept.join("\n");
+  await writeText(file, body.length > 0 && !body.endsWith("\n") ? `${body}\n` : body);
 }
 
 export function resolveBot(

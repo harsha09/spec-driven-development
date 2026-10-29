@@ -30,7 +30,7 @@ describe("team config", () => {
     const team = await readFile(join(root, ".sdd/team.yaml"), "utf8");
     expect(team).toContain("template: software");
     expect(team).toContain("name: Ada Lovelace");
-    expect(team).toContain("commit: false");
+    expect(team).toContain("commit: true");
     expect(await readFile(join(root, ".sdd/roles/product-manager.md"), "utf8")).toContain(
       "accept a spec",
     );
@@ -38,7 +38,7 @@ describe("team config", () => {
     expect(await readFile(join(root, ".sdd/roles/qa.md"), "utf8")).toContain("record a QA result");
     const shown = await showTeam(root, "Ada Lovelace");
     expect(shown.stdout).toContain("Ada Lovelace (you)");
-    expect(shown.stdout).toContain("rooms.commit: false");
+    expect(shown.stdout).toContain("rooms.commit: true");
     expect(shown.stdout).toContain("developer 2");
     expect(shown.stdout).toContain("- qa role qa wip 1");
     expect(await readFile(join(root, ".sdd/routing.yaml"), "utf8")).toContain("stage: implement");

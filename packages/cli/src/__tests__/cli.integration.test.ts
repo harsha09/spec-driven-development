@@ -764,7 +764,7 @@ stages:
     const shown = runSdd(root, ["team", "show"]);
     expect(shown.status, shown.stderr + shown.stdout).toBe(0);
     expect(shown.stdout).toContain("researcher");
-    expect(shown.stdout).toContain("rooms.commit: false");
+    expect(shown.stdout).toContain("rooms.commit: true");
     const created = runSdd(root, ["role", "create", "notes", "--template", "research/researcher"]);
     expect(created.status, created.stderr + created.stdout).toBe(0);
     const role = await readFile(join(root, ".sdd/roles/notes.md"), "utf8");
