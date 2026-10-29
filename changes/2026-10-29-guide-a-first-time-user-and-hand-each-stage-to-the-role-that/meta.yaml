@@ -2,7 +2,7 @@ id: 2026-10-29-guide-a-first-time-user-and-hand-each-stage-to-the-role-that
 title: Guide a first-time user and hand each stage to the role that lists it
 workflow: feature
 created: 2026-10-29T13:00:52.684Z
-updated: 2026-10-29T13:03:32.801Z
+updated: 2026-10-29T13:01:23.560Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,12 +29,4 @@ skipped:
     reason: The tasks are setup, go, and the purview check.
     at: 2026-10-29T13:01:22.732Z
 gates: {}
-verify_results:
-  local_verify:
-    ok: true
-    status: pass
-    head_sha: b00856bab6a4fa95cb2f06ed6a14abfd59c09fe6
-    at: 2026-10-29T13:03:32.801Z
-    results:
-      - name: Workspace tests
-        exitCode: 0
+verify_results: {}
