@@ -12,9 +12,11 @@ import {
   modelFromEnv,
   pinRole,
   planNetwork,
+  postRoom,
   queueRole,
   rebuildNetwork,
   recordDecisionRequest,
+  reviewRoom,
   routeRole,
   runNetwork,
   runRole,
@@ -22,6 +24,7 @@ import {
   showMemory,
   showRoleGroup,
   showRoles,
+  showRoom,
   spawnModelCommand,
   takeRole,
 } from "@structured-vibe-coding/core";
@@ -453,6 +456,76 @@ const lesson = defineCommand({
   subCommands: { add: lessonAdd },
 });
 
+const roomPost = defineCommand({
+  meta: { name: "post", description: "Append one room line" },
+  args: {
+    text: { type: "positional", description: "One line", required: true },
+    change: { type: "string", description: "Change id" },
+    stage: { type: "string", description: "Stage id" },
+    type: { type: "string", description: "post, objection, agree, block, or decision" },
+    cite: { type: "string", description: "Citation for an objection" },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await postRoom(root, {
+          change: textArg(args.change),
+          stage: textArg(args.stage),
+          type: textArg(args.type),
+          cite: textArg(args.cite),
+          text: textArg(args.text),
+        }),
+      );
+    });
+  },
+});
+
+const room = defineCommand({
+  meta: { name: "room", description: "Print a room" },
+  args: {
+    change: { type: "positional", description: "Change id", required: false },
+    stage: { type: "string", description: "Stage id" },
+  },
+  subCommands: { post: roomPost },
+  async run({ args }) {
+    const next = process.argv[process.argv.indexOf("room") + 1];
+    if (next === "post") return;
+    await withProject(async ({ root }) => {
+      emit(
+        await showRoom(root, {
+          change: textArg(args.change),
+          stage: textArg(args.stage),
+        }),
+      );
+    });
+  },
+});
+
+const review = defineCommand({
+  meta: { name: "review", description: "Run one room round" },
+  args: {
+    change: { type: "positional", description: "Change id", required: false },
+    stage: { type: "string", description: "Stage id" },
+    roles: { type: "string", description: "Comma-separated bot or role names" },
+  },
+  async run({ args }) {
+    const roles = textArg(args.roles)
+      ?.split(",")
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+    await withProject(async ({ root }) => {
+      emit(
+        await reviewRoom(root, {
+          change: textArg(args.change),
+          stage: textArg(args.stage),
+          roles,
+          model: modelFromEnv(process.env),
+        }),
+      );
+    });
+  },
+});
+
 export const roleCmd = defineCommand({
   meta: {
     name: "role",
@@ -478,5 +551,7 @@ export const roleCmd = defineCommand({
     decide,
     memory,
     lesson,
+    room,
+    review,
   },
 });

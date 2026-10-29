@@ -49,6 +49,7 @@ export { getFacts, listFacts, setFact, showFact } from "../team/facts.js";
 export { addLesson, migrateTeamMemory, showMemory } from "../team/memory.js";
 export { loadBrain } from "../team/brain.js";
 export { runLoop } from "../team/loop.js";
+export { postRoom, reviewRoom, showRoom } from "../team/room.js";
 export type {
   DecisionModel,
   ModelChoice,

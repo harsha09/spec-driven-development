@@ -31,9 +31,13 @@ export const TeamSchema = z
     role_wip: z.record(z.string().trim().min(1), z.number().int().positive()).optional(),
     limits: z
       .object({
-        loop_max_steps: z.number().int().positive(),
+        loop_max_steps: z.number().int().positive().optional(),
+        room_rounds: z.number().int().positive().optional(),
       })
       .strict()
+      .refine((limits) => limits.loop_max_steps !== undefined || limits.room_rounds !== undefined, {
+        message: "needs a limit",
+      })
       .optional(),
   })
   .strict()

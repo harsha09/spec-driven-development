@@ -1,6 +1,6 @@
 branch: bot/{bot}/{change}
 rooms:
-  commit: false
+  commit: true
 bots:
   - name: product-manager
     role: product-manager
