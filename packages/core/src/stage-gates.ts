@@ -2,6 +2,7 @@ import { join } from "pathe";
 import { incompleteArtifactReason } from "./artifacts.js";
 import { type ChangeContext, buildContext, saveChangeMeta } from "./change-context.js";
 import { pathExists, readText } from "./fs.js";
+import { checkHumanSignoff } from "./role/signoff.js";
 import type { Config } from "./schemas.js";
 import { nowIso } from "./slug.js";
 import { activeStages, getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
@@ -69,6 +70,7 @@ export async function incompletePriorStageErrors(ctx: ChangeContext): Promise<st
 export async function canLeaveStage(
   ctx: ChangeContext,
   config: Config,
+  projectRoot?: string,
 ): Promise<{ ok: boolean; errors: string[]; warnings: string[] }> {
   const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
   const errors: string[] = [];
@@ -89,7 +91,23 @@ export async function canLeaveStage(
   }
 
   const gateState = ctx.meta.gates?.[stage.id];
-  if (effectiveGate === "hard") {
+  const humanGate = effectiveGate === "hard" && (stage.gate?.approvers?.includes("human") ?? false);
+  if (humanGate) {
+    if (gateState?.status === "failed") {
+      errors.push(
+        `Hard gate on stage "${stage.id}" is not approved. Run \`sdd gate approve\` or complete the checklist.`,
+      );
+    } else if (gateState?.status !== "waived") {
+      if (!projectRoot) {
+        errors.push(
+          `Cannot leave stage "${stage.id}": the project root is required to check a human sign-off.`,
+        );
+      } else {
+        const signed = await checkHumanSignoff(projectRoot, ctx.path, stage.id);
+        if (!signed.ok) errors.push(signed.message);
+      }
+    }
+  } else if (effectiveGate === "hard") {
     if (!gateState || (gateState.status !== "approved" && gateState.status !== "waived")) {
       errors.push(
         `Hard gate on stage "${stage.id}" is not approved. Run \`sdd gate approve\` or complete the checklist.`,

@@ -1,0 +1,32 @@
+id: 2026-10-29-issue-63-sha-bound-sign-off
+title: Issue 63 SHA-bound sign-off
+workflow: feature
+created: 2026-10-29T07:08:46.607Z
+updated: 2026-10-29T07:26:39.770Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the decided paragraph is specific enough
+    at: 2026-10-29T07:26:34.888Z
+  - stage: brainstorm
+    reason: the panel compared the workflow gate with a generated decisions file
+    at: 2026-10-29T07:26:35.664Z
+  - stage: clarify_design
+    reason: the seams name the file and the check
+    at: 2026-10-29T07:26:37.277Z
+  - stage: clarify_tasks
+    reason: the task list is the seams
+    at: 2026-10-29T07:26:38.922Z
+gates: {}
+verify_results: {}

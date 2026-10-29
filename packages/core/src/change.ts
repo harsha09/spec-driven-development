@@ -309,7 +309,7 @@ export async function advanceStage(
     }
   }
 
-  const check = await canLeaveStage(ctx, config);
+  const check = await canLeaveStage(ctx, config, projectRoot);
   warnings.push(...check.warnings);
   if (!check.ok && !opts?.force) {
     throw new Error(check.errors.join("\n"));
@@ -496,7 +496,7 @@ export async function completeChange(
     }
   }
 
-  const check = await canLeaveStage(ctx, config);
+  const check = await canLeaveStage(ctx, config, projectRoot);
   if (!check.ok) {
     throw new Error(check.errors.join("\n"));
   }
