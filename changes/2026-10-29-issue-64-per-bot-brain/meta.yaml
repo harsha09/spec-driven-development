@@ -2,7 +2,7 @@ id: 2026-10-29-issue-64-per-bot-brain
 title: Issue 64 per-bot brain
 workflow: feature
 created: 2026-10-29T08:15:08.812Z
-updated: 2026-10-29T08:38:57.021Z
+updated: 2026-10-29T08:41:56.872Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -30,4 +30,12 @@ skipped:
     reason: The tasks are the modules, the CLI, the docs, and the four test files.
     at: 2026-10-29T08:38:56.208Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 907691b8b852eec3b5c4b090436c1e95eb4f3b32
+    at: 2026-10-29T08:41:56.872Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
