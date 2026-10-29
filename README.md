@@ -37,7 +37,7 @@ sdd go "Fix empty list crash" --no-agent
 sdd go --answer "People who open an empty list" --no-agent
 ```
 
-`sdd setup` creates planner, architect, and builder when the folder has no roles yet. `sdd go` asks one question at a time, drafts the stage, and hands the next stage to the role that lists it.
+`sdd setup` creates planner, architect, and builder when the folder has no roles yet. `sdd go` asks one question at a time, drafts the stage, and hands the next stage to the role that lists it. The duty each role follows, and the stage map for every workflow, are in [docs/reference/workflows.md](./docs/reference/workflows.md#roles-duties-and-the-workflow-they-follow).
 
 To pick one AI host yourself:
 
