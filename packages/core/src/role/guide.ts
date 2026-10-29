@@ -1,6 +1,6 @@
 import { join } from "pathe";
 import type { AgentTarget } from "../agents.js";
-import { headingsFilled, isSubstantiveArtifactContent } from "../artifacts.js";
+import { h2Title, headingsFilled, isSubstantiveArtifactContent } from "../artifacts.js";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { advanceStage, createChange, skipStage } from "../change.js";
 import { isInitialized, loadConfig } from "../config.js";
@@ -261,7 +261,7 @@ export async function prepareGuide(
 function partText(text: string): string {
   return text
     .split(/\r?\n/)
-    .filter((line) => !/^##\s+/.test(line.trim()))
+    .filter((line) => h2Title(line) === null)
     .join("\n")
     .trim();
 }
@@ -368,8 +368,8 @@ async function templateHeadings(root: string, template: string | undefined): Pro
   if (!(await pathExists(path))) return [];
   const headings: string[] = [];
   for (const line of (await readText(path)).split(/\r?\n/)) {
-    const match = /^##\s+(.+?)\s*$/.exec(line.trim());
-    if (match?.[1]) headings.push(match[1]);
+    const title = h2Title(line);
+    if (title) headings.push(title);
   }
   return headings;
 }
