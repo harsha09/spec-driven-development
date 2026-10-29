@@ -1,0 +1,40 @@
+id: 2026-10-29-document-the-team-commands-that-work
+title: Document the team commands that work
+workflow: feature
+created: 2026-10-29T11:35:53.846Z
+updated: 2026-10-29T11:40:07.037Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: The pages and the working commands are already named.
+    at: 2026-10-29T11:37:37.680Z
+  - stage: brainstorm
+    reason: The pages already exist. This change only corrects the sentences.
+    at: 2026-10-29T11:37:38.464Z
+  - stage: clarify_design
+    reason: The page list is the design.
+    at: 2026-10-29T11:37:40.132Z
+  - stage: clarify_tasks
+    reason: The tasks are the six pages.
+    at: 2026-10-29T11:37:41.810Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 06d528420e5e3163e2f4938ec0e5c61216de7b26
+    at: 2026-10-29T11:40:07.037Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
