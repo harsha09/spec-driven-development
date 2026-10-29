@@ -12,7 +12,9 @@ export interface OllamaResult {
 
 function chatUrl(base: string): string | null {
   try {
-    const withSlash = base.endsWith("/") ? base : `${base}/`;
+    const trimmed = base.trim();
+    const absolute = trimmed !== "" && !/^https?:/i.test(trimmed) ? `http://${trimmed}` : trimmed;
+    const withSlash = absolute.endsWith("/") ? absolute : `${absolute}/`;
     return new URL("api/chat", withSlash).toString();
   } catch {
     return null;
