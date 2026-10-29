@@ -33,7 +33,7 @@ sdd new "Fix null pointer on empty list" -y
 | **`greenfield`** | New product from a one-line idea | vision → requirements → features → architecture (then `sdd backlog start F-001`) |
 | **`spike`** | Time-boxed research / PoC | intent → research → outcome |
 | **`enterprise-feature`** | Platform / regulated / multi-team work | feature → hl_arb (hard gate) → lld → db_design → code_research → stories → tasks → implement → local_verify |
-| **`team-software`** | An optional stage pack you can name with `-w` | requirements (hard gate) → architecture → stories → plan → tasks → implement → pr_review → acceptance (hard gate) |
+| **`team-software`** | An optional stage pack you can name with `-w` | requirements → clarifications → hld → lld → plan → test_plan → implement → pr_review → qa_testing → qa_signoff → po_review → po_signoff. Each stage is a hard human gate |
 
 Prefer the CLI entrypoint for product bootstrap:
 
@@ -77,7 +77,7 @@ gate:
   approvers: [human]
 ```
 
-`items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement. Requirements and acceptance use a hard gate, so `sdd next` waits for `sdd gate approve`.
+`items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement, and the plan stage writes `tasks/T-001.md`. Every `team-software` stage is a hard gate whose approver is `human`, so `sdd next` waits for `sdd team signoff` on that commit. Merge stays a person action after `po_signoff`.
 
 ## Per-change controls
 

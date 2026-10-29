@@ -12,7 +12,6 @@ import {
   initProject,
   loadConfig,
   loadWorkflow,
-  pathExists,
   recordSignoff,
 } from "../index.js";
 import { WorkflowSchema } from "../schemas.js";
@@ -75,35 +74,38 @@ describe("team-software workflow", () => {
     const team = await loadWorkflow(root, "team-software");
     expect(team.stages.map((stage) => stage.id)).toEqual([
       "requirements",
-      "architecture",
-      "stories",
+      "clarifications",
+      "hld",
+      "lld",
       "plan",
-      "tasks",
+      "test_plan",
       "implement",
       "pr_review",
-      "acceptance",
+      "qa_testing",
+      "qa_signoff",
+      "po_review",
+      "po_signoff",
     ]);
     const requirements = team.stages[0]!;
     expect(requirements.owner).toBe("product-manager");
-    expect(requirements.collaborates).toEqual(["architect"]);
+    expect(requirements.collaborates).toEqual(["architect", "research-assistant"]);
     expect(requirements.gate.approvers).toEqual(["human"]);
     expect(requirements.gate.type).toBe("hard");
     expect(requirements.artifacts[0]?.path).toBe("requirements.md");
-    const story = team.stages.find((stage) => stage.id === "stories");
-    const tasks = team.stages.find((stage) => stage.id === "tasks");
+    const plan = team.stages.find((stage) => stage.id === "plan");
     const review = team.stages.find((stage) => stage.id === "pr_review");
-    expect(story?.artifacts[0]?.path).toBe("stories/S-001.md");
-    expect(tasks?.artifacts[0]?.path).toBe("tasks/T-001.md");
+    expect(plan?.artifacts.map((artifact) => artifact.path)).toEqual(["plan.md", "tasks/T-001.md"]);
     expect(review?.artifacts[0]?.path).toBe("reviews/R-001.md");
-    expect(review?.gate.type).toBe("soft");
-    expect(review?.gate.approvers).toEqual(["architect", "dev-lead"]);
-    expect(team.stages.find((stage) => stage.id === "acceptance")?.gate.approvers).toEqual([
-      "human",
-    ]);
+    expect(team.stages.find((stage) => stage.id === "test_plan")?.owner).toBe("qa");
+    expect(team.stages.find((stage) => stage.id === "qa_signoff")?.owner).toBe("qa");
+    expect(team.stages.find((stage) => stage.id === "po_signoff")?.owner).toBe("product-owner");
+    for (const stage of team.stages) {
+      expect(stage.gate.type).toBe("hard");
+      expect(stage.gate.approvers).toEqual(["human"]);
+    }
     const implement = team.stages.find((stage) => stage.id === "implement");
     expect(implement?.owner).toBe("developer");
     expect(implement?.items_from).toBe("tasks/T-*.md");
-    expect(team.stages.find((stage) => stage.id === "acceptance")?.gate.type).toBe("hard");
 
     const feature = await loadWorkflow(root, "feature");
     const intent = feature.stages[0]!;
@@ -152,7 +154,7 @@ describe("team-software workflow", () => {
       0,
     );
     const next = await advanceStage(root, config, ctx.id);
-    expect(next.to).toBe("architecture");
+    expect(next.to).toBe("clarifications");
   });
 
   it("leaves a human gate when the person waives it", async () => {
@@ -167,7 +169,7 @@ describe("team-software workflow", () => {
     await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
     await approveGate(root, config, ctx.id, "requirements", "waived for this try", "waived");
     const next = await advanceStage(root, config, ctx.id);
-    expect(next.to).toBe("architecture");
+    expect(next.to).toBe("clarifications");
   });
 
   it("stays on a human gate when the gate is failed", async () => {
@@ -188,54 +190,57 @@ describe("team-software workflow", () => {
     await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/not approved|gate/i);
   });
 
-  it("lets a soft pull-request review advance without a human file", async () => {
+  it("stops on every stage until the person signs this commit", async () => {
     const root = await project();
     const config = await loadConfig(root);
     const ctx = await createChange({
       projectRoot: root,
       config,
-      title: "Review without a human file",
+      title: "Sign each stage",
       workflowName: "team-software",
     });
     await teamRepo(root);
-    await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
-    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
-      0,
-    );
-    let stage = "requirements";
-    const bodies: Array<[string, string]> = [
-      ["architecture", "architecture.md"],
-      ["stories", "stories/S-001.md"],
-      ["plan", "plan.md"],
-      ["tasks", "tasks/T-001.md"],
+    const steps: Array<{ id: string; files: string[] }> = [
+      { id: "requirements", files: ["requirements.md"] },
+      { id: "clarifications", files: ["clarifications.md"] },
+      { id: "hld", files: ["hld.md"] },
+      { id: "lld", files: ["lld.md"] },
+      { id: "plan", files: ["plan.md", "tasks/T-001.md"] },
+      { id: "test_plan", files: ["test-plan.md"] },
+      { id: "implement", files: [] },
+      { id: "pr_review", files: ["reviews/R-001.md"] },
+      { id: "qa_testing", files: ["qa-testing.md"] },
+      { id: "qa_signoff", files: ["qa-signoff.md"] },
+      { id: "po_review", files: ["po-review.md"] },
+      { id: "po_signoff", files: ["po-signoff.md"] },
     ];
-    for (const [id, path] of bodies) {
-      const moved = await advanceStage(root, config, ctx.id);
-      stage = moved.ctx.meta.stage;
-      expect(stage).toBe(id);
-      await writeFile(join(ctx.path, path), meat(id), "utf8");
-    }
-    const implement = await advanceStage(root, config, ctx.id);
-    expect(implement.to).toBe("implement");
-    const review = await advanceStage(root, config, ctx.id);
-    expect(review.to).toBe("pr_review");
-    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/R-001/i);
     const reviewPath = join(ctx.path, "reviews", "R-001.md");
     const distinctive = meat("Pull request review");
-    await writeFile(reviewPath, distinctive, "utf8");
+    await writeFile(join(ctx.path, "requirements.md"), meat("requirements"), "utf8");
+    for (let index = 0; index < steps.length; index++) {
+      const step = steps[index]!;
+      if (index > 0) {
+        const moved = await advanceStage(root, config, ctx.id);
+        expect(moved.to).toBe(step.id);
+        for (const rel of step.files) {
+          const target = join(ctx.path, rel);
+          await mkdir(join(target, ".."), { recursive: true });
+          await writeFile(target, rel.endsWith("R-001.md") ? distinctive : meat(step.id), "utf8");
+        }
+      }
+      await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sign-off/i);
+      expect((await recordSignoff(root, { note: `the person signed ${step.id}` })).exitCode).toBe(
+        0,
+      );
+    }
     const sha = git(root, ["rev-parse", "HEAD"]);
-    const signoffPath = join(ctx.path, "reviews", `pr_review-${sha}.md`);
-    expect(await pathExists(signoffPath)).toBe(false);
-    const accepted = await advanceStage(root, config, ctx.id);
-    expect(accepted.to).toBe("acceptance");
-    expect(
-      (await recordSignoff(root, { note: "prepared the review", stage: "pr_review" })).exitCode,
-    ).toBe(0);
+    const qaSignoff = await readFile(join(ctx.path, "reviews", `qa_signoff-${sha}.md`), "utf8");
+    expect(qaSignoff).toContain("reviewer: Ada Lovelace");
+    expect(qaSignoff).toContain(`sha: ${sha}`);
+    expect(qaSignoff).toContain("the person signed qa_signoff");
+    const poSignoff = await readFile(join(ctx.path, "reviews", `po_signoff-${sha}.md`), "utf8");
+    expect(poSignoff).toContain("the person signed po_signoff");
     expect(await readFile(reviewPath, "utf8")).toBe(distinctive);
-    expect(await readFile(signoffPath, "utf8")).toContain("reviewer: Ada Lovelace");
-    await writeFile(join(ctx.path, "acceptance.md"), meat("Acceptance"), "utf8");
-    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sign-off/i);
-    expect((await recordSignoff(root, { note: "the person tried the change" })).exitCode).toBe(0);
     const done = await advanceStage(root, config, ctx.id);
     expect(done.to).toBeNull();
   });
@@ -250,7 +255,7 @@ describe("team-software workflow", () => {
       workflowName: "team-software",
     });
     let stage = ctx.meta.stage;
-    for (let step = 0; stage !== "implement" && step < 8; step++) {
+    for (let step = 0; stage !== "implement" && step < 12; step++) {
       const advanced = await advanceStage(root, config, ctx.id, { force: true });
       stage = advanced.ctx.meta.stage;
     }
