@@ -13,6 +13,7 @@ import {
   planNetwork,
   queueRole,
   rebuildNetwork,
+  recordDecisionRequest,
   routeRole,
   runNetwork,
   runRole,
@@ -381,6 +382,24 @@ const queue = defineCommand({
   },
 });
 
+const decide = defineCommand({
+  meta: { name: "decide", description: "Append an unsigned decision request" },
+  args: {
+    note: { type: "string", description: "The decision to ask", required: true },
+    change: { type: "string", description: "Change id" },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(
+        await recordDecisionRequest(root, {
+          note: textArg(args.note),
+          change: textArg(args.change),
+        }),
+      );
+    });
+  },
+});
+
 const take = defineCommand({
   meta: { name: "take", description: "Give one item to a bot that has room" },
   args: {
@@ -424,5 +443,6 @@ export const roleCmd = defineCommand({
     route,
     queue,
     take,
+    decide,
   },
 });

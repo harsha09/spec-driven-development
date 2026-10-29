@@ -8,6 +8,7 @@ export {
   showRoleGroup,
 } from "./handoff.js";
 export { allowRole, runRole } from "./run.js";
+export { recordDecisionRequest, recordSignoff } from "./signoff.js";
 export type { AllowRoleInput, RunRoleInput } from "./run.js";
 export {
   createRole,
