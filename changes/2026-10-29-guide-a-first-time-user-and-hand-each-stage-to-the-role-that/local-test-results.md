@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Guide a first-time user and hand each stage to the role that lists it** · `2026-10-29-guide-a-first-time-user-and-hand-each-stage-to-the-role-that`
+# Local verify results
 
-## Results
+> Change: Guide a first-time user and hand each stage to the role that lists it
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="920cae9e9afba93e3a8df35edef86ce2857a4559" result_count="1" -->
+> At: 2026-10-29T13:08:37.733Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
