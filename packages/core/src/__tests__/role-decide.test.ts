@@ -14,7 +14,15 @@ import { createRole, initTeam } from "../role/index.js";
 import { routeRole, takeRole } from "../role/routing.js";
 
 const temps: string[] = [];
-const options = ["architect", "dev-lead", "developer", "product-manager", "product-owner", "human"];
+const options = [
+  "architect",
+  "dev-lead",
+  "developer",
+  "product-manager",
+  "product-owner",
+  "qa",
+  "human",
+];
 
 afterEach(async () => {
   while (temps.length) {
