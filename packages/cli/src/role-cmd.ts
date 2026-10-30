@@ -14,12 +14,14 @@ import {
   planNetwork,
   postRoom,
   queueRole,
+  readConnector,
   rebuildNetwork,
   recordDecisionRequest,
   reviewRoom,
   routeRole,
   runNetwork,
   runRole,
+  runRoutine,
   setRoleContext,
   setRoleMessaging,
   showMemory,
@@ -597,6 +599,44 @@ const review = defineCommand({
   },
 });
 
+const connector = defineCommand({
+  meta: { name: "connector", description: "Read one GitHub issue, or refuse another action" },
+  args: {
+    verb: { type: "positional", description: "read, or another action", required: false },
+    connectorName: { type: "positional", description: "Connector name", required: false },
+    record: { type: "positional", description: "Record id", required: false },
+  },
+  async run({ args }) {
+    await withProject(async () => {
+      emit(
+        await readConnector({
+          verb: textArg(args.verb) ?? "",
+          connector: textArg(args.connectorName) ?? "",
+          record: textArg(args.record) ?? "",
+        }),
+      );
+    });
+  },
+});
+
+const routineRun = defineCommand({
+  meta: { name: "run", description: "Run one saved read" },
+  args: {
+    roleName: { type: "positional", description: "Role name", required: true },
+    routineName: { type: "positional", description: "Routine name", required: true },
+  },
+  async run({ args }) {
+    await withProject(async ({ root }) => {
+      emit(await runRoutine(root, textArg(args.roleName) ?? "", textArg(args.routineName) ?? ""));
+    });
+  },
+});
+
+const routine = defineCommand({
+  meta: { name: "routine", description: "Run a saved read" },
+  subCommands: { run: routineRun },
+});
+
 export const roleCmd = defineCommand({
   meta: {
     name: "role",
@@ -612,6 +652,8 @@ export const roleCmd = defineCommand({
     duplicate: named("duplicate", "Copy a role profile to <name> copy", duplicateRole),
     delete: named("delete", "Delete one role, its conversation, and its memory", deleteRole),
     run,
+    connector,
+    routine,
     allow,
     messaging,
     handoff,
