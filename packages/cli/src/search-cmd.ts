@@ -32,7 +32,8 @@ function fail(message: string): never {
 export const searchCmd = defineCommand({
   meta: {
     name: "search",
-    description: "Keyword search over code, specs, or memory under a token budget",
+    description:
+      "Keyword search over code, specs, or memory under a token budget, or one opt-in MCP source",
   },
   args: {
     query: {

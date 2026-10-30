@@ -1,0 +1,34 @@
+id: 2026-10-30-wrap-an-mcp-source-as-a-search-provider
+title: Wrap an MCP source as a search provider
+workflow: feature
+created: 2026-10-30T03:53:51.130Z
+updated: 2026-10-30T04:02:03.988Z
+status: in_progress
+stage: local_verify
+epic: issue-21
+story: S-004
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the issue states the scope
+    at: 2026-10-30T04:01:57.291Z
+  - stage: brainstorm
+    reason: one MCP wrapper is the approach
+    at: 2026-10-30T04:01:58.620Z
+  - stage: clarify_design
+    reason: the seams are in the design
+    at: 2026-10-30T04:02:00.411Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-10-30T04:02:02.122Z
+gates: {}
+verify_results: {}
