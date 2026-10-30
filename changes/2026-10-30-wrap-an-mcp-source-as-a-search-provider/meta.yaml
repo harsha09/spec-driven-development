@@ -2,7 +2,7 @@ id: 2026-10-30-wrap-an-mcp-source-as-a-search-provider
 title: Wrap an MCP source as a search provider
 workflow: feature
 created: 2026-10-30T03:53:51.130Z
-updated: 2026-10-30T04:02:03.988Z
+updated: 2026-10-30T04:06:12.762Z
 status: in_progress
 stage: local_verify
 epic: issue-21
@@ -31,4 +31,12 @@ skipped:
     reason: the task list is the work
     at: 2026-10-30T04:02:02.122Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: c19db96240e853f7cce27ccb0e24af0333f6a9ec
+    at: 2026-10-30T04:06:12.762Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Wrap an MCP source as a search provider** · `2026-10-30-wrap-an-mcp-source-as-a-search-provider`
+# Local verify results
 
-## Results
+> Change: Wrap an MCP source as a search provider
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="c19db96240e853f7cce27ccb0e24af0333f6a9ec" result_count="1" -->
+> At: 2026-10-30T04:06:12.760Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
