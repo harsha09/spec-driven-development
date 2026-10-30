@@ -79,7 +79,9 @@ function stringList(value: unknown): string[] | null {
   return out;
 }
 
-export function parseRoleDocument(name: string, raw: string): RoleProfile | null {
+export function splitFrontmatter(
+  raw: string,
+): { data: Record<string, unknown>; body: string } | null {
   const text = raw.replace(/^\uFEFF/, "");
   const nl = text.indexOf("\n");
   if (nl < 0 || text.slice(0, nl).trim() !== "---") return null;
@@ -93,14 +95,23 @@ export function parseRoleDocument(name: string, raw: string): RoleProfile | null
     return null;
   }
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  const rec = data as Record<string, unknown>;
+  return {
+    data: data as Record<string, unknown>,
+    body: rest.slice(close.index + close[0].length).trim(),
+  };
+}
+
+export function parseRoleDocument(name: string, raw: string): RoleProfile | null {
+  const split = splitFrontmatter(raw);
+  if (!split) return null;
+  const rec = split.data;
   const lists = emptyRoleLists();
   for (const [field, key] of LIST_FIELDS) {
     const parsed = stringList(rec[key]);
     if (!parsed) return null;
     lists[field] = parsed;
   }
-  const body = rest.slice(close.index + close[0].length).trim();
+  const body = split.body;
   return {
     name,
     label: asText(rec.label),
@@ -113,7 +124,7 @@ export function parseRoleDocument(name: string, raw: string): RoleProfile | null
   };
 }
 
-export function renderRole(role: RoleProfile): string {
+export function renderRole(role: RoleProfile, routines?: { keep: true; value: unknown }): string {
   const record: Record<string, unknown> = {
     name: role.name,
     label: role.label,
@@ -122,6 +133,7 @@ export function renderRole(role: RoleProfile): string {
     pinned: role.pinned,
     hidden: role.hidden,
   };
+  if (routines?.keep) record.routines = routines.value;
   for (const [field, key] of LIST_FIELDS) {
     if (role[field].length > 0) record[key] = role[field];
   }
@@ -159,8 +171,23 @@ export async function readRole(root: string, name: string): Promise<RoleProfile 
   }
 }
 
-async function writeRole(root: string, role: RoleProfile): Promise<void> {
-  await writeText(roleFilePath(root, role.name), renderRole(role));
+async function keptRoutines(
+  root: string,
+  name: string,
+): Promise<{ keep: true; value: unknown } | undefined> {
+  const path = roleFilePath(root, name);
+  if (!(await pathExists(path))) return undefined;
+  const split = splitFrontmatter(await readText(path));
+  if (!split || !Object.hasOwn(split.data, "routines")) return undefined;
+  return { keep: true, value: split.data.routines };
+}
+
+async function writeRole(
+  root: string,
+  role: RoleProfile,
+  routines?: { keep: true; value: unknown },
+): Promise<void> {
+  await writeText(roleFilePath(root, role.name), renderRole(role, routines));
 }
 
 export async function createRole(
@@ -216,7 +243,7 @@ export async function editRole(
   if (patch.description !== undefined) role.description = patch.description.trim();
   if (patch.askFirst !== undefined) role.askFirst = patch.askFirst;
   if (patch.stages !== undefined) role.stages = patch.stages;
-  await writeRole(root, role);
+  await writeRole(root, role, await keptRoutines(root, name));
   return ok();
 }
 
@@ -230,7 +257,7 @@ async function setFlag(
   const role = await readRole(root, name);
   if (!role) return fail(ROLE_TEXT.notFound);
   role[flag] = true;
-  await writeRole(root, role);
+  await writeRole(root, role, await keptRoutines(root, name));
   return ok();
 }
 
@@ -280,7 +307,7 @@ export async function duplicateRole(root: string, nameInput: string): Promise<Ro
   const copyName = canonicalRoleName(`${name} copy`);
   if (!copyName) return fail(ROLE_TEXT.badName);
   if (await pathExists(roleFilePath(root, copyName))) return fail(ROLE_TEXT.exists);
-  await writeRole(root, { ...source, name: copyName });
+  await writeRole(root, { ...source, name: copyName }, await keptRoutines(root, name));
   return ok();
 }
 
