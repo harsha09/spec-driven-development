@@ -2,6 +2,7 @@ import type { Config } from "../schemas.js";
 import { createBuiltinProvider, rankScope } from "./builtin.js";
 import { type SearchConfig, budgetForStage, loadSearchConfig } from "./config.js";
 import { type SearchRuntime, embedSearchQuery, resolveEmbedder } from "./embed.js";
+import { type SearchRunOptions, openMcpSearchProvider } from "./mcp-provider.js";
 import { packHits } from "./pack.js";
 import { attachSummaries, readPackedCache, writePackedCache } from "./result-cache.js";
 import { mergeRankedHits } from "./rrf.js";
@@ -31,13 +32,22 @@ export function resolveSearchProvider(
   config: Config,
   search: SearchConfig,
   runtime?: SearchRuntime,
+  run?: SearchRunOptions,
 ): SearchProvider {
   const builtin = createBuiltinProvider(projectRoot, config, runtime);
   const name = search.provider || "builtin";
   if (name === "builtin") return builtin;
   const registered = extra.get(name);
-  let active: SearchProvider = registered ?? builtin;
-  let warning = registered ? undefined : fallbackWarning(name);
+  let active: SearchProvider =
+    name === "mcp"
+      ? openMcpSearchProvider({
+          projectRoot,
+          search,
+          call: run?.mcpCall,
+          timeoutMs: run?.mcpTimeoutMs,
+        })
+      : (registered ?? builtin);
+  let warning = name === "mcp" || registered ? undefined : fallbackWarning(name);
   const mark = () => {
     warning = fallbackWarning(name);
     active = builtin;
@@ -57,7 +67,6 @@ export function resolveSearchProvider(
       try {
         const result = await active.search(query, options);
         result.warning = joinWarning(warning, result.warning);
-        result.provider = "builtin";
         return result;
       } catch (err) {
         if (active.id === "builtin") throw err;
@@ -98,13 +107,12 @@ export async function buildRetrievedInner(
     return `Retrieved context skipped: ${safeMessage(err, projectRoot)}.`;
   }
   const limit = budget ?? budgetForStage(search, stage);
-  const provider = resolveSearchProvider(projectRoot, config, search, runtime);
+  // Handoff stays on the built-in index. An MCP provider is only used by sdd search.
+  const provider = createBuiltinProvider(projectRoot, config, runtime);
   try {
     await provider.index();
   } catch (err) {
-    const message =
-      provider.id === "builtin" ? safeMessage(err, projectRoot) : fallbackWarning(search.provider);
-    return `Retrieved context skipped: ${message}.`;
+    return `Retrieved context skipped: ${safeMessage(err, projectRoot)}.`;
   }
   const request = {
     projectRoot,
@@ -153,11 +161,7 @@ export async function buildRetrievedInner(
     }
     return packed.text;
   } catch (err) {
-    const message =
-      search.provider === "builtin"
-        ? safeMessage(err, projectRoot)
-        : fallbackWarning(search.provider);
-    return `Retrieved context skipped: ${message}.`;
+    return `Retrieved context skipped: ${safeMessage(err, projectRoot)}.`;
   }
 }
 
@@ -167,9 +171,10 @@ export async function executeSearch(
   query: string,
   scope: SearchScope,
   budget: number | undefined,
+  run?: SearchRunOptions,
 ): Promise<SearchResult> {
   const search = await loadSearchConfig(projectRoot);
-  const provider = resolveSearchProvider(projectRoot, config, search);
+  const provider = resolveSearchProvider(projectRoot, config, search, undefined, run);
   await provider.index();
   const options: SearchQuery = {
     scope,

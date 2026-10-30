@@ -27,7 +27,7 @@ export interface SearchHit {
 }
 
 export interface SearchResult {
-  provider: "builtin";
+  provider: string;
   warning?: string;
   query: string;
   scope: SearchScope;
@@ -38,7 +38,7 @@ export interface SearchResult {
 }
 
 export interface IndexStats {
-  provider: "builtin";
+  provider: string;
   files: number;
   chunks: number;
   lastIndexFilesConsidered: number;
