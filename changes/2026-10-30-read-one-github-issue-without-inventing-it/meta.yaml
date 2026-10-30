@@ -1,0 +1,42 @@
+id: 2026-10-30-read-one-github-issue-without-inventing-it
+title: Read one GitHub issue without inventing it
+workflow: feature
+created: 2026-10-30T03:18:41.290Z
+updated: 2026-10-30T03:35:26.832Z
+status: in_progress
+stage: local_verify
+epic: issue-37
+story: S-005
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the approved reading has no open product choice
+    at: 2026-10-30T03:33:20.236Z
+  - stage: brainstorm
+    reason: one approach is enough
+    at: 2026-10-30T03:33:22.060Z
+  - stage: clarify_design
+    reason: the approved design has no open product choice
+    at: 2026-10-30T03:33:22.861Z
+  - stage: clarify_tasks
+    reason: the approved design is the task list
+    at: 2026-10-30T03:33:23.652Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 4f1d2d02e536377d4e69ad0ec9bf3ec90c4ebef9
+    at: 2026-10-30T03:35:26.832Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

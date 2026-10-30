@@ -7,6 +7,8 @@ export {
   setRoleMessaging,
   showRoleGroup,
 } from "./handoff.js";
+export { ghIssueSource, readConnector, runRoutine } from "./connector.js";
+export type { IssueRead, IssueRecord, IssueSource } from "./connector.js";
 export { allowRole, runRole } from "./run.js";
 export { roleContextBody, setRoleContext } from "./context.js";
 export { dutyForStage, prepareGuide, runGuide } from "./guide.js";
