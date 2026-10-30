@@ -8,11 +8,10 @@ export function searchPreamble(
   scope: string,
   budget: number,
   hybrid = false,
+  provider = "builtin",
 ): string {
-  if (hybrid) {
-    return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: builtin\nMode: hybrid\nBudget: ${budget}\n\n`;
-  }
-  return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: builtin\nBudget: ${budget}\n\n`;
+  const mode = hybrid ? "Mode: hybrid\n" : "";
+  return `# Search\nQuery: ${query}\nScope: ${scope}\nProvider: ${provider}\n${mode}Budget: ${budget}\n\n`;
 }
 
 export function renderBlock(hit: RawHit, form: "full" | "signature" | "summary"): string {

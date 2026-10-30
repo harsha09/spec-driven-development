@@ -183,6 +183,7 @@ export default defineConfig({
         text: "Look up",
         items: [
           { text: "Commands", link: "/reference/cli" },
+          { text: "Search providers", link: "/reference/search-providers" },
           { text: "Workflows", link: "/reference/workflows" },
           { text: "AI hosts", link: "/reference/agents" },
           { text: "Folders", link: "/reference/layout" },
@@ -231,6 +232,7 @@ export default defineConfig({
         text: "Look up",
         items: [
           { text: "Commands", link: "/reference/cli" },
+          { text: "Search providers", link: "/reference/search-providers" },
           { text: "Workflows", link: "/reference/workflows" },
           { text: "AI hosts", link: "/reference/agents" },
           { text: "Folders", link: "/reference/layout" },

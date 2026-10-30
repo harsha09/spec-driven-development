@@ -22,6 +22,8 @@ const SearchConfigSchema = z.object({
   embeddings: z.boolean().default(false),
   budgets: BudgetSchema.default({ default: 12000 }),
   exclude: z.array(z.string().min(1)).default([]),
+  mcp_source: z.string().min(1).optional(),
+  mcp_tool: z.string().min(1).optional(),
 });
 
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;

@@ -93,7 +93,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | Focused code slices under a token budget | Implement |
-| `sdd search "<query>"` | Keyword search (`--scope code\|specs\|memory`, optional `--budget`) | Find a symbol without opening AI |
+| `sdd search "<query>"` | Keyword search (`--scope code\|specs\|memory`, optional `--budget`). `provider: mcp` asks one MCP source and falls back to this keyword search. | Find a symbol without opening AI |
 | `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
@@ -155,6 +155,8 @@ Search, context packing, and the handoff retrieved section count tokens with `cl
 `sdd workflows` prints those same cl100k counts for every copied workflow. The workflow line counts the workflow file. Each artifact line counts the template that stage copies. A missing template prints `missing`. When a change is active, a `Change` section counts the artifact files in that change. A file that has not been written prints `not written`. This view has no dollar amount.
 
 Embeddings are off by default. Set `embeddings: true` in `.sdd/search.yaml` to download `BAAI/bge-small-en-v1.5` once into `.sdd/models/` and rank with hybrid fusion. A missing model falls back to keyword search.
+
+`provider: mcp` is also off unless you set it. `sdd search` then calls one source from `.sdd/mcp.yaml` with the query and the scope. A missing or broken source falls back to keyword search. Handoff stays on the built-in index. The language matrix is [Search providers](./search-providers).
 
 Related change specs and memory pages can be packed as a short extractive summary. The active change and code stay full. The keyword index is unchanged. Repeated searches are cached in `.sdd/index.db`, and search text does not gain a cache banner.
 

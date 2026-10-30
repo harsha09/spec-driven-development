@@ -32,6 +32,8 @@ export {
   executeSearch,
   fallbackWarning,
 } from "./registry.js";
+export { openMcpSearchProvider } from "./mcp-provider.js";
+export type { McpSearchCall, McpToolResult, SearchRunOptions } from "./mcp-provider.js";
 export type {
   SearchScope,
   SearchQuery,

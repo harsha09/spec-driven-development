@@ -5,7 +5,7 @@ description: Use sdd context for keyword slices across TypeScript, JavaScript, R
 
 # Code context (local keyword index)
 
-Keyword search covers TypeScript, JavaScript, Rust, and Python. A budget keeps the top hit whole and demotes a later hit to a one-line signature instead of cutting a function. Hybrid ranking is optional and off by default.
+Keyword search covers TypeScript, JavaScript, Rust, and Python. A budget keeps the top hit whole and demotes a later hit to a one-line signature instead of cutting a function. Hybrid ranking is optional and off by default. The language matrix is [Search providers](../reference/search-providers).
 
 ```bash
 sdd context --path src/app.ts --symbol main --stdout
