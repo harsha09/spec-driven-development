@@ -183,6 +183,65 @@ describe("sdd role connector", () => {
     });
     expect(failed.stdout).not.toContain(bare);
   });
+
+  it("prints a Slack or Teams draft and does not send it", async () => {
+    const live = source(async () => {
+      throw new Error("called");
+    });
+    const slack = await readConnector({
+      verb: "draft",
+      connector: "slack",
+      record: "The reading is ready",
+      source: live.client,
+    });
+    expect(slack).toEqual({
+      exitCode: 0,
+      stdout: "slack\nThe reading is ready\nnot sent",
+    });
+    const teams = await readConnector({
+      verb: "draft",
+      connector: "teams",
+      record: "The reading is ready",
+      source: live.client,
+    });
+    expect(teams).toEqual({
+      exitCode: 0,
+      stdout: "teams\nThe reading is ready\nnot sent",
+    });
+    const posted = await readConnector({
+      verb: "post",
+      connector: "slack",
+      record: "The reading is ready",
+      source: live.client,
+    });
+    expect(posted).toEqual({
+      exitCode: 1,
+      stdout: "That connector action does not run in this slice.",
+    });
+    expect(posted.stdout).not.toContain("not sent");
+    const sent = await readConnector({
+      verb: "send",
+      connector: "teams",
+      record: "The reading is ready",
+    });
+    expect(sent.stdout).toBe("That connector action does not run in this slice.");
+    const namedX = await readConnector({
+      verb: "draft",
+      connector: "x",
+      record: "The reading is ready",
+    });
+    expect(namedX.stdout).toBe("A connector cannot read or post on X.");
+    const empty = await readConnector({ verb: "draft", connector: "slack", record: "  " });
+    expect(empty.stdout).toBe("A draft needs text.");
+    const other = await readConnector({
+      verb: "draft",
+      connector: "jira",
+      record: "The reading is ready",
+      source: live.client,
+    });
+    expect(other.stdout).toBe("That connector is not in this slice.");
+    expect(live.calls()).toBe(0);
+  });
 });
 
 describe("sdd role routine", () => {

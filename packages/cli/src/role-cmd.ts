@@ -602,10 +602,14 @@ const review = defineCommand({
 const connector = defineCommand({
   meta: {
     name: "connector",
-    description: "Read one GitHub issue, or open one change from it",
+    description: "Read one GitHub issue, open one change from it, or leave a draft unsent",
   },
   args: {
-    verb: { type: "positional", description: "read, seed, or another action", required: false },
+    verb: {
+      type: "positional",
+      description: "read, seed, draft, or another action",
+      required: false,
+    },
     connectorName: { type: "positional", description: "Connector name", required: false },
     record: { type: "positional", description: "Record id", required: false },
   },
