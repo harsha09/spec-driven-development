@@ -1,0 +1,42 @@
+id: 2026-11-04-report-a-missing-tracker-record
+title: Report a missing tracker record
+workflow: feature
+created: 2026-11-04T12:58:37.251Z
+updated: 2026-11-04T13:02:49.752Z
+status: in_progress
+stage: local_verify
+epic: issue-37
+story: S-008
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the epic already names the missing record
+    at: 2026-11-04T12:58:52.465Z
+  - stage: brainstorm
+    reason: one read command is the approach
+    at: 2026-11-04T12:58:53.126Z
+  - stage: clarify_design
+    reason: the seam is the existing connector
+    at: 2026-11-04T12:59:05.983Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-11-04T13:00:14.826Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 67de11343dd599389b900bb1bd4fe0ac16545c32
+    at: 2026-11-04T13:02:49.751Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
