@@ -2,7 +2,7 @@ id: 2026-11-04-leave-a-slack-or-teams-draft-unsent
 title: Leave a Slack or Teams draft unsent
 workflow: feature
 created: 2026-11-04T12:28:03.415Z
-updated: 2026-11-04T12:30:00.524Z
+updated: 2026-11-04T12:34:04.080Z
 status: in_progress
 stage: local_verify
 epic: issue-37
@@ -31,4 +31,12 @@ skipped:
     reason: the task list is the work
     at: 2026-11-04T12:29:31.985Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 18dc5f4f6c329f06ce5431301663616b282c8c4c
+    at: 2026-11-04T12:34:04.080Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

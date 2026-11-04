@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Leave a Slack or Teams draft unsent** · `2026-11-04-leave-a-slack-or-teams-draft-unsent`
+# Local verify results
 
-## Results
+> Change: Leave a Slack or Teams draft unsent
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="18dc5f4f6c329f06ce5431301663616b282c8c4c" result_count="1" -->
+> At: 2026-11-04T12:34:04.078Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
