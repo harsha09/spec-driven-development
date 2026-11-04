@@ -602,7 +602,8 @@ const review = defineCommand({
 const connector = defineCommand({
   meta: {
     name: "connector",
-    description: "Read one GitHub issue, open one change from it, or leave a draft unsent",
+    description:
+      "Read one GitHub issue, open one change from it, leave a draft unsent, or report a tracker record",
   },
   args: {
     verb: {

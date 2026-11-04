@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import { initProject, loadConfig } from "../index.js";
-import { type IssueSource, readConnector, runRoutine } from "../role/connector.js";
+import {
+  type IssueSource,
+  type TrackerSource,
+  readConnector,
+  runRoutine,
+} from "../role/connector.js";
 import { duplicateRole, editRole, hideRole, pinRole } from "../role/profile.js";
 
 const temps: string[] = [];
@@ -85,7 +90,7 @@ describe("sdd role connector", () => {
     const cases: Array<[string, string, string, string]> = [
       ["read", "x", "1", "A connector cannot read or post on X."],
       ["comment", "x", "1", "A connector cannot read or post on X."],
-      ["read", "jira", "1", "That connector is not in this slice."],
+      ["read", "jira", "1", "Jira record 1 could not be read."],
       ["comment", "github-issue", "37", "That connector action does not run in this slice."],
       ["close", "github-issue", "37", "That connector action does not run in this slice."],
       ["merge", "github-issue", "37", "That connector action does not run in this slice."],
@@ -240,6 +245,63 @@ describe("sdd role connector", () => {
       source: live.client,
     });
     expect(other.stdout).toBe("That connector is not in this slice.");
+    expect(live.calls()).toBe(0);
+  });
+
+  it("reports a missing tracker record and does not invent one", async () => {
+    const live = source(async () => {
+      throw new Error("called");
+    });
+    const unread = await readConnector({
+      verb: "read",
+      connector: "azure-devops",
+      record: "42",
+      source: live.client,
+    });
+    expect(unread).toEqual({
+      exitCode: 1,
+      stdout: "Azure DevOps record 42 could not be read.",
+    });
+    expect(unread.stdout).not.toContain("title");
+
+    const missing: TrackerSource = {
+      async read() {
+        return { ok: false, missing: true };
+      },
+    };
+    const gone = await readConnector({
+      verb: "read",
+      connector: "aha",
+      record: "IDEA-9",
+      tracker: missing,
+      source: live.client,
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: "Aha record IDEA-9 was not found." });
+    expect(gone.stdout).not.toContain("Idea");
+
+    const found: TrackerSource = {
+      async read(id) {
+        return { ok: true, record: { id, title: "Role agents", state: "OPEN" } };
+      },
+    };
+    const read = await readConnector({
+      verb: "read",
+      connector: "asana",
+      record: "task-1",
+      tracker: found,
+      source: live.client,
+    });
+    expect(read).toEqual({ exitCode: 0, stdout: "task-1\nRole agents\nOPEN" });
+
+    const empty = await readConnector({ verb: "read", connector: "jira", record: " " });
+    expect(empty.stdout).toBe("A tracker record id is one line of text.");
+    const seeded = await readConnector({
+      verb: "seed",
+      connector: "jira",
+      record: "PROJ-1",
+      source: live.client,
+    });
+    expect(seeded.stdout).toBe("That connector is not in this slice.");
     expect(live.calls()).toBe(0);
   });
 });

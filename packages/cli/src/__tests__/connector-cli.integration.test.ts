@@ -65,9 +65,10 @@ describe("sdd role connector", () => {
     const comment = runSdd(root, ["role", "connector", "comment", "github-issue", "37"]);
     expect(comment.status).toBe(1);
     expect(comment.stdout.trim()).toBe("That connector action does not run in this slice.");
-    const other = runSdd(root, ["role", "connector", "read", "jira", "1"]);
+    const other = runSdd(root, ["role", "connector", "read", "jira", "PROJ-1"]);
     expect(other.status).toBe(1);
-    expect(other.stdout.trim()).toBe("That connector is not in this slice.");
+    expect(other.stdout.trim()).toBe("Jira record PROJ-1 could not be read.");
+    expect(other.stdout).not.toContain("title");
     const draft = runSdd(root, ["role", "connector", "draft", "slack", "The reading is ready"]);
     expect(draft.status).toBe(0);
     expect(draft.stdout.trim()).toBe("slack\nThe reading is ready\nnot sent");
