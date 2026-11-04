@@ -9,6 +9,13 @@ const X_LINE = "A connector cannot read or post on X.";
 const NOT_IN_SLICE = "That connector is not in this slice.";
 const DOES_NOT_RUN = "That connector action does not run in this slice.";
 const DRAFT_NEEDS_TEXT = "A draft needs text.";
+const BAD_TRACKER_ID = "A tracker record id is one line of text.";
+const TRACKERS: Record<string, string> = {
+  jira: "Jira",
+  aha: "Aha",
+  asana: "Asana",
+  "azure-devops": "Azure DevOps",
+};
 const BAD_NUMBER = "A GitHub issue number is a positive integer.";
 const QA_LINE = "A routine cannot write a QA result.";
 const BAD_ROUTINES = "Routines on this role are invalid.";
@@ -25,6 +32,18 @@ export type IssueRead = { ok: true; issue: IssueRecord } | { ok: false; missing:
 
 export interface IssueSource {
   read(number: number): Promise<IssueRead>;
+}
+
+export interface TrackerRecord {
+  id: string;
+  title: string;
+  state: string;
+}
+
+export type TrackerRead = { ok: true; record: TrackerRecord } | { ok: false; missing: boolean };
+
+export interface TrackerSource {
+  read(id: string): Promise<TrackerRead>;
 }
 
 interface RoutineItem {
@@ -58,6 +77,22 @@ function unreadLine(number: number): string {
 
 function couldNotOpen(number: number): string {
   return `A change could not be opened for GitHub issue ${number}.`;
+}
+
+function trackerMissing(name: string, id: string): string {
+  return `${name} record ${id} was not found.`;
+}
+
+function trackerUnread(name: string, id: string): string {
+  return `${name} record ${id} could not be read.`;
+}
+
+function unavailableTracker(): TrackerSource {
+  return {
+    async read() {
+      return { ok: false, missing: false };
+    },
+  };
 }
 
 function cleanLine(value: unknown): string | null {
@@ -128,6 +163,7 @@ export async function readConnector(input: {
   connector: string;
   record: string;
   source?: IssueSource;
+  tracker?: TrackerSource;
   projectRoot?: string;
   config?: Config;
 }): Promise<RoleCommandResult> {
@@ -141,6 +177,25 @@ export async function readConnector(input: {
     const text = cleanLine(record);
     if (!text) return fail(DRAFT_NEEDS_TEXT);
     return ok(`${connector}\n${text}\nnot sent`);
+  }
+  const trackerName = TRACKERS[connector];
+  if (verb === "read" && trackerName) {
+    const id = cleanLine(record);
+    if (!id) return fail(BAD_TRACKER_ID);
+    const tracker = input.tracker ?? unavailableTracker();
+    let read: TrackerRead;
+    try {
+      read = await tracker.read(id);
+    } catch {
+      return fail(trackerUnread(trackerName, id));
+    }
+    if (!read.ok) {
+      return fail(read.missing ? trackerMissing(trackerName, id) : trackerUnread(trackerName, id));
+    }
+    const title = cleanLine(read.record.title);
+    const state = cleanLine(read.record.state);
+    if (read.record.id !== id || !title || !state) return fail(trackerUnread(trackerName, id));
+    return ok(`${id}\n${title}\n${state}`);
   }
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
