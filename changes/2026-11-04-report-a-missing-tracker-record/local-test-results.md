@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Report a missing tracker record** · `2026-11-04-report-a-missing-tracker-record`
+# Local verify results
 
-## Results
+> Change: Report a missing tracker record
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="67de11343dd599389b900bb1bd4fe0ac16545c32" result_count="1" -->
+> At: 2026-11-04T13:02:49.748Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->

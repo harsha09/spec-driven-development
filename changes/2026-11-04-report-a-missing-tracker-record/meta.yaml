@@ -2,7 +2,7 @@ id: 2026-11-04-report-a-missing-tracker-record
 title: Report a missing tracker record
 workflow: feature
 created: 2026-11-04T12:58:37.251Z
-updated: 2026-11-04T13:00:16.980Z
+updated: 2026-11-04T13:02:49.752Z
 status: in_progress
 stage: local_verify
 epic: issue-37
@@ -31,4 +31,12 @@ skipped:
     reason: the task list is the work
     at: 2026-11-04T13:00:14.826Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 67de11343dd599389b900bb1bd4fe0ac16545c32
+    at: 2026-11-04T13:02:49.751Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
