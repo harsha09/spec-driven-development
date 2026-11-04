@@ -600,19 +600,24 @@ const review = defineCommand({
 });
 
 const connector = defineCommand({
-  meta: { name: "connector", description: "Read one GitHub issue, or refuse another action" },
+  meta: {
+    name: "connector",
+    description: "Read one GitHub issue, or open one change from it",
+  },
   args: {
-    verb: { type: "positional", description: "read, or another action", required: false },
+    verb: { type: "positional", description: "read, seed, or another action", required: false },
     connectorName: { type: "positional", description: "Connector name", required: false },
     record: { type: "positional", description: "Record id", required: false },
   },
   async run({ args }) {
-    await withProject(async () => {
+    await withProject(async ({ root, config }) => {
       emit(
         await readConnector({
           verb: textArg(args.verb) ?? "",
           connector: textArg(args.connectorName) ?? "",
           record: textArg(args.record) ?? "",
+          projectRoot: root,
+          config,
         }),
       );
     });

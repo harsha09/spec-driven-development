@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { createChange } from "../change.js";
 import { pathExists, readText } from "../fs.js";
+import type { Config } from "../schemas.js";
 import { canonicalRoleName, roleFilePath, splitFrontmatter } from "./profile.js";
 import { ROLE_TEXT, type RoleCommandResult } from "./types.js";
 
@@ -51,6 +53,10 @@ function missingLine(number: number): string {
 
 function unreadLine(number: number): string {
   return `GitHub issue ${number} could not be read.`;
+}
+
+function couldNotOpen(number: number): string {
+  return `A change could not be opened for GitHub issue ${number}.`;
 }
 
 function cleanLine(value: unknown): string | null {
@@ -121,12 +127,14 @@ export async function readConnector(input: {
   connector: string;
   record: string;
   source?: IssueSource;
+  projectRoot?: string;
+  config?: Config;
 }): Promise<RoleCommandResult> {
   const verb = input.verb.trim();
   const connector = input.connector.trim();
   const record = input.record.trim();
   if (connector === "x") return fail(X_LINE);
-  if (verb !== "read") return fail(DOES_NOT_RUN);
+  if (verb !== "read" && verb !== "seed") return fail(DOES_NOT_RUN);
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
   if (number === null) return fail(BAD_NUMBER);
@@ -142,7 +150,20 @@ export async function readConnector(input: {
   const title = cleanLine(read.issue.title);
   const state = cleanLine(read.issue.state);
   if (!title || !state) return fail(unreadLine(number));
-  return ok(threeLines({ number, title, state }));
+  if (verb === "read") return ok(threeLines({ number, title, state }));
+  if (!input.projectRoot || !input.config) return fail(couldNotOpen(number));
+  try {
+    const ctx = await createChange({
+      projectRoot: input.projectRoot,
+      config: input.config,
+      title,
+      workflowName: "feature",
+      epic: `issue-${number}`,
+    });
+    return ok(`${number}\n${ctx.id}\n${ctx.meta.stage}`);
+  } catch {
+    return fail(couldNotOpen(number));
+  }
 }
 
 function classifyRoutines(

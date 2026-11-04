@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
+import { initProject, loadConfig } from "../index.js";
 import { type IssueSource, readConnector, runRoutine } from "../role/connector.js";
 import { duplicateRole, editRole, hideRole, pinRole } from "../role/profile.js";
 
@@ -110,6 +111,77 @@ describe("sdd role connector", () => {
     });
     expect(unread.stdout).toBe("GitHub issue 37 could not be read.");
     expect(unread.stdout).not.toContain("OPEN");
+  });
+
+  it("opens one feature change at intent and does not accept the spec", async () => {
+    const root = await tempRoot();
+    await initProject({ projectRoot: root, agents: false });
+    const live = source(async (number) => {
+      return { ok: true, issue: { number, title: "Role agents", state: "OPEN" } };
+    });
+    const config = await loadConfig(root);
+    const opened = await readConnector({
+      verb: "seed",
+      connector: "github-issue",
+      record: "37",
+      source: live.client,
+      projectRoot: root,
+      config,
+    });
+    expect(opened.exitCode).toBe(0);
+    const [number, id, stage] = opened.stdout.split("\n");
+    expect(number).toBe("37");
+    expect(stage).toBe("intent");
+    expect(id?.length).toBeGreaterThan(0);
+    const meta = await readFile(join(root, "changes", id ?? "", "meta.yaml"), "utf8");
+    expect(meta).toContain("title: Role agents");
+    expect(meta).toContain("epic: issue-37");
+    expect(meta).toContain("stage: intent");
+    expect(meta).not.toContain("story:");
+    const feature = await readFile(join(root, "changes", id ?? "", "feature.md"), "utf8");
+    expect(feature).toContain("## Problem / opportunity\n\n-\n");
+    expect(feature).not.toContain("OPEN");
+    expect(live.calls()).toBe(1);
+
+    const again = await readConnector({
+      verb: "seed",
+      connector: "github-issue",
+      record: "37",
+      source: live.client,
+      projectRoot: root,
+      config,
+    });
+    expect(again.exitCode).toBe(0);
+    expect(again.stdout.split("\n")[1]).not.toBe(id);
+    expect(live.calls()).toBe(2);
+
+    const missing = source(async () => ({ ok: false, missing: true }));
+    const before = await readdir(join(root, "changes"));
+    const gone = await readConnector({
+      verb: "seed",
+      connector: "github-issue",
+      record: "99",
+      source: missing.client,
+      projectRoot: root,
+      config,
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: "GitHub issue 99 was not found." });
+    expect(await readdir(join(root, "changes"))).toEqual(before);
+
+    const bare = await tempRoot();
+    const failed = await readConnector({
+      verb: "seed",
+      connector: "github-issue",
+      record: "37",
+      source: live.client,
+      projectRoot: bare,
+      config,
+    });
+    expect(failed).toEqual({
+      exitCode: 1,
+      stdout: "A change could not be opened for GitHub issue 37.",
+    });
+    expect(failed.stdout).not.toContain(bare);
   });
 });
 
