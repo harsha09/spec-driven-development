@@ -68,5 +68,11 @@ describe("sdd role connector", () => {
     const other = runSdd(root, ["role", "connector", "read", "jira", "1"]);
     expect(other.status).toBe(1);
     expect(other.stdout.trim()).toBe("That connector is not in this slice.");
+    const draft = runSdd(root, ["role", "connector", "draft", "slack", "The reading is ready"]);
+    expect(draft.status).toBe(0);
+    expect(draft.stdout.trim()).toBe("slack\nThe reading is ready\nnot sent");
+    const post = runSdd(root, ["role", "connector", "post", "teams", "The reading is ready"]);
+    expect(post.status).toBe(1);
+    expect(post.stdout.trim()).toBe("That connector action does not run in this slice.");
   });
 });

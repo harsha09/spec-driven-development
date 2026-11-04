@@ -8,6 +8,7 @@ import { ROLE_TEXT, type RoleCommandResult } from "./types.js";
 const X_LINE = "A connector cannot read or post on X.";
 const NOT_IN_SLICE = "That connector is not in this slice.";
 const DOES_NOT_RUN = "That connector action does not run in this slice.";
+const DRAFT_NEEDS_TEXT = "A draft needs text.";
 const BAD_NUMBER = "A GitHub issue number is a positive integer.";
 const QA_LINE = "A routine cannot write a QA result.";
 const BAD_ROUTINES = "Routines on this role are invalid.";
@@ -134,7 +135,13 @@ export async function readConnector(input: {
   const connector = input.connector.trim();
   const record = input.record.trim();
   if (connector === "x") return fail(X_LINE);
-  if (verb !== "read" && verb !== "seed") return fail(DOES_NOT_RUN);
+  if (verb !== "read" && verb !== "seed" && verb !== "draft") return fail(DOES_NOT_RUN);
+  if (verb === "draft") {
+    if (connector !== "slack" && connector !== "teams") return fail(NOT_IN_SLICE);
+    const text = cleanLine(record);
+    if (!text) return fail(DRAFT_NEEDS_TEXT);
+    return ok(`${connector}\n${text}\nnot sent`);
+  }
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
   if (number === null) return fail(BAD_NUMBER);
