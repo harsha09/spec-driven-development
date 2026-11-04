@@ -1,0 +1,42 @@
+id: 2026-11-04-open-one-change-from-a-github-issue
+title: Open one change from a GitHub issue
+workflow: feature
+created: 2026-11-04T10:55:19.422Z
+updated: 2026-11-04T11:01:58.940Z
+status: in_progress
+stage: local_verify
+epic: issue-37
+story: S-006
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: the issue read already names the record
+    at: 2026-11-04T10:56:34.630Z
+  - stage: brainstorm
+    reason: one seed command is the approach
+    at: 2026-11-04T10:56:36.266Z
+  - stage: clarify_design
+    reason: the seam is the existing connector
+    at: 2026-11-04T10:56:37.980Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-11-04T10:56:39.644Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: f135e8c388ba7e47e21c8d2d957264966a2a29e3
+    at: 2026-11-04T11:01:58.940Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
