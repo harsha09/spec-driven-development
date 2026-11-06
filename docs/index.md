@@ -61,6 +61,7 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 | **Do serious / multi-team work** | [Enterprise path](./guides/enterprise) |
 | **Look up a command** | [CLI reference](./reference/cli) |
 | **Name a team in the repo** | [Roles and duties](./guides/roles) |
+| **Write a design an agent can follow** | [Skill pack](./guides/skills) |
 
 ---
 

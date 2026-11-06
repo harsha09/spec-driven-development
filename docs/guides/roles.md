@@ -293,3 +293,11 @@ Route tries these, in order:
 The handoff writes an `Owner` line from that workflow field. Hotfix, patch, feature, greenfield, spike, and enterprise-feature leave the field unset. `team-software` sets it to the owner in the table above.
 
 Workflow packs and the gate fields are in [Workflows](../reference/workflows). Commands are in the [CLI reference](../reference/cli).
+
+---
+
+## Skill pack
+
+The role files above stay short. They are the routing contract: the job, the never list, the questions, and the stages. A procedure for a full design, an acceptance gate, a smallest change, UX copy, a UI binding, QA scenarios, or a constitution interview lives in `skills/` in this repository. That pack does not rewrite `.sdd/roles`, and `sdd init` does not copy it. Product names, extra bans, and commands stay in the product's `.sdd/skill-config.yaml`.
+
+The map is [Skill pack](./skills).
