@@ -1,0 +1,21 @@
+# Copy this file to .sdd/skill-config.yaml in the product repository.
+# sdd init does not write it. Leave a value empty when you do not know it.
+# Do not put secrets, tokens, account names, or machine paths in this file.
+# The only default the skill pack assumes is authority: human, which means the person.
+
+product_name: ""
+authority: human
+constitution_path: memory/constitution.md
+design_artifact: design.md
+acceptance_artifact: acceptance.md
+qa_artifact: qa-testing.md
+ux_artifact: ux.md
+ui_binding_artifact: ui-binding.md
+implementation_note: implementation-note.md
+module_roots: []
+tools: []
+verify_commands: []
+banned_actions: []
+ui_components: []
+persistence: ""
+locales: []
