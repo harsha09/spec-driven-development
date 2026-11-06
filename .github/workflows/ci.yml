@@ -56,8 +56,14 @@ jobs:
       - name: Test (unit)
         run: pnpm test
 
+      - name: Skill pack checks
+        run: node --test skills/sdd-design-writer/scripts/check-design.test.mjs
+
       - name: CLI smoke (init → new → next → complete)
         run: bash scripts/cli-smoke.sh
+
+      - name: Skill pack design examples
+        run: node skills/sdd-design-writer/scripts/validate-examples.mjs
 
   npm-pack:
     name: npm pack (dry)

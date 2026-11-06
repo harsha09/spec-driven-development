@@ -22,6 +22,7 @@
     "build": "pnpm -r run build",
     "dev": "pnpm -r --parallel run dev",
     "test": "pnpm -r run test",
+    "test:skills": "node --test skills/sdd-design-writer/scripts/check-design.test.mjs",
     "lint": "biome check packages/core/src packages/cli/src",
     "lint:fix": "biome check packages/core/src packages/cli/src --write",
     "format": "biome format packages/core/src packages/cli/src --write",
