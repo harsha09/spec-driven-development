@@ -51,7 +51,7 @@ sdd skip clarify_tasks -r "tasks are clear"
 
 # replace feature.md
 sdd next --no-agent
-# replace design.md
+# replace design.md — see the skill pack when the note needs races, edge cases, and risks with mitigations
 sdd next --no-agent
 # replace tasks.md
 sdd next --no-agent

@@ -75,6 +75,7 @@ sdd backlog start F-001
 | Everyday commands | [docs/guides/everyday-loop.md](./docs/guides/everyday-loop.md) |
 | New product | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
 | Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
+| Design and role procedures | [docs/guides/skills.md](./docs/guides/skills.md) |
 
 ---
 
