@@ -173,6 +173,29 @@ function prose(body) {
     .trim();
 }
 
+/**
+ * Drop HTML comments, including an opener that a single `<!--...-->` replace would leave behind.
+ * `<!<!---->` does not contain a finished comment, and a replace of finished comments leaves `<!--`.
+ * An unclosed opener is dropped through the end of the text so it cannot count as design prose.
+ * @param {string} text
+ */
+export function stripHtmlComments(text) {
+  let out = "";
+  let cursor = 0;
+  while (cursor < text.length) {
+    const start = text.indexOf("<!--", cursor);
+    if (start === -1) {
+      out += text.slice(cursor);
+      break;
+    }
+    out += text.slice(cursor, start);
+    const end = text.indexOf("-->", start + 4);
+    if (end === -1) break;
+    cursor = end + 3;
+  }
+  return out;
+}
+
 function checkCells(errors, label, row, table, rules) {
   for (const rule of rules) {
     const value = row[column(table, rule.name)] ?? "";
@@ -194,9 +217,7 @@ function checkCells(errors, label, row, table, rules) {
 export function checkDesign(markdown) {
   /** @type {string[]} */
   const errors = [];
-  const text = String(markdown)
-    .replace(/\r\n/g, "\n")
-    .replace(/<!--[\s\S]*?-->/g, "");
+  const text = stripHtmlComments(String(markdown).replace(/\r\n/g, "\n"));
   const first = text.split("\n")[0]?.trim() ?? "";
   if (first !== "# Design") errors.push("The first line must be the heading # Design.");
   if (/\bTBD\b|\bTODO\b|\bFIXME\b/i.test(text)) {

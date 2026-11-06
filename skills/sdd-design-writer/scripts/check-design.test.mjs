@@ -4,7 +4,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { REQUIRED_HEADINGS, checkDesign } from "./check-design.mjs";
+import { REQUIRED_HEADINGS, checkDesign, stripHtmlComments } from "./check-design.mjs";
+import { changeIdFromOutput } from "./validate-examples.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pack = join(here, "..");
@@ -65,6 +66,25 @@ describe("design checker", () => {
     assert.ok(result.errors.some((error) => error.includes("Race conditions")));
   });
 
+  it("drops an overlapping comment opener instead of leaving it as prose", () => {
+    const stripped = stripHtmlComments("<!<!---->");
+    assert.equal(stripped.includes("<!--"), false);
+    assert.equal(stripped, "<!");
+    const hidden = stripHtmlComments(
+      `<!-- because ${"a finished approach must not come from a comment. ".repeat(12)}-->`,
+    );
+    assert.equal(hidden.includes("because"), false);
+    const finished = readFileSync(join(pack, "examples", examples[0]), "utf8");
+    const approach = finished.split("## Components / modules")[0];
+    const hiddenApproach = approach.replace(
+      /## Approach\n\n[\s\S]*$/,
+      `## Approach\n\n<!<!---->\n<!-- because ${"this comment is not the approach. ".repeat(20)}-->\n-\n`,
+    );
+    const result = checkDesign(hiddenApproach + finished.slice(approach.length));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes("Approach")));
+  });
+
   it("rejects a note that drops race conditions", () => {
     const text = readFileSync(join(pack, "examples", examples[0]), "utf8").replace(
       "## Race conditions",
@@ -80,6 +100,14 @@ describe("design checker", () => {
     for (const heading of REQUIRED_HEADINGS) {
       assert.match(skill, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     }
+  });
+});
+
+describe("change id parsing", () => {
+  it("reads the slug when consola colors the created line", () => {
+    const colored = "\u001b[32m✔\u001b[39m Created change \u001b[36m2026-11-06-reserve-stock-before-payment\u001b[39m\n";
+    assert.equal(changeIdFromOutput(colored), "2026-11-06-reserve-stock-before-payment");
+    assert.equal(changeIdFromOutput("Created change not a slug"), "");
   });
 });
 

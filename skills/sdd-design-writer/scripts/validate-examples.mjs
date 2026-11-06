@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkDesign } from "./check-design.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +39,20 @@ function resolveSdd() {
   return { command: "sdd", args: [], label: "sdd on PATH" };
 }
 
+/** Consola colors the change id when CI forces color. The id is the uncolored slug. */
+export function stripAnsi(text) {
+  return String(text).replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+export function changeIdFromOutput(output) {
+  const line = stripAnsi(output)
+    .split("\n")
+    .find((item) => item.includes("Created change"));
+  const id = line?.split("Created change ").pop()?.trim() ?? "";
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$/.test(id)) return "";
+  return id;
+}
+
 function run(sdd, cwd, args) {
   const result = spawnSync(sdd.command, [...sdd.args, ...args], {
     cwd,
@@ -47,7 +61,7 @@ function run(sdd, cwd, args) {
   });
   return {
     status: result.status ?? 1,
-    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
+    output: stripAnsi(`${result.stdout ?? ""}${result.stderr ?? ""}`),
   };
 }
 
@@ -79,8 +93,7 @@ function featureLoop(sdd, example) {
     if (init.status !== 0) throw new Error(`init failed\n${init.output}`);
     const created = run(sdd, root, ["new", example.title, "-w", "feature", "-y", "--no-agent"]);
     if (created.status !== 0) throw new Error(`new failed\n${created.output}`);
-    const idLine = created.output.split("\n").find((line) => line.includes("Created change"));
-    const id = idLine?.split("Created change ").pop()?.trim();
+    const id = changeIdFromOutput(created.output);
     if (!id) throw new Error(`no change id\n${created.output}`);
     const changeDir = join(root, "changes", id);
     writeFileSync(join(changeDir, "feature.md"), readFileSync(join(example.dir, "feature.md")));
@@ -126,12 +139,7 @@ function prepareFeature(sdd, title) {
   if (init.status !== 0) throw new Error(`init failed\n${init.output}`);
   const created = run(sdd, root, ["new", title, "-w", "feature", "-y", "--no-agent"]);
   if (created.status !== 0) throw new Error(`new failed\n${created.output}`);
-  const id = created.output
-    .split("\n")
-    .find((line) => line.includes("Created change"))
-    ?.split("Created change ")
-    .pop()
-    ?.trim();
+  const id = changeIdFromOutput(created.output);
   if (!id) throw new Error(`no change id\n${created.output}`);
   writeFileSync(
     join(root, "changes", id, "feature.md"),
@@ -207,12 +215,7 @@ function vagueLoop(sdd) {
 }
 
 function changeId(output) {
-  const id = output
-    .split("\n")
-    .find((line) => line.includes("Created change"))
-    ?.split("Created change ")
-    .pop()
-    ?.trim();
+  const id = changeIdFromOutput(output);
   if (!id) throw new Error(`no change id\n${output}`);
   return id;
 }
@@ -292,4 +295,6 @@ function main() {
   process.stdout.write(report);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
