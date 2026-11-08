@@ -1,5 +1,5 @@
-import { execFile } from "node:child_process";
-import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { join } from "pathe";
@@ -252,7 +252,13 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     const record = await readRecord(root, id);
     expect(record.branch).toBe("topic");
     expect(record.baseSha).toBe(topicHead);
-    expect(await git(join(recordDir(root, id), "worktree"), ["rev-parse", "HEAD"])).toBe(topicHead);
+    const worktree = join(recordDir(root, id), "worktree");
+    expect(await git(worktree, ["rev-parse", "HEAD"])).toBe(topicHead);
+    expect(await git(worktree, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe("HEAD");
+    const porcelain = await git(root, ["worktree", "list", "--porcelain"]);
+    expect(porcelain).toContain(`worktree ${worktree}`);
+    expect(porcelain).toContain(`HEAD ${topicHead}`);
+    expect(porcelain.split("\n")).toContain("detached");
     expect(await readFile(join(recordDir(root, id), "worktree", "topic.txt"), "utf8")).toBe(
       "topic\n",
     );
@@ -288,5 +294,104 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(noHead.exitCode).toBe(1);
     expect(noHead.stdout).toBe("Git HEAD is unavailable.\n");
     expect(await pathExists(join(bare, ".sdd", "sandboxes"))).toBe(false);
+  });
+
+  it("serializes two overlapping opens onto one worktree", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Overlapping sandbox");
+    const [first, second] = await Promise.all([openSandbox(root, id), openSandbox(root, id)]);
+    expect(first.exitCode).toBe(0);
+    expect(second.exitCode).toBe(0);
+    expect(first.stdout).toBe(`Sandbox ${id} is ready.\n`);
+    expect(second.stdout).toBe(`Sandbox ${id} is ready.\n`);
+    const porcelain = await git(root, ["worktree", "list", "--porcelain"]);
+    const zeros = "0000000000000000000000000000000000000000";
+    expect(porcelain).not.toContain(zeros);
+    const paths = porcelain
+      .split("\n")
+      .filter(
+        (line) => line.startsWith("worktree ") && line.includes(`.sdd/sandboxes/${id}/worktree`),
+      );
+    expect(paths).toHaveLength(1);
+    expect((await readRecord(root, id)).status).toBe("ready");
+  });
+
+  it("refuses a dirty close unless force discards the edits", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Dirty sandbox");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const worktree = join(recordDir(root, id), "worktree");
+    await writeFile(join(worktree, "local.txt"), "edit\n");
+
+    const refused = await closeSandbox(root, id);
+    expect(refused.exitCode).toBe(1);
+    expect(refused.stdout).toBe(
+      `Sandbox ${id} has uncommitted changes. Pass --force to discard them.\n`,
+    );
+    expect(await readFile(join(worktree, "local.txt"), "utf8")).toBe("edit\n");
+    expect(await pathExists(join(recordDir(root, id), "record.json"))).toBe(true);
+
+    const forced = await closeSandbox(root, id, { force: true });
+    expect(forced.exitCode).toBe(0);
+    expect(forced.stdout).toBe(`Sandbox ${id} is closed. Local edits were discarded.\n`);
+    expect(await pathExists(recordDir(root, id))).toBe(false);
+    expect(await readFile(join(root, "README.md"), "utf8")).toBe("keep\n");
+    expect((await lstat(join(root, ".git"))).isDirectory()).toBe(true);
+  });
+
+  it("reports a failed worktree remove and leaves the record", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Locked sandbox");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const worktree = join(recordDir(root, id), "worktree");
+    await git(root, ["worktree", "lock", worktree]);
+    const closed = await closeSandbox(root, id);
+    expect(closed.exitCode).toBe(1);
+    expect(closed.stdout).toBe("The sandbox worktree could not be removed.\n");
+    expect(await readFile(join(worktree, "README.md"), "utf8")).toBe("keep\n");
+    expect(await pathExists(join(recordDir(root, id), "record.json"))).toBe(true);
+    expect((await lstat(join(root, ".git"))).isDirectory()).toBe(true);
+  });
+
+  it("refuses a symlinked sandbox id and leaves the link in place", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Symlinked id");
+    const outside = await mkdtemp(join(tmpdir(), "sdd-sandbox-id-"));
+    temps.push(outside);
+    await writeFile(join(outside, "sentinel.txt"), "stay\n");
+    await mkdir(join(root, ".sdd", "sandboxes"), { recursive: true });
+    const link = join(root, ".sdd", "sandboxes", id);
+    await symlink(outside, link);
+
+    const opened = await openSandbox(root, id);
+    expect(opened.exitCode).toBe(1);
+    expect(opened.stdout).toContain("cannot leave the repository");
+    expect((await lstat(link)).isSymbolicLink()).toBe(true);
+    expect(await readdir(outside)).toEqual(["sentinel.txt"]);
+
+    const closed = await closeSandbox(root, id);
+    expect(closed.exitCode).toBe(1);
+    expect(closed.stdout).toContain("cannot leave the repository");
+    expect((await lstat(link)).isSymbolicLink()).toBe(true);
+    expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("stay\n");
+    expect(await readFile(join(root, "README.md"), "utf8")).toBe("keep\n");
+  });
+
+  it("takes over a lock whose process has exited", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Stale lock");
+    const child = spawn(process.execPath, ["-e", "process.exit(0)"]);
+    const pid = child.pid;
+    await new Promise<void>((resolve, reject) => {
+      child.once("exit", () => resolve());
+      child.once("error", reject);
+    });
+    expect(pid).toBeGreaterThan(0);
+    await mkdir(join(root, ".sdd", "sandboxes"), { recursive: true });
+    await writeFile(join(root, ".sdd", "sandboxes", `.lock-${id}`), `${pid}\n`);
+    const opened = await openSandbox(root, id);
+    expect(opened.exitCode).toBe(0);
+    expect(opened.stdout).toBe(`Sandbox ${id} is ready.\n`);
+    expect(await pathExists(join(root, ".sdd", "sandboxes", `.lock-${id}`))).toBe(false);
   });
 });

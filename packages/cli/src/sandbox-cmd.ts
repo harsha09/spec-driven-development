@@ -53,12 +53,34 @@ const close = defineCommand({
     id: {
       type: "positional",
       description: "Sandbox id",
-      required: true,
+      required: false,
+    },
+    change: {
+      type: "string",
+      description: "Change id",
+      required: false,
+    },
+    force: {
+      type: "boolean",
+      description: "Discard uncommitted changes in the worktree",
+      default: false,
     },
   },
   async run({ args }) {
+    const positional = textArg(args.id);
+    const flagged = textArg(args.change);
+    if (positional && flagged && positional !== flagged) {
+      process.stdout.write("A sandbox id is not valid.\n");
+      process.exit(1);
+    }
+    const id = flagged || positional;
+    if (!id) {
+      process.stdout.write("A sandbox id is not valid.\n");
+      process.exit(1);
+    }
+    const force = args.force === true;
     await withProject(async ({ root }) => {
-      emit(await closeSandbox(root, textArg(args.id)));
+      emit(await closeSandbox(root, id, { force }));
     });
   },
 });
