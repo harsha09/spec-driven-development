@@ -2,7 +2,7 @@ id: 2026-11-08-warn-when-doctor-sees-node-20
 title: Warn when doctor sees Node 20
 workflow: feature
 created: 2026-11-08T11:45:00.000Z
-updated: 2026-11-08T11:45:00.000Z
+updated: 2026-11-08T11:46:52.099Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: the task list is the work
     at: 2026-11-08T11:45:04.000Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 4e167ffef9ccc5238a9191786395d903f24adc95
+    at: 2026-11-08T11:46:52.098Z
+    results:
+      - name: Workspace tests
+        exitCode: 0

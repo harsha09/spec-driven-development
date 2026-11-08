@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Warn when doctor sees Node 20** · `2026-11-08-warn-when-doctor-sees-node-20`
+# Local verify results
 
-## Results
+> Change: Warn when doctor sees Node 20
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="4e167ffef9ccc5238a9191786395d903f24adc95" result_count="1" -->
+> At: 2026-11-08T11:46:52.097Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->
