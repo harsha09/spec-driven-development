@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  type SandboxProfile,
   closeSandbox,
   createChange,
   initProject,
@@ -14,6 +15,7 @@ import {
   loadConfig,
   openSandbox,
   pathExists,
+  rejectWrite,
   saveChangeMeta,
 } from "../index.js";
 
@@ -154,7 +156,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(second.exitCode).toBe(0);
     const listed = await listSandboxes(root);
     expect(listed.exitCode).toBe(0);
-    expect(listed.stdout).toBe(`${id} ready\n${other} ready\n`);
+    expect(listed.stdout).toBe(`${id} ready devbox\n${other} ready devbox\n`);
 
     const closed = await closeSandbox(root, id);
     expect(closed.exitCode).toBe(0);
@@ -171,7 +173,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect((await git(root, ["worktree", "list"])).split("\n").filter(Boolean)).toHaveLength(2);
 
     const rest = await listSandboxes(root);
-    expect(rest.stdout).toBe(`${other} ready\n`);
+    expect(rest.stdout).toBe(`${other} ready devbox\n`);
     expect((await closeSandbox(root, other)).exitCode).toBe(0);
     expect((await listSandboxes(root)).stdout).toBe("No sandboxes.\n");
     expect(await git(root, ["rev-parse", "--show-toplevel"])).toBe(root);
@@ -188,7 +190,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
       join(dir, "record.json"),
       `${JSON.stringify({ ...record, status: "opening" }, null, 2)}\n`,
     );
-    expect((await listSandboxes(root)).stdout).toBe(`${id} opening\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} opening devbox\n`);
 
     const resumed = await openSandbox(root, id);
     expect(resumed.exitCode).toBe(0);
@@ -202,7 +204,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(stale.exitCode).toBe(1);
     expect(stale.stdout).toBe(`Sandbox ${id} is stale. Close it with sdd sandbox close ${id}.\n`);
     expect(await pathExists(join(dir, "worktree"))).toBe(false);
-    expect((await listSandboxes(root)).stdout).toBe(`${id} ready\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready devbox\n`);
 
     const closed = await closeSandbox(root, id);
     expect(closed.exitCode).toBe(0);
@@ -521,5 +523,43 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     ) as { leases: { id: string; port: number }[] };
     expect(after.leases.map((row) => row.port)).toEqual([crashed.port]);
     expect(after.leases.map((row) => row.id)).toEqual([nextId]);
+  });
+
+  it("records the isolation profile and lists it", async () => {
+    const root = await gitRepo();
+    const secret = "s3cret-value-profile";
+    await writeFile(
+      join(root, ".sdd", "sandbox.yaml"),
+      [
+        "profile: read-only",
+        "env:",
+        "  - PATH",
+        "caches:",
+        "  - npm",
+        "network:",
+        "  - registry.npmjs.org",
+        "",
+      ].join("\n"),
+    );
+    const id = await addChange(root, "Profiled sandbox");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const raw = await readFile(join(recordDir(root, id), "record.json"), "utf8");
+    expect(raw).not.toContain(secret);
+    const record = JSON.parse(raw) as { profile: SandboxProfile };
+    expect(record.profile).toEqual({
+      name: "read-only",
+      env: ["PATH"],
+      caches: ["npm"],
+      network: ["registry.npmjs.org"],
+    });
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready read-only\n`);
+    expect(rejectWrite(record.profile, "src/app.ts")).toBe(
+      "A read-only sandbox cannot write src/app.ts.\n",
+    );
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const again = JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")) as {
+      profile: typeof record.profile;
+    };
+    expect(again.profile).toEqual(record.profile);
   });
 });

@@ -75,7 +75,7 @@ describe("sdd sandbox", () => {
     expect(opened.stdout).toBe(`Sandbox ${id} is ready.\n`);
     const listed = runSdd(root, ["sandbox", "list"]);
     expect(listed.status, listed.stderr + listed.stdout).toBe(0);
-    expect(listed.stdout).toBe(`${id} ready\n`);
+    expect(listed.stdout).toBe(`${id} ready devbox\n`);
     expect((await lstat(join(root, ".git"))).isDirectory()).toBe(true);
 
     const closed = runSdd(root, ["sandbox", "close", id]);
