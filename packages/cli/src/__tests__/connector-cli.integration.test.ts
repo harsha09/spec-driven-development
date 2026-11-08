@@ -249,4 +249,80 @@ exit 1
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
+
+  it("reads one JFrog artifact and does not print the token", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-jfrog-cli-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const requests: string[] = [];
+    const server = createServer((req, res) => {
+      requests.push(`${req.method ?? ""} ${req.url ?? ""}`);
+      if ((req.url ?? "").includes("properties")) {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ properties: { color: ["blue"] } }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          repo: "libs-release",
+          path: "/widget.jar",
+          size: "10",
+          checksums: { sha256: "abc" },
+          created: "2026-01-01T00:00:00.000Z",
+          lastModified: "2026-01-02T00:00:00.000Z",
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    try {
+      const port = (server.address() as AddressInfo).port;
+      const configPath = join(root, ".sdd", "config.yaml");
+      await writeFile(
+        configPath,
+        `${await readFile(configPath, "utf8")}jfrog:\n  url: http://127.0.0.1:${port}\n  token_env: JFROG_TOKEN\n`,
+      );
+      const token = "sdd-jfrog-token-do-not-print";
+      const env = { JFROG_TOKEN: token };
+      const read = await runSddAsync(
+        root,
+        ["role", "connector", "read", "jfrog", "libs-release/widget.jar"],
+        env,
+      );
+      expect(read.status, read.stderr).toBe(0);
+      expect(read.stdout.trim()).toBe(
+        [
+          "libs-release/widget.jar",
+          "size: 10",
+          "sha256: abc",
+          "created: 2026-01-01T00:00:00.000Z",
+          "lastModified: 2026-01-02T00:00:00.000Z",
+          "color: blue",
+        ].join("\n"),
+      );
+      expect(read.stdout).not.toContain(token);
+      expect(read.stderr).not.toContain(token);
+      expect(requests[0]).toBe("GET /api/storage/libs-release/widget.jar");
+      const before = requests.length;
+      for (const verb of ["promote", "copy", "move", "deploy", "delete", "set-properties"]) {
+        const stopped = await runSddAsync(
+          root,
+          ["role", "connector", verb, "jfrog", "libs-release/widget.jar"],
+          env,
+        );
+        expect(stopped.status).toBe(1);
+        expect(stopped.stdout.trim()).toBe("That connector action does not run in this slice.");
+        expect(stopped.stdout).not.toContain(token);
+        expect(stopped.stderr).not.toContain(token);
+      }
+      expect(requests).toHaveLength(before);
+      expect(await treeContains(root, token)).toBeNull();
+      const config = await readFile(configPath, "utf8");
+      expect(config).toContain("token_env: JFROG_TOKEN");
+      expect(config).not.toContain(token);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
 });
