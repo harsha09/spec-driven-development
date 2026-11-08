@@ -296,6 +296,24 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(await pathExists(join(bare, ".sdd", "sandboxes"))).toBe(false);
   });
 
+  it("two concurrent opens never fail with EEXIST", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Mkdir race");
+    const sandboxes = join(root, ".sdd", "sandboxes");
+    for (let i = 0; i < 8; i++) {
+      await rm(sandboxes, { recursive: true, force: true });
+      const [first, second] = await Promise.all([openSandbox(root, id), openSandbox(root, id)]);
+      expect(first.exitCode, `${i} ${first.stdout}`).toBe(0);
+      expect(second.exitCode, `${i} ${second.stdout}`).toBe(0);
+      expect(first.stdout).not.toContain("EEXIST");
+      expect(second.stdout).not.toContain("EEXIST");
+      expect((await lstat(sandboxes)).isSymbolicLink()).toBe(false);
+      expect((await lstat(sandboxes)).isDirectory()).toBe(true);
+      expect((await closeSandbox(root, id)).exitCode).toBe(0);
+      await git(root, ["worktree", "prune"]);
+    }
+  }, 60_000);
+
   it("serializes two overlapping opens onto one worktree", async () => {
     const root = await gitRepo();
     const id = await addChange(root, "Overlapping sandbox");
