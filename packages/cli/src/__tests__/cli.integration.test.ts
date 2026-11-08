@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { nodeDoctorDetail, nodeRequirementPhrase, nodeSupportLevel } from "../node-support.js";
 
 const temps: string[] = [];
 const here = dirname(fileURLToPath(import.meta.url));
@@ -663,11 +664,15 @@ stages:
     }
 
     const doctor = runSdd(root, ["doctor"]);
-    const supportedNode = Number(process.versions.node.split(".")[0]) >= 24;
-    expect(doctor.status, doctor.stdout + doctor.stderr).toBe(supportedNode ? 0 : 1);
+    const nodeLevel = nodeSupportLevel(process.versions.node);
+    expect(doctor.stdout).toContain(nodeDoctorDetail(process.versions.node));
     expect(doctor.stdout).toContain("AI host");
     expect(doctor.stdout).toContain("none (no-agent setup");
-    expect(doctor.stdout).toContain("24+ required");
+    expect(doctor.status, doctor.stdout + doctor.stderr).toBe(nodeLevel === "fail" ? 1 : 0);
+
+    const help = runSdd(root, ["help"]);
+    expect(help.status, help.stdout + help.stderr).toBe(0);
+    expect(help.stdout).toContain(nodeRequirementPhrase());
 
     const created = runSdd(root, ["new", "No agent change", "-w", "hotfix", "-y", "--no-agent"]);
     expect(created.status, created.stderr + created.stdout).toBe(0);

@@ -59,7 +59,7 @@ import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { metricsCmd } from "./metrics-cmd.js";
 import { modelsCmd } from "./models-cmd.js";
-import { isNodeVersionSupported } from "./node-support.js";
+import { nodeDoctorDetail, nodeRequirementPhrase, nodeSupportLevel } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
 import { roleCmd } from "./role-cmd.js";
@@ -1257,10 +1257,13 @@ const doctor = defineCommand({
     consola.log(pc.bold("sdd doctor") + pc.dim(` · ${root}`));
     consola.log("");
 
-    line(
-      "Node.js",
-      isNodeVersionSupported(process.versions.node),
-      `v${process.versions.node} (24+ required)`,
+    const nodeLevel = nodeSupportLevel(process.versions.node);
+    if (nodeLevel === "fail") ok = false;
+    let nodeMark = pc.red("✗");
+    if (nodeLevel === "pass") nodeMark = pc.green("✓");
+    if (nodeLevel === "warn") nodeMark = pc.yellow("!");
+    consola.log(
+      `  ${nodeMark} ${pc.bold("Node.js")}  ${pc.dim(nodeDoctorDetail(process.versions.node))}`,
     );
 
     const initialized = await isInitialized(root);
@@ -1307,7 +1310,9 @@ const help = defineCommand({
   async run() {
     const root = projectRoot();
     consola.log(pc.bold("sdd") + " — keep short plans next to your code (with your AI)");
-    consola.log(pc.dim("  Needs: Node 24+ · about 10 minutes for your first loop"));
+    consola.log(
+      pc.dim(`  Needs: ${nodeRequirementPhrase()} · about 10 minutes for your first loop`),
+    );
     consola.log("");
     consola.log(pc.bold("First time (learn without the AI popping up):"));
     consola.log(`  ${pc.cyan("sdd setup")}   # walk the pieces; Enter writes the three duties`);
