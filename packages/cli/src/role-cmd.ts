@@ -603,7 +603,7 @@ const connector = defineCommand({
   meta: {
     name: "connector",
     description:
-      "Read one GitHub issue, Actions run, or Jenkins build, open one change from an issue, leave a draft unsent, or report a tracker record",
+      "Read one GitHub issue, Actions run, Jenkins build, or JFrog artifact, open one change from an issue, leave a draft unsent, or report a tracker record",
   },
   args: {
     verb: {
