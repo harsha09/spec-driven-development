@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import { initProject, loadConfig } from "../index.js";
 import {
+  type ActionsSource,
   type IssueSource,
   type TrackerSource,
   readConnector,
@@ -33,10 +34,72 @@ function source(impl: IssueSource["read"]): { client: IssueSource; calls: () => 
   };
 }
 
+function actions(impl: ActionsSource["read"]): { client: ActionsSource; calls: () => number } {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    client: {
+      async read(id) {
+        calls += 1;
+        return impl(id);
+      },
+    },
+  };
+}
+
 async function tempRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "sdd-connector-"));
   temps.push(root);
   return root;
+}
+
+async function readThroughGh(input: {
+  connector: string;
+  record: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  hang?: boolean;
+  ghDeadlineMs?: number;
+}): Promise<{ exitCode: number; stdout: string; calls: string }> {
+  const root = await tempRoot();
+  const bin = join(root, "bin");
+  const callsPath = join(root, "calls.txt");
+  await mkdir(bin);
+  await writeFile(join(root, "out.txt"), input.stdout ?? "");
+  await writeFile(join(root, "err.txt"), input.stderr ?? "");
+  const script = input.hang
+    ? `#!/bin/sh
+printf '%s\\n' "$*" >> "${callsPath}"
+exec sleep 60
+`
+    : `#!/bin/sh
+printf '%s\\n' "$*" >> "${callsPath}"
+cat "${join(root, "err.txt")}" >&2
+cat "${join(root, "out.txt")}"
+exit ${input.exitCode ?? 0}
+`;
+  await writeFile(join(bin, "gh"), script);
+  await chmod(join(bin, "gh"), 0o755);
+  const previous = process.env.PATH ?? "";
+  process.env.PATH = `${bin}:${previous}`;
+  try {
+    const result = await readConnector({
+      verb: "read",
+      connector: input.connector,
+      record: input.record,
+      ghDeadlineMs: input.ghDeadlineMs,
+    });
+    let calls = "";
+    try {
+      calls = await readFile(callsPath, "utf8");
+    } catch {
+      calls = "";
+    }
+    return { ...result, calls };
+  } finally {
+    process.env.PATH = previous;
+  }
 }
 
 async function writeBuilder(root: string, routines: string): Promise<void> {
@@ -303,6 +366,208 @@ describe("sdd role connector", () => {
     });
     expect(seeded.stdout).toBe("That connector is not in this slice.");
     expect(live.calls()).toBe(0);
+  });
+
+  it("prints a failed Actions conclusion and does not invent a missing run", async () => {
+    const failed = actions(async (id) => {
+      return { ok: true, run: { id, status: "completed", conclusion: "failure" } };
+    });
+    const read = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: failed.client,
+    });
+    expect(read).toEqual({ exitCode: 0, stdout: "42\ncompleted\nfailure" });
+    expect(failed.calls()).toBe(1);
+
+    const missing = actions(async () => ({ ok: false, missing: true }));
+    const gone = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: missing.client,
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 was not found." });
+    expect(gone.stdout.toLowerCase()).not.toContain("success");
+    expect(missing.calls()).toBe(1);
+
+    const unread = actions(async () => {
+      return { ok: true, run: { id: "99", status: "completed", conclusion: "success" } };
+    });
+    const hidden = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: unread.client,
+    });
+    expect(hidden).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 could not be read." });
+    expect(hidden.stdout.toLowerCase()).not.toContain("success");
+
+    const blank = actions(async (id) => {
+      return { ok: true, run: { id, status: "completed", conclusion: "" } };
+    });
+    const empty = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: blank.client,
+    });
+    expect(empty.exitCode).toBe(1);
+    expect(empty.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(empty.stdout.toLowerCase()).not.toContain("success");
+
+    const thrown = actions(async () => {
+      throw new Error("success");
+    });
+    const broke = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: thrown.client,
+    });
+    expect(broke).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 could not be read." });
+    expect(broke.stdout.toLowerCase()).not.toContain("success");
+
+    const live = actions(async () => {
+      throw new Error("called");
+    });
+    const issue = source(async () => {
+      throw new Error("called");
+    });
+    const stopped = [
+      ["merge", "That connector action does not run in this slice."],
+      ["deploy", "That connector action does not run in this slice."],
+      ["promote", "That connector action does not run in this slice."],
+      ["seed", "That connector is not in this slice."],
+      ["read", "A GitHub Actions run id is a positive integer."],
+    ] as const;
+    for (const [verb, stdout] of stopped) {
+      const record = verb === "read" ? "0" : "42";
+      const result = await readConnector({
+        verb,
+        connector: "github-actions",
+        record,
+        actions: live.client,
+        source: issue.client,
+      });
+      expect(result, stdout).toEqual({ exitCode: 1, stdout });
+    }
+    expect(live.calls()).toBe(0);
+    expect(issue.calls()).toBe(0);
+  });
+
+  it("prints a null conclusion for an in-progress or queued run", async () => {
+    const running = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stdout: JSON.stringify({ databaseId: 42, status: "in_progress", conclusion: null }),
+    });
+    expect(running.exitCode).toBe(0);
+    expect(running.stdout).toBe("42\nin_progress\nnull");
+    expect(running.stdout.toLowerCase()).not.toMatch(/success|green/);
+    expect(running.calls).toContain("run view 42");
+
+    const queued = await readThroughGh({
+      connector: "github-actions",
+      record: "43",
+      stdout: JSON.stringify({ databaseId: 43, status: "queued", conclusion: null }),
+    });
+    expect(queued.exitCode).toBe(0);
+    expect(queued.stdout).toBe("43\nqueued\nnull");
+    expect(queued.stdout.toLowerCase()).not.toMatch(/success|green/);
+    expect(queued.calls).toContain("run view 43");
+
+    const blank = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stdout: JSON.stringify({ databaseId: 42, status: "completed", conclusion: "" }),
+    });
+    expect(blank.exitCode).toBe(1);
+    expect(blank.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(blank.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const garbled = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stdout: JSON.stringify({ databaseId: 42, status: "completed", conclusion: "success\nbad" }),
+    });
+    expect(garbled.exitCode).toBe(1);
+    expect(garbled.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(garbled.stdout.toLowerCase()).not.toMatch(/success|green/);
+  });
+
+  it("kills a hung gh and reports the run unreadable", async () => {
+    const started = Date.now();
+    const hung = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      hang: true,
+      ghDeadlineMs: 200,
+    });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(hung.exitCode).toBe(1);
+    expect(hung.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(hung.stdout.toLowerCase()).not.toMatch(/success|green/);
+    expect(hung.calls).toContain("run view 42");
+  });
+
+  it("treats host resolution as unreadable and HTTP 404 as missing", async () => {
+    const host = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stderr: "could not resolve host: api.github.com",
+      exitCode: 1,
+    });
+    expect(host.exitCode).toBe(1);
+    expect(host.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(host.stdout).not.toContain("was not found");
+
+    const lookup = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stderr: "dial tcp: lookup api.github.com: no such host",
+      exitCode: 1,
+    });
+    expect(lookup.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(lookup.stdout).not.toContain("was not found");
+
+    const named = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stderr: "host not found",
+      exitCode: 1,
+    });
+    expect(named.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(named.stdout).not.toContain("was not found");
+
+    const missing = await readThroughGh({
+      connector: "github-actions",
+      record: "99",
+      stderr: "failed to get run: HTTP 404",
+      exitCode: 1,
+    });
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stdout).toBe("GitHub Actions run 99 was not found.");
+
+    const namedMissing = await readThroughGh({
+      connector: "github-actions",
+      record: "99",
+      stderr: "run 99 not found",
+      exitCode: 1,
+    });
+    expect(namedMissing.stdout).toBe("GitHub Actions run 99 was not found.");
+  });
+
+  it("reports bad JSON as unreadable", async () => {
+    const bad = await readThroughGh({
+      connector: "github-actions",
+      record: "42",
+      stdout: "{not json",
+    });
+    expect(bad.exitCode).toBe(1);
+    expect(bad.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(bad.stdout.toLowerCase()).not.toMatch(/success|green/);
   });
 });
 
