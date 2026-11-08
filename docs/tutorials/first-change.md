@@ -97,10 +97,10 @@ Then:
 sdd doctor
 ```
 
-After setup, the v24.22.2 check printed this shape. The first line includes your folder path. The Node patch version is the runtime you have.
+After setup, the v24.22.2 check printed this. The first line is `sdd doctor ·` plus the absolute folder path. The Node patch version is the runtime you have.
 
 ```text
-sdd doctor · demo-first-change
+sdd doctor · /tmp/sdd-first-change-QpyZEN
 
   ✓ Node.js  v24.22.2 (24+ required)
   ✓ SDD init  .sdd/config.yaml found
@@ -175,7 +175,7 @@ Exit code 0. The example sentences are a hint from the CLI. The note you write i
 
 `sdd status` reprints the same three stages, with **intent** marked `[●]`. It also prints phase times in the machine's local clock. It does not launch a host, and it does not rewrite the handoff.
 
-`.sdd/handoff.md` is there for a later agent. Its stage goal still uses the workflow sentence "Quick local check that the fix works." Read `intent.md` and `local-test-results.md` for what this folder actually did.
+`.sdd/handoff.md` is there for a later agent. On this stage the handoff says the current stage is intent, and the stage goal is "One short note on what is broken and the fix". Read `intent.md` for what this folder records.
 
 ---
 
@@ -195,7 +195,7 @@ Success for this tutorial: sdd status --change this id shows Status: completed. 
 
 That text passed `sdd next` on the check. An empty template does not.
 
-If the dashes are still in the file, `sdd next --no-agent` exits 1:
+The template puts one `-` on its own line under Problem, Proposed change, Out of scope, and Local success check. If those `-` lines are still there, `sdd next --no-agent` exits 1:
 
 ```text
  ERROR  Required artifact still incomplete (looks like empty template/stub): intent.md
@@ -237,7 +237,7 @@ Stages:
 
 Exit code 0. The command also reprints the change id and title. The soft-gate warning is normal here: the checklist is unsigned, and a soft gate still lets you move.
 
-On a real app you would change the code now. This folder has no application. Leave it unchanged.
+The handoff stage goal is now "Make the minimal code change". On a real app you would change the code now. This folder has no application. Leave it unchanged.
 
 ---
 
@@ -259,7 +259,7 @@ Stages:
   [●] local_verify — Local smoke
 ```
 
-Exit code 0. The same handoff lines follow.
+Exit code 0. The same handoff lines follow. The stage goal is now "Quick local check that the fix works". That sentence is the local_verify summary. This folder still has no product change.
 
 `changes/<your-id>/local-test-results.md` is created from the template, including a `PASS / FAIL` placeholder. Replace that file with an honest note before you verify:
 
@@ -378,7 +378,7 @@ That line means there is no in-progress change. It is not the success check.
 
 | Command | What happened |
 |---------|----------------|
-| `sdd setup --yes --no-agent` | Created `.sdd/`, `memory/`, and `changes/` without an AI host |
+| `sdd setup --yes --no-agent` | Created `.sdd/`, `memory/`, `changes/`, and `domains/` without an AI host |
 | `sdd new "Simulated empty-list note" -w hotfix -y --no-agent` | Started the simulated change on intent |
 | `sdd status --change <id>` | Showed that change, including `Status: completed` at the end |
 | `sdd next --no-agent` | Moved one stage |
