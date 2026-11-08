@@ -1,5 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { basename, join } from "pathe";
+import "../zod-v3-messages.js";
 import { z } from "zod";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
 import { conversationDir } from "../role/profile.js";
@@ -11,33 +12,29 @@ import { addReviewerLesson } from "./memory.js";
 import { postLoopDone, roomForPrompt } from "./room.js";
 import { passClaimRefusal, runTool } from "./tools.js";
 
-const planStep = z.object({ step: z.literal("plan"), items: z.array(z.string()) }).strict();
-const toolStep = z
-  .object({ step: z.literal("tool"), name: z.string().min(1), args: z.unknown() })
-  .strict();
-const checkStep = z
-  .object({
-    step: z.literal("check"),
-    claim: z.string().min(1),
-    evidence: z.array(z.string()).optional(),
-  })
-  .strict();
-const askStep = z
-  .object({
-    step: z.literal("ask"),
-    question: z.string().min(1),
-    options: z.array(z.string()),
-    suggest: z.string().optional(),
-  })
-  .strict();
-const doneStep = z
-  .object({
-    step: z.literal("done"),
-    summary: z.string(),
-    outputs: z.array(z.string()),
-    evidence: z.array(z.string()).optional(),
-  })
-  .strict();
+const planStep = z.strictObject({ step: z.literal("plan"), items: z.array(z.string()) });
+const toolStep = z.strictObject({
+  step: z.literal("tool"),
+  name: z.string().min(1),
+  args: z.unknown(),
+});
+const checkStep = z.strictObject({
+  step: z.literal("check"),
+  claim: z.string().min(1),
+  evidence: z.array(z.string()).optional(),
+});
+const askStep = z.strictObject({
+  step: z.literal("ask"),
+  question: z.string().min(1),
+  options: z.array(z.string()),
+  suggest: z.string().optional(),
+});
+const doneStep = z.strictObject({
+  step: z.literal("done"),
+  summary: z.string(),
+  outputs: z.array(z.string()),
+  evidence: z.array(z.string()).optional(),
+});
 
 export const LoopStepSchema = z.discriminatedUnion("step", [
   planStep,

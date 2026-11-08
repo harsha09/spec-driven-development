@@ -1,3 +1,4 @@
+import "../zod-v3-messages.js";
 import { z } from "zod";
 
 /**
@@ -26,7 +27,7 @@ export const McpInvokeSchema = z.object({
    * Static args + templates:
    * {{query}} {{title}} {{stage}} {{workflow}} {{projectRoot}}
    */
-  args: z.record(z.unknown()).default({}),
+  args: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const McpSourceSchema = z.object({
@@ -36,13 +37,13 @@ export const McpSourceSchema = z.object({
   transport: z.enum(["stdio"]).default("stdio"),
   command: z.string().min(1),
   args: z.array(z.string()).default([]),
-  env: z.record(z.string()).default({}),
+  env: z.record(z.string(), z.string()).default({}),
   /** Working directory (default: project root). Supports {{projectRoot}} */
   cwd: z.string().optional(),
   enabled: z.boolean().default(true),
   /** Higher runs first when gathering */
   priority: z.number().default(0),
-  when: McpWhenSchema.default({}),
+  when: McpWhenSchema.prefault({}),
   /**
    * How sdd calls this source when auto-gathering for a stage.
    * If omitted, `sdd mcp fetch` still works with an explicit --tool.

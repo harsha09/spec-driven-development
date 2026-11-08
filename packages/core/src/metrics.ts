@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
+import "./zod-v3-messages.js";
 import { z } from "zod";
 import { pathExists, readText, writeText } from "./fs.js";
 import { changePath } from "./paths.js";
