@@ -1,4 +1,6 @@
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,10 +13,18 @@ import {
   runRoutine,
 } from "../role/connector.js";
 import { duplicateRole, editRole, hideRole, pinRole } from "../role/profile.js";
+import { type Config, ConfigSchema } from "../schemas.js";
 
 const temps: string[] = [];
+const servers: Server[] = [];
 
 afterEach(async () => {
+  while (servers.length) {
+    const server = servers.pop();
+    if (!server) continue;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
   while (temps.length) {
     const dir = temps.pop();
     if (dir) await rm(dir, { recursive: true, force: true });
@@ -803,3 +813,303 @@ describe("sdd role routine", () => {
     expect(live.calls()).toBe(0);
   });
 });
+
+const JENKINS_TOKEN = "sdd-jenkins-token-do-not-print";
+
+function jenkinsConfig(url: string, tokenEnv = "JENKINS_TOKEN", userEnv?: string): Config {
+  return ConfigSchema.parse({
+    jenkins: {
+      url,
+      token_env: tokenEnv,
+      ...(userEnv ? { user_env: userEnv } : {}),
+    },
+  });
+}
+
+async function jenkinsServer(
+  respond: (req: IncomingMessage, res: ServerResponse, hit: { url: string }) => void,
+): Promise<{ url: string; requests: { method: string; url: string; authorization: string }[] }> {
+  const requests: { method: string; url: string; authorization: string }[] = [];
+  const server = createServer((req, res) => {
+    const hit = {
+      method: req.method ?? "",
+      url: req.url ?? "",
+      authorization: req.headers.authorization ?? "",
+    };
+    requests.push(hit);
+    respond(req, res, hit);
+  });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as AddressInfo;
+  return { url: `http://127.0.0.1:${address.port}`, requests };
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+async function captured(
+  run: () => Promise<{ exitCode: number; stdout: string }>,
+): Promise<{ exitCode: number; stdout: string; logged: string }> {
+  const logged: string[] = [];
+  const writeOut = process.stdout.write;
+  const writeErr = process.stderr.write;
+  const record = (chunk: string | Uint8Array) => {
+    logged.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  };
+  process.stdout.write = record as typeof process.stdout.write;
+  process.stderr.write = record as typeof process.stderr.write;
+  try {
+    const result = await run();
+    return { ...result, logged: logged.join("") };
+  } finally {
+    process.stdout.write = writeOut;
+    process.stderr.write = writeErr;
+  }
+}
+
+describe("sdd role connector jenkins", () => {
+  it("prints a completed build and does not leak the token", async () => {
+    const root = await tempRoot();
+    const live = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: false, result: "FAILURE" });
+    });
+    const read = await captured(() =>
+      readConnector({
+        verb: "read",
+        connector: "jenkins",
+        record: "my-job/42",
+        projectRoot: root,
+        config: jenkinsConfig(live.url),
+        env: { JENKINS_TOKEN },
+      }),
+    );
+    expect(read.exitCode).toBe(0);
+    expect(read.stdout).toBe("my-job/42\ncompleted\nfailure");
+    expect(read.stdout).not.toContain(JENKINS_TOKEN);
+    expect(read.logged).not.toContain(JENKINS_TOKEN);
+    expect(live.requests).toEqual([
+      {
+        method: "GET",
+        url: "/job/my-job/42/api/json?tree=number,building,result",
+        authorization: `Bearer ${JENKINS_TOKEN}`,
+      },
+    ]);
+    expect(live.requests[0]?.url).not.toContain(JENKINS_TOKEN);
+    expect(await treeHas(root, JENKINS_TOKEN)).toBe(false);
+
+    const passed = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: false, result: "SUCCESS" });
+    });
+    const success = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(passed.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(success).toEqual({ exitCode: 0, stdout: "my-job/42\ncompleted\nsuccess" });
+  });
+
+  it("prints an in-progress build without calling it a success", async () => {
+    const running = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: true, result: null });
+    });
+    const read = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(running.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(read).toEqual({ exitCode: 0, stdout: "my-job/42\nin_progress\nnull" });
+    expect(read.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const claimed = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: true, result: "SUCCESS" });
+    });
+    const hidden = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(claimed.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(hidden.exitCode).toBe(0);
+    expect(hidden.stdout).toBe("my-job/42\nin_progress\nnull");
+    expect(hidden.stdout.toLowerCase()).not.toMatch(/success|green/);
+  });
+
+  it("reports a missing build, an unreadable body, and a timeout", async () => {
+    const missing = await jenkinsServer((_req, res) => {
+      res.writeHead(404);
+      res.end();
+    });
+    const gone = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(missing.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: "Jenkins build my-job/42 was not found." });
+    expect(gone.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const broken = await jenkinsServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("{not json");
+    });
+    const unread = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(broken.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(unread).toEqual({ exitCode: 1, stdout: "Jenkins build my-job/42 could not be read." });
+    expect(unread.stdout).not.toContain(JENKINS_TOKEN);
+
+    const failed = await jenkinsServer((_req, res) => {
+      res.writeHead(500);
+      res.end(JENKINS_TOKEN);
+    });
+    const status = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(failed.url),
+      env: { JENKINS_TOKEN },
+    });
+    expect(status.stdout).toBe("Jenkins build my-job/42 could not be read.");
+    expect(status.stdout).not.toContain(JENKINS_TOKEN);
+
+    const hanging = await jenkinsServer(() => {
+      // Leave the socket open until the deadline aborts the read.
+    });
+    const started = Date.now();
+    const timed = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(hanging.url),
+      env: { JENKINS_TOKEN },
+      jenkinsDeadlineMs: 200,
+    });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(timed).toEqual({ exitCode: 1, stdout: "Jenkins build my-job/42 could not be read." });
+    expect(timed.stdout).not.toContain(JENKINS_TOKEN);
+    expect(hanging.requests[0]?.url).not.toContain(JENKINS_TOKEN);
+  });
+
+  it("refuses a bad id, a non-HTTPS URL, and a write before any request", async () => {
+    const live = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: false, result: "FAILURE" });
+    });
+    const config = jenkinsConfig(live.url);
+    const env = { JENKINS_TOKEN, JENKINS_USER: "alice" };
+    for (const record of [
+      "../admin/1",
+      "my-job/../1",
+      "my-job/0",
+      "my-job/01",
+      "my job/1",
+      "my-job",
+    ]) {
+      const result = await readConnector({
+        verb: "read",
+        connector: "jenkins",
+        record,
+        config,
+        env,
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).not.toContain(JENKINS_TOKEN);
+    }
+    expect(live.requests).toHaveLength(0);
+
+    const remote = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig("http://jenkins.example.com"),
+      env,
+      jenkinsDeadlineMs: 200,
+    });
+    expect(remote).toEqual({ exitCode: 1, stdout: "A Jenkins URL must use HTTPS." });
+    expect(live.requests).toHaveLength(0);
+
+    const embedded = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(`https://alice:${JENKINS_TOKEN}@jenkins.example.com`),
+      env,
+      jenkinsDeadlineMs: 200,
+    });
+    expect(embedded.exitCode).toBe(1);
+    expect(embedded.stdout).toBe("A Jenkins URL must not include credentials.");
+    expect(embedded.stdout).not.toContain(JENKINS_TOKEN);
+
+    const named = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: { ...config, jenkins: { url: live.url, token_env: JENKINS_TOKEN } },
+      env,
+    });
+    expect(named.stdout).toBe("A Jenkins token_env must name an environment variable.");
+    expect(named.stdout).not.toContain(JENKINS_TOKEN);
+    expect(live.requests).toHaveLength(0);
+
+    for (const verb of ["deploy", "trigger", "abort", "build"]) {
+      const stopped = await readConnector({
+        verb,
+        connector: "jenkins",
+        record: "my-job/42",
+        config,
+        env,
+      });
+      expect(stopped).toEqual({
+        exitCode: 1,
+        stdout: "That connector action does not run in this slice.",
+      });
+    }
+    expect(live.requests).toHaveLength(0);
+
+    const basic = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, { number: 42, building: false, result: "FAILURE" });
+    });
+    const authed = await readConnector({
+      verb: "read",
+      connector: "jenkins",
+      record: "my-job/42",
+      config: jenkinsConfig(basic.url, "JENKINS_TOKEN", "JENKINS_USER"),
+      env,
+    });
+    expect(authed.stdout).toBe("my-job/42\ncompleted\nfailure");
+    const header = basic.requests[0]?.authorization ?? "";
+    expect(header.startsWith("Basic ")).toBe(true);
+    expect(Buffer.from(header.slice("Basic ".length), "base64").toString("utf8")).toBe(
+      `alice:${JENKINS_TOKEN}`,
+    );
+    expect(authed.stdout).not.toContain(JENKINS_TOKEN);
+  });
+});
+
+async function treeHas(dir: string, needle: string): Promise<boolean> {
+  let names: string[] = [];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return false;
+  }
+  for (const name of names) {
+    const path = join(dir, name);
+    const text = await readFile(path, "utf8").catch(() => "");
+    if (text.includes(needle)) return true;
+  }
+  return false;
+}

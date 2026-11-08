@@ -19,6 +19,13 @@ const TRACKERS: Record<string, string> = {
 const BAD_NUMBER = "A GitHub issue number is a positive integer.";
 const BAD_RUN_ID = "A GitHub Actions run id is a positive integer.";
 const GH_DEADLINE_MS = 30000;
+const JENKINS_DEADLINE_MS = 30000;
+const BAD_JENKINS_ID = "A Jenkins build id is a job name and a positive integer.";
+const JENKINS_HTTPS = "A Jenkins URL must use HTTPS.";
+const JENKINS_CREDENTIALS = "A Jenkins URL must not include credentials.";
+const JENKINS_TOKEN_ENV = "A Jenkins token_env must name an environment variable.";
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
+const JOB_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const QA_LINE = "A routine cannot write a QA result.";
 const BAD_ROUTINES = "Routines on this role are invalid.";
 const NO_ROUTINE = "That routine is not on this role.";
@@ -95,6 +102,14 @@ function actionsMissing(id: string): string {
 
 function actionsUnread(id: string): string {
   return `GitHub Actions run ${id} could not be read.`;
+}
+
+function jenkinsMissing(id: string): string {
+  return `Jenkins build ${id} was not found.`;
+}
+
+function jenkinsUnread(id: string): string {
+  return `Jenkins build ${id} could not be read.`;
 }
 
 function couldNotOpen(number: number): string {
@@ -270,6 +285,154 @@ async function readActionsRun(
   return ok(`${id}\n${status}\n${conclusion}`);
 }
 
+function jenkinsDeadline(value: number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  return JENKINS_DEADLINE_MS;
+}
+
+function parseJenkinsRecord(record: string): { job: string; build: number; id: string } | null {
+  const slash = record.lastIndexOf("/");
+  if (slash <= 0 || slash === record.length - 1) return null;
+  const job = record.slice(0, slash);
+  const build = positiveInteger(record.slice(slash + 1));
+  if (!JOB_NAME.test(job) || build === null) return null;
+  return { job, build, id: `${job}/${build}` };
+}
+
+function isLocalJenkinsHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function jenkinsBuildUrl(base: string, job: string, build: number): string | null {
+  let url: URL;
+  try {
+    url = new URL(base);
+  } catch {
+    return null;
+  }
+  if (url.username || url.password) return null;
+  const local = isLocalJenkinsHost(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) return null;
+  const path = url.pathname;
+  if (path.includes("..") || path.includes("\\") || path.toLowerCase().includes("%2e")) return null;
+  const prefix = path.replace(/\/+$/, "");
+  url.pathname = `${prefix}/job/${encodeURIComponent(job)}/${build}/api/json`;
+  url.search = "tree=number,building,result";
+  url.hash = "";
+  return url.toString();
+}
+
+function envName(value: string | undefined): string | null {
+  if (!value || !ENV_NAME.test(value)) return null;
+  return value;
+}
+
+function secretText(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  if (!value || value !== value.trim() || value.includes("\n") || value.includes("\r")) return null;
+  return value;
+}
+
+function jenkinsAuthorization(
+  env: Readonly<Record<string, string | undefined>>,
+  tokenEnv: string,
+  userEnv: string | null | undefined,
+): string | null {
+  const token = secretText(env[tokenEnv]);
+  if (!token) return null;
+  if (userEnv === null) return null;
+  if (!userEnv) return `Bearer ${token}`;
+  const user = secretText(env[userEnv]);
+  if (!user || user.includes(":")) return null;
+  return `Basic ${Buffer.from(`${user}:${token}`, "utf8").toString("base64")}`;
+}
+
+function leaks(text: string, secret: string): boolean {
+  return secret.length > 0 && text.includes(secret);
+}
+
+function jenkinsFail(id: string, secret: string, missing: boolean): RoleCommandResult {
+  if (leaks(id, secret)) {
+    return fail(missing ? "Jenkins build was not found." : "Jenkins build could not be read.");
+  }
+  return fail(missing ? jenkinsMissing(id) : jenkinsUnread(id));
+}
+
+async function readJenkinsBuild(input: {
+  record: string;
+  config?: Config;
+  env?: Readonly<Record<string, string | undefined>>;
+  jenkinsDeadlineMs?: number;
+}): Promise<RoleCommandResult> {
+  const parsed = parseJenkinsRecord(input.record.trim());
+  if (!parsed) return fail(BAD_JENKINS_ID);
+  const { job, build, id } = parsed;
+  const jenkins = input.config?.jenkins;
+  const tokenEnv = envName(jenkins?.token_env);
+  const userEnv = jenkins?.user_env === undefined ? undefined : envName(jenkins.user_env);
+  if (!jenkins?.url || !tokenEnv || (jenkins.user_env !== undefined && !userEnv)) {
+    if (jenkins?.token_env && !tokenEnv) return fail(JENKINS_TOKEN_ENV);
+    if (jenkins?.user_env !== undefined && !userEnv) return fail(JENKINS_TOKEN_ENV);
+    return fail(jenkinsUnread(id));
+  }
+  const env = input.env ?? process.env;
+  const token = secretText(env[tokenEnv]) ?? "";
+  if (!token) return fail(jenkinsUnread(id));
+  let base: URL;
+  try {
+    base = new URL(jenkins.url);
+  } catch {
+    return jenkinsFail(id, token, false);
+  }
+  if (base.username || base.password) return fail(JENKINS_CREDENTIALS);
+  if (leaks(jenkins.url, token)) return jenkinsFail(id, token, false);
+  const localHttp = base.protocol === "http:" && isLocalJenkinsHost(base.hostname);
+  if (base.protocol !== "https:" && !localHttp) return fail(JENKINS_HTTPS);
+  const target = jenkinsBuildUrl(jenkins.url, job, build);
+  if (!target || leaks(target, token)) return jenkinsFail(id, token, false);
+  const authorization = jenkinsAuthorization(env, tokenEnv, userEnv);
+  if (!authorization) return jenkinsFail(id, token, false);
+  const deadline = jenkinsDeadline(input.jenkinsDeadlineMs);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deadline);
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: authorization },
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (response.status === 404) return jenkinsFail(id, token, true);
+    if (!response.ok) return jenkinsFail(id, token, false);
+    const text = await response.text();
+    if (leaks(text, token)) return jenkinsFail(id, token, false);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return jenkinsFail(id, token, false);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body))
+      return jenkinsFail(id, token, false);
+    const rec = body as Record<string, unknown>;
+    const number =
+      typeof rec.number === "number" && Number.isSafeInteger(rec.number) ? rec.number : null;
+    if (number !== build) return jenkinsFail(id, token, false);
+    const building = rec.building === true;
+    if (building || rec.result === null) {
+      return ok(`${id}\nin_progress\nnull`);
+    }
+    const conclusion = cleanLine(typeof rec.result === "string" ? rec.result.toLowerCase() : null);
+    if (!conclusion || leaks(conclusion, token) || leaks(id, token))
+      return jenkinsFail(id, token, false);
+    return ok(`${id}\ncompleted\n${conclusion}`);
+  } catch {
+    return jenkinsFail(id, token, false);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function readConnector(input: {
   verb: string;
   connector: string;
@@ -278,6 +441,8 @@ export async function readConnector(input: {
   tracker?: TrackerSource;
   actions?: ActionsSource;
   ghDeadlineMs?: number;
+  jenkinsDeadlineMs?: number;
+  env?: Readonly<Record<string, string | undefined>>;
   projectRoot?: string;
   config?: Config;
 }): Promise<RoleCommandResult> {
@@ -314,6 +479,7 @@ export async function readConnector(input: {
   if (verb === "read" && connector === "github-actions") {
     return readActionsRun(record, input.actions, input.ghDeadlineMs);
   }
+  if (verb === "read" && connector === "jenkins") return readJenkinsBuild(input);
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
   if (number === null) return fail(BAD_NUMBER);
