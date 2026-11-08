@@ -1,16 +1,15 @@
 import { join } from "pathe";
+import "./zod-v3-messages.js";
 import { z } from "zod";
 import { listFiles, pathExists, readYaml, writeYaml } from "./fs.js";
 import type { Stage } from "./schemas.js";
 
-const itemSchema = z
-  .object({
-    id: z.string().trim().min(1),
-    stage: z.string().trim().min(1),
-    source: z.string().trim().min(1),
-    status: z.enum(["open", "done"]),
-  })
-  .strict();
+const itemSchema = z.strictObject({
+  id: z.string().trim().min(1),
+  stage: z.string().trim().min(1),
+  source: z.string().trim().min(1),
+  status: z.enum(["open", "done"]),
+});
 
 const itemsSchema = z.array(itemSchema);
 

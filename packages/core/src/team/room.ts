@@ -1,5 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "pathe";
+import "../zod-v3-messages.js";
 import { z } from "zod";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
@@ -33,18 +34,16 @@ export interface RoomEntry {
   evidence?: string[];
 }
 
-const RoomEntrySchema = z
-  .object({
-    ts: z.string(),
-    from: z.string(),
-    type: z.enum(ROOM_TYPES),
-    text: z.string(),
-    round: z.number().int(),
-    cite: z.string().optional(),
-    sha: z.string().optional(),
-    evidence: z.array(z.string()).optional(),
-  })
-  .strict();
+const RoomEntrySchema = z.strictObject({
+  ts: z.string(),
+  from: z.string(),
+  type: z.enum(ROOM_TYPES),
+  text: z.string(),
+  round: z.number().int(),
+  cite: z.string().optional(),
+  sha: z.string().optional(),
+  evidence: z.array(z.string()).optional(),
+});
 
 function ok(stdout = ""): RoleCommandResult {
   return { exitCode: 0, stdout };

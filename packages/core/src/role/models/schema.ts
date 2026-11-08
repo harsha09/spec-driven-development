@@ -1,5 +1,6 @@
 import { join } from "pathe";
 import { parse as parseYaml } from "yaml";
+import "../../zod-v3-messages.js";
 import { z } from "zod";
 import { pathExists, readText } from "../../fs.js";
 import { WORK_TYPES, type WorkType, isWorkType, workKind } from "../types.js";
@@ -9,57 +10,47 @@ const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 const confidence = z.number().gte(0).lte(1);
 
 const WorkTypeSchema = z.enum(WORK_TYPES);
-const workSlots = z.record(WorkTypeSchema, idSchema);
+const workSlots = z.partialRecord(WorkTypeSchema, idSchema);
 
 const ModelEntrySchema = z.discriminatedUnion("provider", [
-  z
-    .object({
-      kind: z.literal("decide"),
-      provider: z.literal("rules"),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.enum(["decide", "reason"]),
-      provider: z.literal("command"),
-      command_env: envName,
-      min_confidence: confidence.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("decide"),
-      provider: z.literal("ollama"),
-      model: z.string().trim().min(1),
-      base_url_env: envName,
-      min_confidence: confidence.optional(),
-    })
-    .strict(),
+  z.strictObject({
+    kind: z.literal("decide"),
+    provider: z.literal("rules"),
+  }),
+  z.strictObject({
+    kind: z.enum(["decide", "reason"]),
+    provider: z.literal("command"),
+    command_env: envName,
+    min_confidence: confidence.optional(),
+  }),
+  z.strictObject({
+    kind: z.literal("decide"),
+    provider: z.literal("ollama"),
+    model: z.string().trim().min(1),
+    base_url_env: envName,
+    min_confidence: confidence.optional(),
+  }),
 ]);
 
 export type ModelEntry = z.infer<typeof ModelEntrySchema>;
 
 export const ModelsConfigSchema = z
-  .object({
+  .strictObject({
     version: z.literal(1),
     models: z.record(idSchema, ModelEntrySchema),
-    defaults: z
-      .object({
-        by_work_type: workSlots,
-        fallback_reason: idSchema,
-        fallback_decide: idSchema,
-      })
-      .strict(),
+    defaults: z.strictObject({
+      by_work_type: workSlots,
+      fallback_reason: idSchema,
+      fallback_decide: idSchema,
+    }),
     overrides: z
-      .object({
+      .strictObject({
         bots: z.record(idSchema, workSlots).optional(),
         stages: z.record(idSchema, workSlots).optional(),
         roles: z.record(idSchema, workSlots).optional(),
       })
-      .strict()
       .optional(),
   })
-  .strict()
   .superRefine((config, ctx) => {
     if (Object.keys(config.models).length === 0) {
       ctx.addIssue({ code: "custom", path: ["models"], message: "needs a model" });

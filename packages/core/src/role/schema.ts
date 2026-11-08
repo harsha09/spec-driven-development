@@ -1,46 +1,39 @@
+import "../zod-v3-messages.js";
 import { z } from "zod";
 
 const nameSchema = z.string().trim().min(1);
 
-const botSchema = z
-  .object({
-    name: nameSchema,
-    role: nameSchema,
-    wip: z.number().int().positive(),
-  })
-  .strict();
+const botSchema = z.strictObject({
+  name: nameSchema,
+  role: nameSchema,
+  wip: z.number().int().positive(),
+});
 
-const humanSchema = z
-  .object({
-    name: nameSchema,
-  })
-  .strict();
+const humanSchema = z.strictObject({
+  name: nameSchema,
+});
 
 /** Project team file written to `.sdd/team.yaml`. */
 export const TeamSchema = z
-  .object({
+  .strictObject({
     template: nameSchema.optional(),
     branch: z.string().trim().min(1),
-    rooms: z
-      .object({
-        commit: z.boolean(),
-      })
-      .strict(),
+    rooms: z.strictObject({
+      commit: z.boolean(),
+    }),
     bots: z.array(botSchema).min(1),
     humans: z.array(humanSchema).default([]),
     role_wip: z.record(z.string().trim().min(1), z.number().int().positive()).optional(),
     limits: z
-      .object({
+      .strictObject({
         loop_max_steps: z.number().int().positive().optional(),
         room_rounds: z.number().int().positive().optional(),
       })
-      .strict()
       .refine((limits) => limits.loop_max_steps !== undefined || limits.room_rounds !== undefined, {
-        message: "needs a limit",
+        error: "needs a limit",
       })
       .optional(),
   })
-  .strict()
   .superRefine((team, ctx) => {
     if (!team.branch.includes("{bot}")) {
       ctx.addIssue({

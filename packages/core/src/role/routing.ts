@@ -1,5 +1,6 @@
 import { join } from "pathe";
 import { parse as parseYaml } from "yaml";
+import "../zod-v3-messages.js";
 import { z } from "zod";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
@@ -14,7 +15,7 @@ import { ROLE_TEXT, type RoleCommandResult, type RoleProfile } from "./types.js"
 const matcher = z.string().trim().min(1);
 
 const RoutingRuleSchema = z
-  .object({
+  .strictObject({
     id: matcher,
     role: matcher,
     stage: matcher.optional(),
@@ -22,7 +23,6 @@ const RoutingRuleSchema = z
     owns: matcher.optional(),
     skill: matcher.optional(),
   })
-  .strict()
   .superRefine((rule, ctx) => {
     if (!rule.stage && !rule.artifact && !rule.owns && !rule.skill) {
       ctx.addIssue({
@@ -33,10 +33,9 @@ const RoutingRuleSchema = z
   });
 
 const RoutingSchema = z
-  .object({
+  .strictObject({
     rules: z.array(RoutingRuleSchema),
   })
-  .strict()
   .superRefine((file, ctx) => {
     const seen = new Set<string>();
     for (const [index, rule] of file.rules.entries()) {

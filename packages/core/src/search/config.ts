@@ -1,3 +1,4 @@
+import "../zod-v3-messages.js";
 import { z } from "zod";
 import { pathExists, readYaml } from "../fs.js";
 import { searchConfigPath } from "../paths.js";

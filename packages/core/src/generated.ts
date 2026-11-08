@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat } from "node:fs/promises";
 import { join } from "pathe";
+import "./zod-v3-messages.js";
 import { z } from "zod";
 import { listDirs, listFiles, pathExists, readText, writeText } from "./fs.js";
 
@@ -63,12 +64,10 @@ export interface KeptFile {
   reason: KeptReason;
 }
 
-const GeneratedManifestSchema = z
-  .object({
-    version: z.literal(1),
-    files: z.record(z.string().regex(/^[0-9a-f]{64}$/)),
-  })
-  .strict();
+const GeneratedManifestSchema = z.strictObject({
+  version: z.literal(1),
+  files: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
+});
 
 export type GeneratedManifest = z.infer<typeof GeneratedManifestSchema>;
 
