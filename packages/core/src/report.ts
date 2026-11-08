@@ -1,5 +1,6 @@
 import { join } from "pathe";
 import { parse as parseYaml } from "yaml";
+import "./zod-v3-messages.js";
 import { z } from "zod";
 import { listDirs, pathExists, readText } from "./fs.js";
 import {
