@@ -46,6 +46,10 @@ jobs:
           node --version
 
       - name: Install dependencies
+        env:
+          # Linux postinstall otherwise downloads optional CUDA binaries. A 504 fails the job.
+          # The CPU runtime is already in the package. Tests do not use the GPU build.
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: pnpm install --frozen-lockfile
 
       - name: Build
@@ -92,6 +96,8 @@ jobs:
           package-manager-cache: false
 
       - name: Install & build
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: |
           pnpm install --frozen-lockfile
           pnpm build
