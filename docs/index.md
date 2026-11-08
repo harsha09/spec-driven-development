@@ -69,7 +69,7 @@ Add `--no-agent` the first time. You learn the process without the AI window pop
 
 | Need | Detail |
 |------|--------|
-| **Node.js** | Node 20+ (Node 24 recommended because Node 20 is past upstream end of life) |
+| **Node.js** | CLI 0.24.0: 24 or newer. Next release: Node 20–23 works but isn't recommended; Node 24 is recommended. |
 | **CLI package** | [@structured-vibe-coding/cli on npm](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
 | **An AI tool** | One of: GitHub Copilot, Grok, Claude Code, Ollama, or Kilo Code |
 | **Time** | About 10 minutes for the first loop |

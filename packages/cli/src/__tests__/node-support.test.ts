@@ -8,6 +8,8 @@ import {
   isNodeVersionSupported,
   nodeDoctorDetail,
   nodeEnginesRange,
+  nodeNextReleaseNote,
+  nodeRecommendedWarning,
   nodeRequirementPhrase,
   nodeSupportLevel,
 } from "../node-support.js";
@@ -35,11 +37,13 @@ describe("doctor version check", () => {
     expect(isNodeVersionSupported("20.19.5")).toBe(true);
     expect(isNodeVersionSupported("22.23.4")).toBe(true);
     expect(nodeDoctorDetail("20.19.5")).toBe(
-      "v20.19.5 (WARN: Node 24 recommended because Node 20 is past upstream end of life)",
+      "v20.19.5 (WARN: Node 20–23 works but isn't recommended; Node 24 is recommended)",
     );
     expect(nodeDoctorDetail("v22.14.0")).toBe(
-      "v22.14.0 (WARN: Node 24 recommended because Node 20 is past upstream end of life)",
+      "v22.14.0 (WARN: Node 20–23 works but isn't recommended; Node 24 is recommended)",
     );
+    expect(nodeDoctorDetail("20.19.5")).not.toContain("long-term support");
+    expect(nodeDoctorDetail("20.19.5")).not.toContain("official");
     expect(nodeDoctorDetail("20.19.5")).not.toContain("FAIL");
   });
 
@@ -65,6 +69,14 @@ describe("doctor version check", () => {
 describe("Node rule is written once", () => {
   const phrase = nodeRequirementPhrase();
 
+  it("uses one warning sentence", () => {
+    expect(phrase).toBe(nodeRecommendedWarning());
+    expect(phrase).toBe("Node 20–23 works but isn't recommended; Node 24 is recommended");
+    expect(nodeNextReleaseNote()).toContain(phrase);
+    expect(nodeNextReleaseNote()).toContain("This is not long-term support for Node 20");
+    expect(nodeNextReleaseNote()).toContain("not in CLI 0.24.0");
+  });
+
   it("matches every package engines field", () => {
     for (const rel of ["package.json", "packages/cli/package.json", "packages/core/package.json"]) {
       const pkg = JSON.parse(readFileSync(join(repoRoot, rel), "utf8")) as {
@@ -75,19 +87,37 @@ describe("Node rule is written once", () => {
   });
 
   it("matches the README requirement line and the other install lines", () => {
-    expect(readFileSync(join(repoRoot, "README.md"), "utf8")).toContain(
-      `| **Needs** | ${phrase} · about 10 minutes for the first loop |`,
+    const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
+    expect(readme).toContain(
+      `| **Needs** | CLI 0.24.0: Node 24+. Next release: ${phrase} · about 10 minutes for the first loop |`,
     );
+    expect(readme).toContain(
+      "**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24.",
+    );
+    expect(readme).toContain(nodeNextReleaseNote());
+
+    const tutorial = readFileSync(join(repoRoot, "docs/tutorials/first-change.md"), "utf8");
+    expect(tutorial).toContain(
+      `| **You need** | CLI 0.24.0: Node.js 24+ and a folder for an app (or an empty folder). Next release: ${phrase}. |`,
+    );
+    expect(tutorial).toContain(
+      "so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, and that line passed.",
+    );
+    expect(tutorial).toContain(nodeNextReleaseNote());
+
     expect(readFileSync(join(repoRoot, "docs/index.md"), "utf8")).toContain(
-      `| **Node.js** | ${phrase} |`,
+      `| **Node.js** | CLI 0.24.0: 24 or newer. Next release: ${phrase}. |`,
     );
-    expect(readFileSync(join(repoRoot, "docs/tutorials/first-change.md"), "utf8")).toContain(
-      `| **You need** | ${phrase} and a folder for an app (or an empty folder) |`,
+    expect(readFileSync(join(repoRoot, "skills/README.md"), "utf8")).toContain(
+      `Next release: ${phrase}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`,
     );
-    expect(readFileSync(join(repoRoot, "skills/README.md"), "utf8")).toContain(phrase);
     const maintainers = readFileSync(join(repoRoot, "docs/maintainers/ci-cd.md"), "utf8");
     expect(maintainers).toContain(`\`${nodeEnginesRange()}\``);
     expect(maintainers).toContain(phrase);
+    expect(maintainers).toContain(`This is not long-term support for Node ${MINIMUM_NODE_MAJOR}`);
+    const roadmap = readFileSync(join(repoRoot, "ROADMAP.md"), "utf8");
+    expect(roadmap).toContain(phrase);
+    expect(roadmap).toContain(`This is not long-term support for Node ${MINIMUM_NODE_MAJOR}`);
   });
 
   it("tests Node 20 and Node 24 in CI and keeps release on the recommendation", () => {

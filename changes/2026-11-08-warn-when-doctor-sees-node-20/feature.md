@@ -14,7 +14,7 @@ A person or a CI job that stays on Node 20. Doctor should not go red for a runti
 
 ## Scope
 
-One Node rule. The minimum major is 20. The recommended major is 24. Doctor warns on 20, 21, 22, and 23. Doctor fails below 20. A pass on 24 prints the version and no failure line. `engines.node` is `>=20` in the root, the CLI, and core. The README Needs line, help, the tutorial, the docs index, and the maintainer note use that same rule. The CI test job runs on Node 20 and Node 24.
+One Node rule. The minimum major is 20. The recommended major is 24. Doctor warns on 20, 21, 22, and 23. The warning says that range works but isn't recommended, and that Node 24 is recommended. It does not promise long-term support for Node 20. Doctor fails below 20. A pass on 24 prints the version and no failure line. `engines.node` is `>=20` in the root, the CLI, and core. Help uses that warning. The README and the first-change tutorial keep the CLI 0.24.0 check paragraphs and add one next-release line. The docs index, the skill pack note, and the maintainer note state the same next-release sentence. The CI test job runs on Node 20 and Node 24.
 
 ## Non-goals
 
