@@ -52,7 +52,7 @@ During the check, `sdd --version` and `npm view` both printed `0.24.0`. A later 
 
 **CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`, so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, and that line passed. Replace this paragraph when a released CLI changes the check.
 
-Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20.
+Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns for a major from 20 through 23 and does not fail when the other checks pass, fails below Node 20, and passes on Node 24 and newer. engines.node becomes `>=20`. CI runs the test suite on Node 20 and Node 24. This is not long-term support for Node 20.
 
 If `sdd` is not on your PATH, use `npx @structured-vibe-coding/cli` wherever this page says `sdd`.
 

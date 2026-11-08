@@ -7,7 +7,7 @@ description: Where the product-agnostic sdd skill pack lives, how a product supp
 
 The skill pack is a set of procedures an agent can follow when a change needs more than the short role file. The role files stay the routing contract. The pack does not replace them.
 
-Verified against CLI **0.24.0** and Node.js **24+**. The design examples were advanced with `sdd next` on a feature change. The evidence is `skills/sdd-design-writer/VALIDATION.md` in the repository.
+The recorded validation in `skills/sdd-design-writer/VALIDATION.md` used CLI **0.24.0** on Node.js **v24.22.2**. That run advanced the design examples with `sdd next` on a feature change. This page did not re-run it. The record is that runtime, not coverage of Node 20 or of every later Node release.
 
 ## Where it lives
 
