@@ -71,10 +71,13 @@ Read the files. The change folder and the handoff are the record for the next se
 | Look up a command | [CLI reference](docs/reference/cli.md) |
 | Attach org MCP sources | [MCP guide](docs/guides/mcp.md) |
 | Load the repository skill pack | [Skill pack](docs/guides/skills.md) |
+| Read the roadmap | [ROADMAP.md](./ROADMAP.md) |
+| Follow the enterprise path | [Enterprise](docs/guides/enterprise.md) |
+| Build this repository | [Maintainer CI](docs/maintainers/ci-cd.md) |
 
-Roles, team templates, rooms, and maintainer build steps wait until the first change is done.
+Roles, team templates, and rooms wait until the first change is done. The roadmap, enterprise guide, and maintainer notes are linked above for later.
 
-The skill pack is optional. It is the `skills/` directory in this repository. The npm tarball contains `dist` and the package readme. `sdd init` and `sdd agents install` do not copy `skills/` into a project or a host folder. [Skill pack](docs/guides/skills.md) is the map.
+The skill pack is optional. It is the `skills/` directory in this repository. The npm package includes `dist`, the package readme, `package.json`, and `LICENSE`. `sdd init` and `sdd agents install` do not copy `skills/` into a project or a host folder. [Skill pack](docs/guides/skills.md) is the map.
 
 ## License
 
