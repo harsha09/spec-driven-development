@@ -134,6 +134,13 @@ export const ConfigSchema = z.object({
       gates: z.enum(["soft", "hard"]).default("soft"),
     })
     .prefault({}),
+  jenkins: z
+    .object({
+      url: z.string(),
+      token_env: z.string(),
+      user_env: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const ChangeMetaSchema = z.object({

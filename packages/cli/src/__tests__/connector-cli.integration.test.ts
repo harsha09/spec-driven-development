@@ -1,6 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { constants } from "node:fs";
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,6 +41,48 @@ function runSdd(
     },
   });
   return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+function runSddAsync(
+  cwd: string,
+  args: string[],
+  env: Record<string, string> = {},
+): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [sddBin, ...args], {
+      cwd,
+      env: {
+        PATH: env.PATH ?? process.env.PATH,
+        HOME: process.env.HOME,
+        TMPDIR: process.env.TMPDIR,
+        USER: process.env.USER,
+        LANG: process.env.LANG,
+        CI: "1",
+        ...env,
+      },
+    });
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    child.stdout?.on("data", (chunk: Buffer) => out.push(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => err.push(chunk));
+    let settled = false;
+    const finish = (status: number | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        status,
+        stdout: Buffer.concat(out).toString("utf8"),
+        stderr: Buffer.concat(err).toString("utf8"),
+      });
+    };
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(null);
+    }, 15000);
+    child.on("error", () => finish(null));
+    child.on("close", (status) => finish(status));
+  });
 }
 
 async function treeContains(dir: string, needle: string): Promise<string | null> {
@@ -151,5 +195,58 @@ exit 1
     }
     expect((await readFile(calls, "utf8")).trim().split("\n").length).toBe(before);
     expect(await treeContains(root, token)).toBeNull();
+  });
+
+  it("reads one Jenkins build and does not print the token", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-jenkins-cli-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const requests: string[] = [];
+    const server = createServer((req, res) => {
+      requests.push(`${req.method ?? ""} ${req.url ?? ""}`);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ number: 42, building: false, result: "FAILURE" }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    try {
+      const port = (server.address() as AddressInfo).port;
+      const configPath = join(root, ".sdd", "config.yaml");
+      await writeFile(
+        configPath,
+        `${await readFile(configPath, "utf8")}jenkins:\n  url: http://127.0.0.1:${port}\n  token_env: JENKINS_TOKEN\n`,
+      );
+      const token = "sdd-jenkins-token-do-not-print";
+      const env = { JENKINS_TOKEN: token };
+      const read = await runSddAsync(
+        root,
+        ["role", "connector", "read", "jenkins", "my-job/42"],
+        env,
+      );
+      expect(read.status, read.stderr).toBe(0);
+      expect(read.stdout.trim()).toBe("my-job/42\ncompleted\nfailure");
+      expect(read.stdout).not.toContain(token);
+      expect(read.stderr).not.toContain(token);
+      expect(requests).toEqual(["GET /job/my-job/42/api/json?tree=number,building,result"]);
+      const before = requests.length;
+      for (const verb of ["deploy", "trigger", "abort"]) {
+        const stopped = await runSddAsync(
+          root,
+          ["role", "connector", verb, "jenkins", "my-job/42"],
+          env,
+        );
+        expect(stopped.status).toBe(1);
+        expect(stopped.stdout.trim()).toBe("That connector action does not run in this slice.");
+        expect(stopped.stdout).not.toContain(token);
+        expect(stopped.stderr).not.toContain(token);
+      }
+      expect(requests).toHaveLength(before);
+      expect(await treeContains(root, token)).toBeNull();
+      const config = await readFile(configPath, "utf8");
+      expect(config).toContain("token_env: JENKINS_TOKEN");
+      expect(config).not.toContain(token);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
