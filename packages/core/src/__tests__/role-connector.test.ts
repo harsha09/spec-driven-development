@@ -4,6 +4,7 @@ import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import { initProject, loadConfig } from "../index.js";
 import {
+  type ActionsSource,
   type IssueSource,
   type TrackerSource,
   readConnector,
@@ -28,6 +29,19 @@ function source(impl: IssueSource["read"]): { client: IssueSource; calls: () => 
       async read(number) {
         calls += 1;
         return impl(number);
+      },
+    },
+  };
+}
+
+function actions(impl: ActionsSource["read"]): { client: ActionsSource; calls: () => number } {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    client: {
+      async read(id) {
+        calls += 1;
+        return impl(id);
       },
     },
   };
@@ -303,6 +317,95 @@ describe("sdd role connector", () => {
     });
     expect(seeded.stdout).toBe("That connector is not in this slice.");
     expect(live.calls()).toBe(0);
+  });
+
+  it("prints a failed Actions conclusion and does not invent a missing run", async () => {
+    const failed = actions(async (id) => {
+      return { ok: true, run: { id, status: "completed", conclusion: "failure" } };
+    });
+    const read = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: failed.client,
+    });
+    expect(read).toEqual({ exitCode: 0, stdout: "42\ncompleted\nfailure" });
+    expect(failed.calls()).toBe(1);
+
+    const missing = actions(async () => ({ ok: false, missing: true }));
+    const gone = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: missing.client,
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 was not found." });
+    expect(gone.stdout.toLowerCase()).not.toContain("success");
+    expect(missing.calls()).toBe(1);
+
+    const unread = actions(async () => {
+      return { ok: true, run: { id: "99", status: "completed", conclusion: "success" } };
+    });
+    const hidden = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: unread.client,
+    });
+    expect(hidden).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 could not be read." });
+    expect(hidden.stdout.toLowerCase()).not.toContain("success");
+
+    const blank = actions(async (id) => {
+      return { ok: true, run: { id, status: "completed", conclusion: "" } };
+    });
+    const empty = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: blank.client,
+    });
+    expect(empty.exitCode).toBe(1);
+    expect(empty.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(empty.stdout.toLowerCase()).not.toContain("success");
+
+    const thrown = actions(async () => {
+      throw new Error("success");
+    });
+    const broke = await readConnector({
+      verb: "read",
+      connector: "github-actions",
+      record: "42",
+      actions: thrown.client,
+    });
+    expect(broke).toEqual({ exitCode: 1, stdout: "GitHub Actions run 42 could not be read." });
+    expect(broke.stdout.toLowerCase()).not.toContain("success");
+
+    const live = actions(async () => {
+      throw new Error("called");
+    });
+    const issue = source(async () => {
+      throw new Error("called");
+    });
+    const stopped = [
+      ["merge", "That connector action does not run in this slice."],
+      ["deploy", "That connector action does not run in this slice."],
+      ["promote", "That connector action does not run in this slice."],
+      ["seed", "That connector is not in this slice."],
+      ["read", "A GitHub Actions run id is a positive integer."],
+    ] as const;
+    for (const [verb, stdout] of stopped) {
+      const record = verb === "read" ? "0" : "42";
+      const result = await readConnector({
+        verb,
+        connector: "github-actions",
+        record,
+        actions: live.client,
+        source: issue.client,
+      });
+      expect(result, stdout).toEqual({ exitCode: 1, stdout });
+    }
+    expect(live.calls()).toBe(0);
+    expect(issue.calls()).toBe(0);
   });
 });
 

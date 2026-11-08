@@ -17,6 +17,7 @@ const TRACKERS: Record<string, string> = {
   "azure-devops": "Azure DevOps",
 };
 const BAD_NUMBER = "A GitHub issue number is a positive integer.";
+const BAD_RUN_ID = "A GitHub Actions run id is a positive integer.";
 const QA_LINE = "A routine cannot write a QA result.";
 const BAD_ROUTINES = "Routines on this role are invalid.";
 const NO_ROUTINE = "That routine is not on this role.";
@@ -32,6 +33,18 @@ export type IssueRead = { ok: true; issue: IssueRecord } | { ok: false; missing:
 
 export interface IssueSource {
   read(number: number): Promise<IssueRead>;
+}
+
+export interface ActionsRecord {
+  id: string;
+  status: string;
+  conclusion: string;
+}
+
+export type ActionsRead = { ok: true; run: ActionsRecord } | { ok: false; missing: boolean };
+
+export interface ActionsSource {
+  read(id: string): Promise<ActionsRead>;
 }
 
 export interface TrackerRecord {
@@ -75,6 +88,14 @@ function unreadLine(number: number): string {
   return `GitHub issue ${number} could not be read.`;
 }
 
+function actionsMissing(id: string): string {
+  return `GitHub Actions run ${id} was not found.`;
+}
+
+function actionsUnread(id: string): string {
+  return `GitHub Actions run ${id} could not be read.`;
+}
+
 function couldNotOpen(number: number): string {
   return `A change could not be opened for GitHub issue ${number}.`;
 }
@@ -105,7 +126,7 @@ function cleanLine(value: unknown): string | null {
 export function ghIssueSource(): IssueSource {
   return {
     async read(number) {
-      const run = await spawnGh(number);
+      const run = await spawnGh(["issue", "view", String(number), "--json", "number,title,state"]);
       if (!run.ok) return { ok: false, missing: run.missing };
       let parsed: unknown;
       try {
@@ -126,11 +147,38 @@ export function ghIssueSource(): IssueSource {
   };
 }
 
+export function ghActionsSource(): ActionsSource {
+  return {
+    async read(id) {
+      const run = await spawnGh(["run", "view", id, "--json", "databaseId,status,conclusion"]);
+      if (!run.ok) return { ok: false, missing: run.missing };
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(run.stdout);
+      } catch {
+        return { ok: false, missing: false };
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { ok: false, missing: false };
+      }
+      const rec = parsed as Record<string, unknown>;
+      const status = cleanLine(rec.status);
+      const conclusion = cleanLine(rec.conclusion);
+      const found =
+        typeof rec.databaseId === "number" && Number.isSafeInteger(rec.databaseId)
+          ? String(rec.databaseId)
+          : cleanLine(rec.databaseId);
+      if (found !== id || !status || !conclusion) return { ok: false, missing: false };
+      return { ok: true, run: { id, status, conclusion } };
+    },
+  };
+}
+
 function spawnGh(
-  number: number,
+  args: string[],
 ): Promise<{ ok: true; stdout: string } | { ok: false; missing: boolean }> {
   return new Promise((resolve) => {
-    const child = spawn("gh", ["issue", "view", String(number), "--json", "number,title,state"], {
+    const child = spawn("gh", args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
     const out: Buffer[] = [];
@@ -158,12 +206,35 @@ function threeLines(issue: IssueRecord): string {
   return `${issue.number}\n${issue.title}\n${issue.state}`;
 }
 
+async function readActionsRun(
+  record: string,
+  actions: ActionsSource | undefined,
+): Promise<RoleCommandResult> {
+  const number = positiveInteger(record);
+  if (number === null) return fail(BAD_RUN_ID);
+  const id = String(number);
+  const source = actions ?? ghActionsSource();
+  let read: ActionsRead;
+  try {
+    read = await source.read(id);
+  } catch {
+    return fail(actionsUnread(id));
+  }
+  if (!read.ok) return fail(read.missing ? actionsMissing(id) : actionsUnread(id));
+  if (read.run.id !== id) return fail(actionsUnread(id));
+  const status = cleanLine(read.run.status);
+  const conclusion = cleanLine(read.run.conclusion);
+  if (!status || !conclusion) return fail(actionsUnread(id));
+  return ok(`${id}\n${status}\n${conclusion}`);
+}
+
 export async function readConnector(input: {
   verb: string;
   connector: string;
   record: string;
   source?: IssueSource;
   tracker?: TrackerSource;
+  actions?: ActionsSource;
   projectRoot?: string;
   config?: Config;
 }): Promise<RoleCommandResult> {
@@ -196,6 +267,9 @@ export async function readConnector(input: {
     const state = cleanLine(read.record.state);
     if (read.record.id !== id || !title || !state) return fail(trackerUnread(trackerName, id));
     return ok(`${id}\n${title}\n${state}`);
+  }
+  if (verb === "read" && connector === "github-actions") {
+    return readActionsRun(record, input.actions);
   }
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
