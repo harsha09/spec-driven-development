@@ -16,7 +16,8 @@ function textArg(value: unknown): string {
 const open = defineCommand({
   meta: {
     name: "open",
-    description: "Create a git worktree and record for one change",
+    description:
+      "Create a git worktree and record for one change. The profile is read from .sdd/sandbox.yaml. A missing file defaults to devbox with PATH.",
   },
   args: {
     change: {

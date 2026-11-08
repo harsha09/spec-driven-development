@@ -43,34 +43,49 @@ export interface SandboxCommandResult {
   stdout: string;
 }
 
-const SandboxRecordSchema = z
-  .object({
-    id: z.string(),
-    path: z.string(),
-    baseSha: z.string().regex(SHA),
-    branch: z.string().min(1),
-    status: z.enum(STATUSES),
-    port: z.number().int(),
-    portEnd: z.number().int(),
-    buildSlot: z.number().int(),
-    buildDir: z.string(),
-    leasePid: z.number().int(),
-    env: z
-      .object({
-        PORT: z.string(),
-        CARGO_TARGET_DIR: z.string(),
-      })
-      .strict(),
-    profile: z
-      .object({
-        name: z.enum(["workspace", "devbox", "read-only"]),
-        env: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
-        caches: z.array(z.string()),
-        network: z.array(z.string()),
-      })
-      .strict(),
-  })
-  .strict();
+const SandboxRecordSchema = z.preprocess(
+  (input) => {
+    if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+    if ("profile" in input && input.profile !== undefined) return input;
+    return {
+      ...input,
+      profile: {
+        name: "devbox",
+        env: ["PATH"],
+        caches: [],
+        network: [],
+      },
+    };
+  },
+  z
+    .object({
+      id: z.string(),
+      path: z.string(),
+      baseSha: z.string().regex(SHA),
+      branch: z.string().min(1),
+      status: z.enum(STATUSES),
+      port: z.number().int(),
+      portEnd: z.number().int(),
+      buildSlot: z.number().int(),
+      buildDir: z.string(),
+      leasePid: z.number().int(),
+      env: z
+        .object({
+          PORT: z.string(),
+          CARGO_TARGET_DIR: z.string(),
+        })
+        .strict(),
+      profile: z
+        .object({
+          name: z.enum(["workspace", "devbox", "read-only"]),
+          env: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
+          caches: z.array(z.string()),
+          network: z.array(z.string()),
+        })
+        .strict(),
+    })
+    .strict(),
+);
 
 type Anchored =
   | { ok: true; path: string }
@@ -576,7 +591,7 @@ async function withLease(
   repo: string,
   record: SandboxRecord,
 ): Promise<SandboxRecord | { error: string }> {
-  const lease = await allocateLease(repo, record.id);
+  const lease = await allocateLease(repo, record.id, record.profile);
   if ("error" in lease) return lease;
   return { ...record, ...lease };
 }
@@ -629,7 +644,7 @@ async function createFresh(
   const kind = await classifyWorktree(repo, recordReal);
   if (kind === "escape") return fail(LEAVE);
   if (kind === "ours" && (await worktreeHead(recordReal)) !== base.sha) return fail(stale(id));
-  const lease = await allocateLease(repo, id);
+  const lease = await allocateLease(repo, id, profile);
   if ("error" in lease) return fail(lease.error);
   if (kind === "ours") {
     const ready: SandboxRecord = {

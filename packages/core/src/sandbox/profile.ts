@@ -4,9 +4,9 @@
  */
 import "../zod-v3-messages.js";
 import { constants, type Stats } from "node:fs";
-import { lstat, open } from "node:fs/promises";
-import { join } from "pathe";
-import { parse as parseYaml } from "yaml";
+import { lstat, open, realpath, stat } from "node:fs/promises";
+import { isAbsolute, join, relative } from "pathe";
+import { parseDocument } from "yaml";
 import { z } from "zod";
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -126,10 +126,70 @@ export function profileEnv(
   return out;
 }
 
-/** A read-only profile cannot write. workspace and devbox can write a relative path. */
-export function rejectWrite(profile: SandboxProfile, relPath: string): string | null {
-  if (profile.name !== "read-only") return null;
-  return `A read-only sandbox cannot write ${relPath || "that path"}.\n`;
+const WRITE_REFUSED = "A sandbox cannot write that path.\n";
+
+function insideWorktree(worktreeReal: string, candidate: string): boolean {
+  if (worktreeReal === candidate) return true;
+  const rel = relative(worktreeReal, candidate);
+  return (
+    rel !== "" &&
+    rel !== ".." &&
+    !rel.startsWith("../") &&
+    !rel.startsWith("..\\") &&
+    !isAbsolute(rel)
+  );
+}
+
+function lexicalWriteEscape(relPath: string): boolean {
+  if (relPath.includes("\0")) return true;
+  if (isAbsolute(relPath) || relPath.startsWith("/") || relPath.startsWith("\\")) return true;
+  if (/^[A-Za-z]:[\\/]/.test(relPath)) return true;
+  return relPath.split(/[/\\]/).some((part) => part === "..");
+}
+
+/**
+ * read-only rejects every write. workspace and devbox may write only a path
+ * that stays inside the sandbox worktree, including through symlinks.
+ */
+export async function rejectWrite(
+  profile: SandboxProfile,
+  worktreeRoot: string,
+  relPath: string,
+): Promise<string | null> {
+  if (profile.name === "read-only") {
+    return `A read-only sandbox cannot write ${relPath || "that path"}.\n`;
+  }
+  if (lexicalWriteEscape(relPath)) return WRITE_REFUSED;
+  let worktreeReal: string;
+  try {
+    worktreeReal = await realpath(worktreeRoot);
+  } catch {
+    return WRITE_REFUSED;
+  }
+  const parts = relPath.split(/[/\\]/).filter((part) => part.length > 0 && part !== ".");
+  let current = worktreeReal;
+  for (const part of parts) {
+    const next = join(current, part);
+    try {
+      await lstat(next);
+    } catch (err) {
+      if (errnoCode(err) === "ENOENT") {
+        return insideWorktree(worktreeReal, current) ? null : WRITE_REFUSED;
+      }
+      throw err;
+    }
+    let real: string;
+    try {
+      real = await realpath(next);
+    } catch {
+      return WRITE_REFUSED;
+    }
+    if (!insideWorktree(worktreeReal, real)) return WRITE_REFUSED;
+    const followed = await stat(next);
+    if (!followed.isDirectory() && part !== parts[parts.length - 1]) return WRITE_REFUSED;
+    current = followed.isDirectory() ? real : current;
+  }
+  return null;
 }
 
 async function readProfileText(file: string): Promise<string | { error: string }> {
@@ -166,11 +226,9 @@ export async function loadSandboxProfile(
     }
     return text;
   }
-  let raw: unknown;
-  try {
-    raw = parseYaml(text);
-  } catch {
+  const doc = parseDocument(text, { logLevel: "silent" });
+  if (doc.errors.length > 0 || doc.warnings.length > 0) {
     return { error: ".sdd/sandbox.yaml is not valid YAML.\n" };
   }
-  return parseSandboxProfile(raw);
+  return parseSandboxProfile(doc.toJS());
 }

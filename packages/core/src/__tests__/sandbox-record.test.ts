@@ -553,13 +553,70 @@ describe("sandbox record", { timeout: 30_000 }, () => {
       network: ["registry.npmjs.org"],
     });
     expect((await listSandboxes(root)).stdout).toBe(`${id} ready read-only\n`);
-    expect(rejectWrite(record.profile, "src/app.ts")).toBe(
-      "A read-only sandbox cannot write src/app.ts.\n",
-    );
+    expect(
+      await rejectWrite(record.profile, join(recordDir(root, id), "worktree"), "src/app.ts"),
+    ).toBe("A read-only sandbox cannot write src/app.ts.\n");
     expect((await openSandbox(root, id)).exitCode).toBe(0);
     const again = JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")) as {
       profile: typeof record.profile;
     };
     expect(again.profile).toEqual(record.profile);
+  });
+
+  it("treats a record without a profile as devbox and resumes the worktree", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Legacy record");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const file = join(recordDir(root, id), "record.json");
+    const stored = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown> & {
+      profile?: unknown;
+    };
+    const { profile: dropped, ...legacy } = stored;
+    expect(dropped).toBeDefined();
+    await writeFile(file, `${JSON.stringify(legacy, null, 2)}\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready devbox\n`);
+    const again = await openSandbox(root, id);
+    expect(again.exitCode).toBe(0);
+    expect(again.stdout).toBe(`Sandbox ${id} is ready.\n`);
+    expect(await readFile(join(recordDir(root, id), "worktree", "README.md"), "utf8")).toBe(
+      "keep\n",
+    );
+    const reread = JSON.parse(await readFile(file, "utf8")) as {
+      profile: { name: string; env: string[]; caches: string[]; network: string[] };
+    };
+    expect(reread.profile).toEqual({
+      name: "devbox",
+      env: ["PATH"],
+      caches: [],
+      network: [],
+    });
+  });
+
+  it("does not pass an unlisted env var to the port holder", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Holder env");
+    const sentinel = "SDD_SENTINEL_SECRET";
+    const previous = process.env[sentinel];
+    process.env[sentinel] = "sentinel-secret-value";
+    try {
+      expect((await openSandbox(root, id)).exitCode).toBe(0);
+      const record = JSON.parse(
+        await readFile(join(recordDir(root, id), "record.json"), "utf8"),
+      ) as {
+        leasePid: number;
+      };
+      const environ = await readFile(`/proc/${record.leasePid}/environ`);
+      const text = environ.toString("utf8");
+      expect(text).not.toContain(sentinel);
+      expect(text).not.toContain("sentinel-secret-value");
+      expect(
+        await listenResult(
+          JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")).port,
+        ),
+      ).toBe("busy");
+    } finally {
+      if (previous === undefined) delete process.env[sentinel];
+      else process.env[sentinel] = previous;
+    }
   });
 });
