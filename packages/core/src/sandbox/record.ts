@@ -272,7 +272,11 @@ async function anchor(repoReal: string, parts: string[], create: boolean): Promi
     } catch (err) {
       if (!isEnoent(err)) throw err;
       if (!create) return { ok: false, missing: true };
-      await mkdir(next);
+      try {
+        await mkdir(next, { recursive: true });
+      } catch (mkdirErr) {
+        if (errnoCode(mkdirErr) !== "EEXIST") throw mkdirErr;
+      }
       st = await lstat(next);
     }
     if (st.isSymbolicLink() || !st.isDirectory()) return { ok: false, error: LEAVE };
