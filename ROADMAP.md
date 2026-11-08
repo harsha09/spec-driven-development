@@ -65,7 +65,7 @@ Implementers: **extend these**; do not reimplement from scratch.
 
 | Area | What exists | Assessment (early 2026) |
 |------|-------------|-------------------------|
-| **Code quality** | pnpm monorepo, TypeScript, Zod, Biome, Vitest, core vs CLI split, `pathe`, MCP client, code-context pipeline | Strong for stage (~7.5–8/10). Smell: large `packages/cli/src/commands.ts`. Node `>=24` is aggressive. |
+| **Code quality** | pnpm monorepo, TypeScript, Zod, Biome, Vitest, core vs CLI split, `pathe`, MCP client, code-context pipeline | Strong for stage (~7.5–8/10). Smell: large `packages/cli/src/commands.ts`. The test suite runs on Node 20 and Node 24. Node 20–23 works but isn't recommended; Node 24 is recommended. This is not long-term support for Node 20. |
 | **Workflows** | hotfix, patch, feature, spike, greenfield, enterprise-feature; soft/hard gates; skip + reason; recommend by keywords; greenfield promote → `memory/` | **Strongest subsystem** (~8/10). |
 | **Change packs** | `changes/<id>/` + `meta.yaml`; active change; handoff | Correct philosophy. |
 | **Memory** | constitution, conventions, product spine after greenfield, backlog (`sdd backlog list\|start`; `feature` alias) | Durable vs ephemeral split is intentional. |
@@ -458,7 +458,6 @@ Do **not** implement without an explicit strategy revision of this file:
 | Item | Meaning |
 |------|---------|
 | Split `packages/cli/src/commands.ts` | Domain modules (lifecycle, backlog, context, doctor) — maintainability only |
-| Soften or justify Node `>=24` vs docs “20+” | Align engines messaging |
 | Gradual `SddError` adoption for remaining `throw new Error` | Consistent CLI exit/hints |
 | Keep Biome + typecheck + tests green on every PR | Already gated |
 

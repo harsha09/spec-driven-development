@@ -41,7 +41,7 @@ The two hypothetical examples under `skills/sdd-design-writer/examples/` pass. T
 node skills/sdd-design-writer/scripts/validate-examples.mjs
 ```
 
-That script needs the built CLI at `packages/cli/dist/index.js`, or `sdd` 0.24.0 on `PATH`. Node.js 24 or newer.
+That script needs the built CLI at `packages/cli/dist/index.js`, or `sdd` 0.24.0 on `PATH`. Next release: Node 20–23 works but isn't recommended; Node 24 is recommended. This is not long-term support for Node 20.
 
 ## Tests
 

@@ -1,0 +1,40 @@
+id: 2026-11-08-warn-when-doctor-sees-node-20
+title: Warn when doctor sees Node 20
+workflow: feature
+created: 2026-11-08T11:45:00.000Z
+updated: 2026-11-08T11:46:52.099Z
+status: in_progress
+stage: local_verify
+depends: []
+flags: {}
+overrides:
+  skip_stages:
+    - clarify_intent
+    - brainstorm
+    - clarify_design
+    - clarify_tasks
+  gates: {}
+  extra_stages: []
+skipped:
+  - stage: clarify_intent
+    reason: issue 105 already names the doctor failure
+    at: 2026-11-08T11:45:01.000Z
+  - stage: brainstorm
+    reason: option 3 is the approach
+    at: 2026-11-08T11:45:02.000Z
+  - stage: clarify_design
+    reason: the seam is the existing node support module
+    at: 2026-11-08T11:45:03.000Z
+  - stage: clarify_tasks
+    reason: the task list is the work
+    at: 2026-11-08T11:45:04.000Z
+gates: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 4e167ffef9ccc5238a9191786395d903f24adc95
+    at: 2026-11-08T11:46:52.098Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
