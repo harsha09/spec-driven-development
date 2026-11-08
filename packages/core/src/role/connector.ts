@@ -24,6 +24,7 @@ const BAD_JENKINS_ID = "A Jenkins build id is a job name and a positive integer.
 const JENKINS_HTTPS = "A Jenkins URL must use HTTPS.";
 const JENKINS_CREDENTIALS = "A Jenkins URL must not include credentials.";
 const JENKINS_TOKEN_ENV = "A Jenkins token_env must name an environment variable.";
+const JENKINS_USER_ENV = "A Jenkins user_env must name an environment variable.";
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const JOB_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const QA_LINE = "A routine cannot write a QA result.";
@@ -290,20 +291,38 @@ function jenkinsDeadline(value: number | undefined): number {
   return JENKINS_DEADLINE_MS;
 }
 
-function parseJenkinsRecord(record: string): { job: string; build: number; id: string } | null {
-  const slash = record.lastIndexOf("/");
-  if (slash <= 0 || slash === record.length - 1) return null;
-  const job = record.slice(0, slash);
-  const build = positiveInteger(record.slice(slash + 1));
-  if (!JOB_NAME.test(job) || build === null) return null;
-  return { job, build, id: `${job}/${build}` };
+function jenkinsSegments(parts: string[]): boolean {
+  if (parts.length === 1) return JOB_NAME.test(parts[0] ?? "");
+  if (parts.length % 2 === 0) return false;
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index] ?? "";
+    if (index % 2 === 1) {
+      if (part !== "job") return false;
+      continue;
+    }
+    if (!JOB_NAME.test(part)) return false;
+  }
+  return true;
+}
+
+function parseJenkinsRecord(
+  record: string,
+): { segments: string[]; build: number; id: string } | null {
+  if (!record || /[?#%\\]/.test(record)) return null;
+  const parts = record.split("/");
+  if (parts.length < 2 || parts.some((part) => part.length === 0)) return null;
+  const build = positiveInteger(parts[parts.length - 1] ?? "");
+  if (build === null) return null;
+  const segments = parts.slice(0, -1);
+  if (!jenkinsSegments(segments)) return null;
+  return { segments, build, id: `${segments.join("/")}/${build}` };
 }
 
 function isLocalJenkinsHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-function jenkinsBuildUrl(base: string, job: string, build: number): string | null {
+function jenkinsBuildUrl(base: string, segments: string[], build: number): string | null {
   let url: URL;
   try {
     url = new URL(base);
@@ -316,7 +335,8 @@ function jenkinsBuildUrl(base: string, job: string, build: number): string | nul
   const path = url.pathname;
   if (path.includes("..") || path.includes("\\") || path.toLowerCase().includes("%2e")) return null;
   const prefix = path.replace(/\/+$/, "");
-  url.pathname = `${prefix}/job/${encodeURIComponent(job)}/${build}/api/json`;
+  const encoded = segments.map((segment) => encodeURIComponent(segment)).join("/");
+  url.pathname = `${prefix}/job/${encoded}/${build}/api/json`;
   url.search = "tree=number,building,result";
   url.hash = "";
   return url.toString();
@@ -366,13 +386,13 @@ async function readJenkinsBuild(input: {
 }): Promise<RoleCommandResult> {
   const parsed = parseJenkinsRecord(input.record.trim());
   if (!parsed) return fail(BAD_JENKINS_ID);
-  const { job, build, id } = parsed;
+  const { segments, build, id } = parsed;
   const jenkins = input.config?.jenkins;
   const tokenEnv = envName(jenkins?.token_env);
   const userEnv = jenkins?.user_env === undefined ? undefined : envName(jenkins.user_env);
   if (!jenkins?.url || !tokenEnv || (jenkins.user_env !== undefined && !userEnv)) {
     if (jenkins?.token_env && !tokenEnv) return fail(JENKINS_TOKEN_ENV);
-    if (jenkins?.user_env !== undefined && !userEnv) return fail(JENKINS_TOKEN_ENV);
+    if (jenkins?.user_env !== undefined && !userEnv) return fail(JENKINS_USER_ENV);
     return fail(jenkinsUnread(id));
   }
   const env = input.env ?? process.env;
@@ -388,7 +408,7 @@ async function readJenkinsBuild(input: {
   if (leaks(jenkins.url, token)) return jenkinsFail(id, token, false);
   const localHttp = base.protocol === "http:" && isLocalJenkinsHost(base.hostname);
   if (base.protocol !== "https:" && !localHttp) return fail(JENKINS_HTTPS);
-  const target = jenkinsBuildUrl(jenkins.url, job, build);
+  const target = jenkinsBuildUrl(jenkins.url, segments, build);
   if (!target || leaks(target, token)) return jenkinsFail(id, token, false);
   const authorization = jenkinsAuthorization(env, tokenEnv, userEnv);
   if (!authorization) return jenkinsFail(id, token, false);
