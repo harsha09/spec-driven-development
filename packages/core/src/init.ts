@@ -353,6 +353,7 @@ const SDD_IGNORE_LINES = [
   "index.db-shm",
   "models/",
   "role-runs/",
+  "sandboxes/",
 ];
 
 /** Append missing required ignore lines. Does not rewrite config, memory, or workflows. */
