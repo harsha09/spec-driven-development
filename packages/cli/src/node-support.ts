@@ -45,7 +45,7 @@ export function nodeRequirementPhrase(): string {
 
 /** Marked line for docs that still describe the released CLI 0.24.0 check. */
 export function nodeNextReleaseNote(): string {
-  return `Next release, not in CLI 0.24.0: ${nodeRecommendedWarning()}. Doctor warns on that range and fails only below Node ${MINIMUM_NODE_MAJOR}. engines.node becomes \`${nodeEnginesRange()}\`. The test suite runs on Node ${MINIMUM_NODE_MAJOR}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`;
+  return `Next release, not in CLI 0.24.0: ${nodeRecommendedWarning()}. Doctor warns for a major from ${MINIMUM_NODE_MAJOR} through ${RECOMMENDED_NODE_MAJOR - 1} and does not fail when the other checks pass, fails below Node ${MINIMUM_NODE_MAJOR}, and passes on Node ${RECOMMENDED_NODE_MAJOR} and newer. engines.node becomes \`${nodeEnginesRange()}\`. CI runs the test suite on Node ${MINIMUM_NODE_MAJOR} and Node ${RECOMMENDED_NODE_MAJOR}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`;
 }
 
 export function nodeDoctorDetail(version: string): string {
