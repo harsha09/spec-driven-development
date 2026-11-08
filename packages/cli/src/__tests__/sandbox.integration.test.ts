@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -90,5 +90,103 @@ describe("sdd sandbox", () => {
     expect(escaped.status).toBe(1);
     expect(escaped.stdout).toContain("path separator");
     expect(await readFile(join(root, "README.md"), "utf8")).toBe("keep\n");
+  });
+
+  it("accepts close --change and discards edits only with --force", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-sandbox-cli-force-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    git(root, ["init", "-b", "main"]);
+    git(root, ["config", "user.email", "sdd-test@example.com"]);
+    git(root, ["config", "user.name", "sdd test"]);
+    git(root, ["config", "commit.gpgsign", "false"]);
+    git(root, ["config", "core.fsmonitor", "false"]);
+    await writeFile(join(root, "README.md"), "keep\n");
+    git(root, ["add", "README.md"]);
+    git(root, ["commit", "-m", "start"]);
+    expect(runSdd(root, ["new", "Sandbox force", "-w", "hotfix", "-y", "--no-agent"]).status).toBe(
+      0,
+    );
+    const id =
+      (await readdir(join(root, "changes"), { withFileTypes: true })).find((entry) =>
+        entry.isDirectory(),
+      )?.name ?? "";
+    expect(runSdd(root, ["sandbox", "open", "--change", id]).status).toBe(0);
+    const dirs = await readdir(join(root, ".sdd", "sandboxes", id));
+    expect(dirs).toContain("worktree");
+    await writeFile(join(root, ".sdd", "sandboxes", id, "worktree", "local.txt"), "edit\n");
+
+    const refused = runSdd(root, ["sandbox", "close", "--change", id]);
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("uncommitted changes");
+    expect(
+      await readFile(join(root, ".sdd", "sandboxes", id, "worktree", "local.txt"), "utf8"),
+    ).toBe("edit\n");
+
+    const forced = runSdd(root, ["sandbox", "close", "--change", id, "--force"]);
+    expect(forced.status, forced.stderr + forced.stdout).toBe(0);
+    expect(forced.stdout).toContain("Local edits were discarded.");
+    expect((await lstat(join(root, ".git"))).isDirectory()).toBe(true);
+    expect(await readFile(join(root, "README.md"), "utf8")).toBe("keep\n");
+  });
+
+  it("overlaps two opens without registering the worktree twice", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-sandbox-cli-race-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    git(root, ["init", "-b", "main"]);
+    git(root, ["config", "user.email", "sdd-test@example.com"]);
+    git(root, ["config", "user.name", "sdd test"]);
+    git(root, ["config", "commit.gpgsign", "false"]);
+    git(root, ["config", "core.fsmonitor", "false"]);
+    await writeFile(join(root, "README.md"), "keep\n");
+    git(root, ["add", "README.md"]);
+    git(root, ["commit", "-m", "start"]);
+    expect(runSdd(root, ["new", "Sandbox race", "-w", "hotfix", "-y", "--no-agent"]).status).toBe(
+      0,
+    );
+    const id =
+      (await readdir(join(root, "changes"), { withFileTypes: true })).find((entry) =>
+        entry.isDirectory(),
+      )?.name ?? "";
+
+    function openOnce(): Promise<{ status: number | null; stdout: string }> {
+      return new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [sddBin, "sandbox", "open", "--change", id], {
+          cwd: root,
+          env: {
+            PATH: process.env.PATH,
+            HOME: process.env.HOME,
+            TMPDIR: process.env.TMPDIR,
+            USER: process.env.USER,
+            LANG: process.env.LANG,
+            CI: "1",
+          },
+        });
+        let stdout = "";
+        child.stdout.on("data", (chunk: Buffer) => {
+          stdout += chunk.toString();
+        });
+        child.on("error", reject);
+        child.on("close", (status) => resolve({ status, stdout }));
+      });
+    }
+
+    const [first, second] = await Promise.all([openOnce(), openOnce()]);
+    expect(first.status, first.stdout).toBe(0);
+    expect(second.status, second.stdout).toBe(0);
+    const listed = spawnSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(listed.status, listed.stderr).toBe(0);
+    const porcelain = listed.stdout ?? "";
+    expect(porcelain).not.toContain("0000000000000000000000000000000000000000");
+    const paths = porcelain
+      .split("\n")
+      .filter(
+        (line) => line.startsWith("worktree ") && line.includes(`.sdd/sandboxes/${id}/worktree`),
+      );
+    expect(paths).toHaveLength(1);
   });
 });

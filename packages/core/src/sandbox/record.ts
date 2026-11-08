@@ -138,6 +138,113 @@ async function readNoFollow(file: string): Promise<string | null> {
   }
 }
 
+const LOCK_WAIT_MS = 30_000;
+const LOCK_POLL_MS = 20;
+const LOCK_FRESH_MS = 1_000;
+
+function processAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    const code = err && typeof err === "object" && "code" in err ? String(err.code) : "";
+    return code !== "ESRCH";
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function errnoCode(err: unknown): string {
+  return err && typeof err === "object" && "code" in err ? String(err.code) : "";
+}
+
+/** Exclusive per-id lock. A dead holder's pid is stale and the file can be taken. */
+async function createLock(lockPath: string): Promise<"ok" | "held" | "error"> {
+  let st: Stats | null = null;
+  try {
+    st = await lstat(lockPath);
+  } catch (err) {
+    if (!isEnoent(err)) throw err;
+  }
+  if (st?.isSymbolicLink() || (st && !st.isFile())) return "error";
+  if (st) {
+    const raw = await readNoFollow(lockPath);
+    if (raw === null) return "held";
+    const pid = Number(raw.trim());
+    const fresh = Date.now() - st.mtimeMs < LOCK_FRESH_MS;
+    if ((raw.trim() === "" && fresh) || processAlive(pid)) return "held";
+    try {
+      await unlink(lockPath);
+    } catch (err) {
+      if (!isEnoent(err)) return "held";
+    }
+  }
+  try {
+    const fh = await open(
+      lockPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o644,
+    );
+    try {
+      await fh.writeFile(`${process.pid}\n`, "utf8");
+    } finally {
+      await fh.close();
+    }
+    return "ok";
+  } catch (err) {
+    if (isEnoent(err) || errnoCode(err) === "EEXIST") return "held";
+    return "error";
+  }
+}
+
+async function releaseLock(lockPath: string): Promise<void> {
+  try {
+    const st = await lstat(lockPath);
+    if (st.isSymbolicLink() || !st.isFile()) return;
+  } catch {
+    return;
+  }
+  const raw = await readNoFollow(lockPath);
+  if (raw?.trim() !== String(process.pid)) return;
+  try {
+    await unlink(lockPath);
+  } catch {
+    // The next open treats a dead pid as stale.
+  }
+}
+
+async function withSandboxLock(
+  repo: string,
+  id: string,
+  body: () => Promise<SandboxCommandResult>,
+): Promise<SandboxCommandResult> {
+  const sandboxes = await anchor(repo, [".sdd", "sandboxes"], true);
+  if (!sandboxes.ok) return fail("error" in sandboxes ? sandboxes.error : LEAVE);
+  const lockPath = join(sandboxes.path, `.lock-${id}`);
+  const started = Date.now();
+  let release: (() => Promise<void>) | null = null;
+  while (Date.now() - started < LOCK_WAIT_MS) {
+    const created = await createLock(lockPath);
+    if (created === "error") return fail(LEAVE);
+    if (created === "ok") {
+      release = () => releaseLock(lockPath);
+      break;
+    }
+    await delay(LOCK_POLL_MS);
+  }
+  if (!release) return fail(`Sandbox ${id} is busy. Try again.\n`);
+  try {
+    return await body();
+  } finally {
+    await release();
+  }
+}
+
 async function writeNoFollow(file: string, body: string, create: boolean): Promise<boolean> {
   const flags = create
     ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW
@@ -303,7 +410,11 @@ function deletable(
   return inside(repo, target) && inside(sandboxesReal, target) && inside(recordReal, target);
 }
 
-async function removeWorktree(repo: string, recordReal: string): Promise<string | null> {
+async function removeWorktree(
+  repo: string,
+  recordReal: string,
+  discard: boolean,
+): Promise<string | null> {
   const sandboxes = await anchor(repo, [".sdd", "sandboxes"], false);
   if (!sandboxes.ok) return "error" in sandboxes ? sandboxes.error : LEAVE;
   const expected = join(recordReal, WORKTREE_DIR);
@@ -329,39 +440,34 @@ async function removeWorktree(repo: string, recordReal: string): Promise<string 
   const real = await realpath(expected);
   if (!deletable(repo, sandboxes.path, recordReal, real) || real !== expected) return LEAVE;
   const top = await git(real, ["rev-parse", "--show-toplevel"]);
+  let topReal = "";
   if (top.code === 0) {
-    let topReal = "";
     try {
       topReal = await realpath(top.stdout.trim());
     } catch {
       topReal = "";
     }
-    if (topReal === repo) {
-      await rm(real, { recursive: true, force: true });
-      await git(repo, ["worktree", "prune"]);
-      return null;
+    if (topReal !== real && topReal !== repo) return LEAVE;
+  }
+  if (topReal === real && (await registeredWorktree(repo, real))) {
+    const args = discard ? ["worktree", "remove", "--force", real] : ["worktree", "remove", real];
+    const removed = await git(repo, args);
+    if (removed.code !== 0) return "The sandbox worktree could not be removed.\n";
+    try {
+      await lstat(expected);
+      return "The sandbox worktree could not be removed.\n";
+    } catch (err) {
+      if (!isEnoent(err)) throw err;
     }
-    if (topReal !== real) return LEAVE;
+    await git(repo, ["worktree", "prune"]);
+    return null;
   }
-  if (await registeredWorktree(repo, real)) {
-    await git(repo, ["worktree", "remove", "--force", real]);
+  if (topReal === repo || top.code !== 0) {
+    await rm(real, { recursive: true, force: true });
+    await git(repo, ["worktree", "prune"]);
+    return null;
   }
-  try {
-    const still = await lstat(expected);
-    if (still.isSymbolicLink()) {
-      await unlink(expected);
-    } else if (still.isDirectory()) {
-      const again = await realpath(expected);
-      if (!deletable(repo, sandboxes.path, recordReal, again) || again !== expected) return LEAVE;
-      await rm(again, { recursive: true, force: true });
-    } else {
-      await unlink(expected);
-    }
-  } catch (err) {
-    if (!isEnoent(err)) throw err;
-  }
-  await git(repo, ["worktree", "prune"]);
-  return null;
+  return LEAVE;
 }
 
 async function worktreeHead(recordReal: string): Promise<string | null> {
@@ -372,13 +478,25 @@ async function worktreeHead(recordReal: string): Promise<string | null> {
   return SHA.test(sha) ? sha : null;
 }
 
-async function addWorktree(repo: string, recordReal: string, sha: string): Promise<boolean> {
+async function addWorktree(
+  repo: string,
+  recordReal: string,
+  sha: string,
+): Promise<"ready" | "fail"> {
   const path = join(recordReal, WORKTREE_DIR);
+  if (
+    (await classifyWorktree(repo, recordReal)) === "ours" &&
+    (await worktreeHead(recordReal)) === sha
+  ) {
+    return "ready";
+  }
   await git(repo, ["worktree", "prune"]);
   const added = await git(repo, ["worktree", "add", "--detach", path, sha]);
-  if (added.code !== 0) return false;
-  if ((await classifyWorktree(repo, recordReal)) !== "ours") return false;
-  return (await worktreeHead(recordReal)) === sha;
+  const present =
+    (await classifyWorktree(repo, recordReal)) === "ours" &&
+    (await worktreeHead(recordReal)) === sha;
+  if (added.code !== 0) return present ? "ready" : "fail";
+  return present ? "ready" : "fail";
 }
 
 async function readRecord(recordReal: string): Promise<SandboxRecord | null | "bad"> {
@@ -437,11 +555,11 @@ async function resume(
   if (record.status === "opening") {
     if (kind === "escape") return fail(LEAVE);
     if (kind === "partial") {
-      const removed = await removeWorktree(repo, recordReal);
+      const removed = await removeWorktree(repo, recordReal, false);
       if (removed) return fail(removed);
     }
     if (kind !== "ours") {
-      if (!(await addWorktree(repo, recordReal, record.baseSha))) {
+      if ((await addWorktree(repo, recordReal, record.baseSha)) === "fail") {
         return fail("The sandbox worktree could not be created.\n");
       }
     } else if ((await worktreeHead(recordReal)) !== record.baseSha) {
@@ -476,7 +594,7 @@ async function createFresh(
     return ok(`Sandbox ${id} is ready.\n`);
   }
   if (kind === "partial") {
-    const removed = await removeWorktree(repo, recordReal);
+    const removed = await removeWorktree(repo, recordReal, false);
     if (removed) return fail(removed);
   }
   const opening: SandboxRecord = {
@@ -487,12 +605,32 @@ async function createFresh(
     status: "opening",
   };
   if (!(await writeRecord(recordReal, opening))) return fail(LEAVE);
-  if (!(await addWorktree(repo, recordReal, base.sha))) {
+  if ((await addWorktree(repo, recordReal, base.sha)) === "fail") {
     return fail("The sandbox worktree could not be created.\n");
   }
   const ready: SandboxRecord = { ...opening, status: "ready" };
   if (!(await writeRecord(recordReal, ready))) return fail(LEAVE);
   return ok(`Sandbox ${id} is ready.\n`);
+}
+
+async function openLocked(
+  repo: string,
+  changeId: string,
+  branch: string | undefined,
+): Promise<SandboxCommandResult> {
+  const existingDir = await anchor(repo, [".sdd", "sandboxes", changeId], false);
+  if (existingDir.ok) {
+    const existing = await readRecord(existingDir.path);
+    if (existing === "bad" || (existing && existing.id !== changeId)) return fail(stale(changeId));
+    if (existing) return resume(repo, existingDir.path, existing);
+  } else if (!("missing" in existingDir)) {
+    return fail(existingDir.error);
+  }
+  const base = await resolveBase(repo, branch);
+  if ("error" in base) return fail(base.error);
+  const recordDir = await anchor(repo, [".sdd", "sandboxes", changeId], true);
+  if (!recordDir.ok) return fail("error" in recordDir ? recordDir.error : LEAVE);
+  return createFresh(repo, recordDir.path, changeId, base);
 }
 
 export async function openSandbox(
@@ -514,19 +652,13 @@ export async function openSandbox(
   if (!sdd.ok) return fail("error" in sdd ? sdd.error : "SDD is not initialized here.\n");
   const ignored = await ensureSandboxIgnore(sdd.path);
   if (ignored) return fail(ignored);
-  const existingDir = await anchor(repo, [".sdd", "sandboxes", changeId], false);
-  if (existingDir.ok) {
-    const existing = await readRecord(existingDir.path);
-    if (existing === "bad" || (existing && existing.id !== changeId)) return fail(stale(changeId));
-    if (existing) return resume(repo, existingDir.path, existing);
-  } else if (!("missing" in existingDir)) {
-    return fail(existingDir.error);
+  const placed = await anchor(repo, [".sdd", "sandboxes", changeId], false);
+  if (!placed.ok && !("missing" in placed)) return fail(placed.error);
+  if (!placed.ok) {
+    const base = await resolveBase(repo, meta.branch);
+    if ("error" in base) return fail(base.error);
   }
-  const base = await resolveBase(repo, meta.branch);
-  if ("error" in base) return fail(base.error);
-  const recordDir = await anchor(repo, [".sdd", "sandboxes", changeId], true);
-  if (!recordDir.ok) return fail("error" in recordDir ? recordDir.error : LEAVE);
-  return createFresh(repo, recordDir.path, changeId, base);
+  return withSandboxLock(repo, changeId, () => openLocked(repo, changeId, meta.branch));
 }
 
 export async function listSandboxes(projectRoot: string): Promise<SandboxCommandResult> {
@@ -560,7 +692,32 @@ export async function listSandboxes(projectRoot: string): Promise<SandboxCommand
   return ok(`${lines.join("\n")}\n`);
 }
 
-async function removeRecord(repo: string, recordReal: string): Promise<string | null> {
+async function hasLocalEdits(
+  repo: string,
+  recordReal: string,
+): Promise<boolean | "absent" | "symlink"> {
+  const expected = join(recordReal, WORKTREE_DIR);
+  let st: Stats;
+  try {
+    st = await lstat(expected);
+  } catch (err) {
+    if (isEnoent(err)) return "absent";
+    throw err;
+  }
+  if (st.isSymbolicLink()) return "symlink";
+  if (!st.isDirectory()) return "absent";
+  const real = await realpath(expected);
+  if (real !== expected || !inside(recordReal, real) || real === repo) return "absent";
+  const status = await git(real, ["status", "--porcelain"]);
+  if (status.code !== 0) return "absent";
+  return status.stdout.trim().length > 0;
+}
+
+async function removeRecord(
+  repo: string,
+  recordReal: string,
+  discard: boolean,
+): Promise<string | null> {
   const sandboxes = await anchor(repo, [".sdd", "sandboxes"], false);
   if (!sandboxes.ok) return "error" in sandboxes ? sandboxes.error : LEAVE;
   let st: Stats;
@@ -580,7 +737,7 @@ async function removeRecord(repo: string, recordReal: string): Promise<string | 
   ) {
     return LEAVE;
   }
-  const removed = await removeWorktree(repo, real);
+  const removed = await removeWorktree(repo, real, discard);
   if (removed) return removed;
   let again: Stats;
   try {
@@ -599,6 +756,7 @@ async function removeRecord(repo: string, recordReal: string): Promise<string | 
 export async function closeSandbox(
   projectRoot: string,
   sandboxId: string,
+  options?: { force?: boolean },
 ): Promise<SandboxCommandResult> {
   const idError = sandboxIdError(sandboxId);
   if (idError) return fail(idError);
@@ -608,7 +766,19 @@ export async function closeSandbox(
     if ("missing" in recordDir) return fail(`Sandbox ${sandboxId} is not open.\n`);
     return fail(recordDir.error);
   }
-  const removed = await removeRecord(repo, recordDir.path);
-  if (removed) return fail(removed);
-  return ok(`Sandbox ${sandboxId} is closed.\n`);
+  return withSandboxLock(repo, sandboxId, async () => {
+    const again = await anchor(repo, [".sdd", "sandboxes", sandboxId], false);
+    if (!again.ok) {
+      if ("missing" in again) return fail(`Sandbox ${sandboxId} is not open.\n`);
+      return fail(again.error);
+    }
+    const edits = await hasLocalEdits(repo, again.path);
+    if (edits === true && options?.force !== true) {
+      return fail(`Sandbox ${sandboxId} has uncommitted changes. Pass --force to discard them.\n`);
+    }
+    const removed = await removeRecord(repo, again.path, options?.force === true);
+    if (removed) return fail(removed);
+    if (edits === true) return ok(`Sandbox ${sandboxId} is closed. Local edits were discarded.\n`);
+    return ok(`Sandbox ${sandboxId} is closed.\n`);
+  });
 }
