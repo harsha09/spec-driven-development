@@ -119,9 +119,6 @@ jobs:
           package-manager-cache: false
 
       - name: Install
-        env:
-          # Optional CUDA download. A 504 fails install. The CPU runtime is already in the package.
-          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: pnpm install --frozen-lockfile
 
       - name: Bump version
