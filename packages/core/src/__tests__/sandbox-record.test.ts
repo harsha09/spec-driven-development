@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { join } from "pathe";
@@ -19,10 +20,39 @@ import {
 const exec = promisify(execFile);
 const temps: string[] = [];
 
+async function stopLeaseHolders(root: string): Promise<void> {
+  try {
+    const raw = await readFile(join(root, ".sdd", "sandboxes", "leases.json"), "utf8");
+    const parsed = JSON.parse(raw) as { leases?: { pid?: number }[] };
+    for (const row of parsed.leases ?? []) {
+      if (!row.pid) continue;
+      try {
+        process.kill(row.pid, "SIGKILL");
+      } catch {
+        // The holder has already exited.
+      }
+    }
+  } catch {
+    // No lease table in this repo.
+  }
+}
+
+function listenResult(port: number): Promise<"ok" | "busy"> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once("error", () => resolve("busy"));
+    server.listen(port, "127.0.0.1", () => {
+      server.close(() => resolve("ok"));
+    });
+  });
+}
+
 afterEach(async () => {
   while (temps.length) {
     const dir = temps.pop();
-    if (dir) await rm(dir, { recursive: true, force: true });
+    if (!dir) continue;
+    await stopLeaseHolders(dir);
+    await rm(dir, { recursive: true, force: true });
   }
 });
 
@@ -411,5 +441,85 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(opened.exitCode).toBe(0);
     expect(opened.stdout).toBe(`Sandbox ${id} is ready.\n`);
     expect(await pathExists(join(root, ".sdd", "sandboxes", `.lock-${id}`))).toBe(false);
+  });
+
+  it("leases a different port and build slot to each sandbox and frees the port on close", async () => {
+    const root = await gitRepo();
+    const firstId = await addChange(root, "Lease one");
+    const secondId = await addChange(root, "Lease two");
+    const [first, second] = await Promise.all([
+      openSandbox(root, firstId),
+      openSandbox(root, secondId),
+    ]);
+    expect(first.exitCode, first.stdout).toBe(0);
+    expect(second.exitCode, second.stdout).toBe(0);
+    const a = JSON.parse(await readFile(join(recordDir(root, firstId), "record.json"), "utf8")) as {
+      port: number;
+      portEnd: number;
+      buildSlot: number;
+      buildDir: string;
+      env: { PORT: string; CARGO_TARGET_DIR: string };
+    };
+    const b = JSON.parse(
+      await readFile(join(recordDir(root, secondId), "record.json"), "utf8"),
+    ) as typeof a;
+    expect(a.port).not.toBe(b.port);
+    expect(a.portEnd < b.port || b.portEnd < a.port).toBe(true);
+    expect(a.buildSlot).not.toBe(b.buildSlot);
+    expect(a.buildDir).toBe(`.sdd/sandboxes/${firstId}/build`);
+    expect(b.buildDir).toBe(`.sdd/sandboxes/${secondId}/build`);
+    expect(a.env.PORT).toBe(String(a.port));
+    expect(b.env.PORT).toBe(String(b.port));
+    expect(a.env.CARGO_TARGET_DIR).not.toBe(b.env.CARGO_TARGET_DIR);
+    expect((await lstat(join(root, a.buildDir))).isDirectory()).toBe(true);
+    expect((await lstat(join(root, b.buildDir))).isDirectory()).toBe(true);
+    expect(await listenResult(a.port)).toBe("busy");
+    expect(await listenResult(b.port)).toBe("busy");
+
+    expect((await closeSandbox(root, firstId)).exitCode).toBe(0);
+    expect(await listenResult(a.port)).toBe("ok");
+    const thirdId = await addChange(root, "Lease three");
+    expect((await openSandbox(root, thirdId)).exitCode).toBe(0);
+    const third = JSON.parse(
+      await readFile(join(recordDir(root, thirdId), "record.json"), "utf8"),
+    ) as { port: number };
+    expect(third.port).toBe(a.port);
+    expect(await listenResult(b.port)).toBe("busy");
+  });
+
+  it("reclaims a lease whose holder pid has died", async () => {
+    const root = await gitRepo();
+    const crashedId = await addChange(root, "Crashed lease");
+    const nextId = await addChange(root, "Reclaimed lease");
+    expect((await openSandbox(root, crashedId)).exitCode).toBe(0);
+    const crashed = JSON.parse(
+      await readFile(join(recordDir(root, crashedId), "record.json"), "utf8"),
+    ) as { port: number; leasePid: number };
+    process.kill(crashed.leasePid, "SIGKILL");
+    for (let i = 0; i < 50; i++) {
+      try {
+        process.kill(crashed.leasePid, 0);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      } catch {
+        break;
+      }
+    }
+    const table = JSON.parse(
+      await readFile(join(root, ".sdd", "sandboxes", "leases.json"), "utf8"),
+    ) as { leases: { id: string; port: number; pid: number }[] };
+    expect(table.leases).toEqual([
+      expect.objectContaining({ id: crashedId, port: crashed.port, pid: crashed.leasePid }),
+    ]);
+
+    expect((await openSandbox(root, nextId)).exitCode).toBe(0);
+    const next = JSON.parse(
+      await readFile(join(recordDir(root, nextId), "record.json"), "utf8"),
+    ) as { port: number };
+    expect(next.port).toBe(crashed.port);
+    const after = JSON.parse(
+      await readFile(join(root, ".sdd", "sandboxes", "leases.json"), "utf8"),
+    ) as { leases: { id: string; port: number }[] };
+    expect(after.leases.map((row) => row.port)).toEqual([crashed.port]);
+    expect(after.leases.map((row) => row.id)).toEqual([nextId]);
   });
 });
