@@ -3,8 +3,8 @@
  *
  * Doctor fails below the minimum. Doctor warns from the minimum up to,
  * but not including, the recommended major. npm `engines.node` is the minimum.
- * Node 24 is recommended because Node 20 is past upstream end of life
- * (Node.js release schedule: Iron ended 2026-04-30).
+ * The warning says that range works but isn't recommended. The test suite runs
+ * on the minimum and on the recommendation. That is not long-term support.
  */
 export const MINIMUM_NODE_MAJOR = 20;
 export const RECOMMENDED_NODE_MAJOR = 24;
@@ -23,7 +23,7 @@ export function nodeSupportLevel(version: string): NodeSupportLevel {
   return "pass";
 }
 
-/** True when doctor does not fail the runtime. A warning still counts as supported. */
+/** True when doctor does not fail the runtime. A warning does not fail. */
 export function isNodeVersionSupported(version: string): boolean {
   return nodeSupportLevel(version) !== "fail";
 }
@@ -33,14 +33,19 @@ export function nodeEnginesRange(): string {
   return `>=${MINIMUM_NODE_MAJOR}`;
 }
 
-/** One sentence for the Node 20–23 warning. */
+/** One sentence for the Node 20–23 warning. Not a long-term support promise. */
 export function nodeRecommendedWarning(): string {
-  return `Node ${RECOMMENDED_NODE_MAJOR} recommended because Node ${MINIMUM_NODE_MAJOR} is past upstream end of life`;
+  return `Node ${MINIMUM_NODE_MAJOR}–${RECOMMENDED_NODE_MAJOR - 1} works but isn't recommended; Node ${RECOMMENDED_NODE_MAJOR} is recommended`;
 }
 
-/** README, help, and other requirement lines. */
+/** Help and other lines for this unreleased CLI. */
 export function nodeRequirementPhrase(): string {
-  return `Node ${MINIMUM_NODE_MAJOR}+ (${nodeRecommendedWarning()})`;
+  return nodeRecommendedWarning();
+}
+
+/** Marked line for docs that still describe the released CLI 0.24.0 check. */
+export function nodeNextReleaseNote(): string {
+  return `Next release, not in CLI 0.24.0: ${nodeRecommendedWarning()}. Doctor warns on that range and fails only below Node ${MINIMUM_NODE_MAJOR}. engines.node becomes \`${nodeEnginesRange()}\`. The test suite runs on Node ${MINIMUM_NODE_MAJOR}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`;
 }
 
 export function nodeDoctorDetail(version: string): string {

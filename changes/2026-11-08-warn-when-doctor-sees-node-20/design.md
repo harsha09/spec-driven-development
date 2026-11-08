@@ -12,7 +12,7 @@ A search of `packages/`, `scripts/`, and `skills/` found no `fs.glob`, `node:sql
 
 ## Components / modules
 
-`nodeSupportLevel` returns `fail`, `warn`, or `pass`. Doctor prints `WARN` for a warning and does not set the failure flag. `FAIL` stays red and sets exit 1. The CI test job matrix is Node 20 and Node 24. Docs and the manual release stay on Node 24.
+`nodeSupportLevel` returns `fail`, `warn`, or `pass`. Doctor prints `WARN: Node 20–23 works but isn't recommended; Node 24 is recommended` and does not set the failure flag. That sentence is allowed because the test suite runs on Node 20. It is not long-term support for Node 20. `FAIL` stays red and sets exit 1. The CI test job matrix is Node 20 and Node 24. The docs site and the manual release stay on Node 24. The README and the first-change page keep the CLI 0.24.0 check paragraphs and add one line marked `Next release, not in CLI 0.24.0`.
 
 ## Data flow
 
