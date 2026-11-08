@@ -53,19 +53,21 @@ async function tempRoot(): Promise<string> {
   return root;
 }
 
-async function readThroughGh(input: {
-  connector: string;
-  record: string;
-  stdout?: string;
-  stderr?: string;
-  exitCode?: number;
-  hang?: boolean;
-  ghDeadlineMs?: number;
-}): Promise<{ exitCode: number; stdout: string; calls: string }> {
-  const root = await tempRoot();
+async function withFakeGh(
+  root: string,
+  input: {
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number;
+    hang?: boolean;
+    token?: string;
+  },
+  run: () => Promise<{ exitCode: number; stdout: string }>,
+): Promise<{ exitCode: number; stdout: string; calls: string }> {
   const bin = join(root, "bin");
   const callsPath = join(root, "calls.txt");
-  await mkdir(bin);
+  await mkdir(bin, { recursive: true });
+  await writeFile(callsPath, "");
   await writeFile(join(root, "out.txt"), input.stdout ?? "");
   await writeFile(join(root, "err.txt"), input.stderr ?? "");
   const script = input.hang
@@ -81,15 +83,16 @@ exit ${input.exitCode ?? 0}
 `;
   await writeFile(join(bin, "gh"), script);
   await chmod(join(bin, "gh"), 0o755);
-  const previous = process.env.PATH ?? "";
-  process.env.PATH = `${bin}:${previous}`;
+  const previousPath = process.env.PATH ?? "";
+  const previousGh = process.env.GH_TOKEN;
+  const previousGithub = process.env.GITHUB_TOKEN;
+  process.env.PATH = `${bin}:${previousPath}`;
+  if (input.token) {
+    process.env.GH_TOKEN = input.token;
+    process.env.GITHUB_TOKEN = input.token;
+  }
   try {
-    const result = await readConnector({
-      verb: "read",
-      connector: input.connector,
-      record: input.record,
-      ghDeadlineMs: input.ghDeadlineMs,
-    });
+    const result = await run();
     let calls = "";
     try {
       calls = await readFile(callsPath, "utf8");
@@ -98,8 +101,38 @@ exit ${input.exitCode ?? 0}
     }
     return { ...result, calls };
   } finally {
-    process.env.PATH = previous;
+    process.env.PATH = previousPath;
+    restoreEnv("GH_TOKEN", previousGh);
+    restoreEnv("GITHUB_TOKEN", previousGithub);
   }
+}
+
+function restoreEnv(name: "GH_TOKEN" | "GITHUB_TOKEN", previous: string | undefined): void {
+  if (previous === undefined) {
+    Reflect.deleteProperty(process.env, name);
+    return;
+  }
+  process.env[name] = previous;
+}
+
+async function readThroughGh(input: {
+  connector: string;
+  record: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  hang?: boolean;
+  ghDeadlineMs?: number;
+}): Promise<{ exitCode: number; stdout: string; calls: string }> {
+  const root = await tempRoot();
+  return withFakeGh(root, input, () =>
+    readConnector({
+      verb: "read",
+      connector: input.connector,
+      record: input.record,
+      ghDeadlineMs: input.ghDeadlineMs,
+    }),
+  );
 }
 
 async function writeBuilder(root: string, routines: string): Promise<void> {
@@ -664,5 +697,109 @@ describe("sdd role routine", () => {
     expect(raw).toContain("pinned: true");
     expect(raw).toContain("hidden: true");
     expect(raw).toContain("Build one change");
+  });
+
+  it("repeats a GitHub Actions read and refuses a write", async () => {
+    const root = await tempRoot();
+    const token = "sdd-routine-token-do-not-print";
+    await writeBuilder(
+      root,
+      `routines:
+  - name: read-run-42
+    read: github-actions
+    record: "42"`,
+    );
+    const succeeded = await withFakeGh(
+      root,
+      {
+        stdout: JSON.stringify({ databaseId: 42, status: "completed", conclusion: "success" }),
+        token,
+      },
+      () => runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(succeeded.exitCode).toBe(0);
+    expect(succeeded.stdout).toBe("42\ncompleted\nsuccess");
+    expect(succeeded.calls).toContain("run view 42");
+    expect(succeeded.stdout).not.toContain(token);
+    expect(succeeded.calls).not.toContain(token);
+    const role = await readFile(join(root, ".sdd", "roles", "builder.md"), "utf8");
+    expect(role).not.toContain(token);
+
+    const running = await withFakeGh(
+      root,
+      {
+        stdout: JSON.stringify({ databaseId: 42, status: "in_progress", conclusion: null }),
+      },
+      () => runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(running.exitCode).toBe(0);
+    expect(running.stdout).toBe("42\nin_progress\nnull");
+    expect(running.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const missing = await withFakeGh(root, { stderr: "run 42 not found", exitCode: 1 }, () =>
+      runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stdout).toBe("GitHub Actions run 42 was not found.");
+    expect(missing.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const httpMissing = await withFakeGh(
+      root,
+      { stderr: "failed to get run: HTTP 404", exitCode: 1 },
+      () => runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(httpMissing.stdout).toBe("GitHub Actions run 42 was not found.");
+
+    const unread = await withFakeGh(root, { stdout: "{not json" }, () =>
+      runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(unread.exitCode).toBe(1);
+    expect(unread.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(unread.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const host = await withFakeGh(
+      root,
+      { stderr: "could not resolve host: api.github.com", exitCode: 1 },
+      () => runRoutine(root, "builder", "read-run-42"),
+    );
+    expect(host.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(host.stdout).not.toContain("was not found");
+
+    const started = Date.now();
+    const hung = await withFakeGh(root, { hang: true }, () =>
+      runRoutine(root, "builder", "read-run-42", undefined, undefined, 200),
+    );
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(hung.exitCode).toBe(1);
+    expect(hung.stdout).toBe("GitHub Actions run 42 could not be read.");
+    expect(hung.calls).toContain("run view 42");
+    expect(hung.stdout.toLowerCase()).not.toMatch(/success|green/);
+
+    const live = actions(async () => {
+      throw new Error("called");
+    });
+    await writeBuilder(
+      root,
+      `routines:
+  - name: read-run-42
+    read: github-actions
+    record: "42"
+    write: qa`,
+    );
+    const qa = await runRoutine(root, "builder", "read-run-42", undefined, live.client);
+    expect(qa.stdout).toBe("A routine cannot write a QA result.");
+    expect(live.calls()).toBe(0);
+
+    await writeBuilder(
+      root,
+      `routines:
+  - name: read-run-42
+    read: github-actions
+    record: "42"
+    when: daily`,
+    );
+    const scheduled = await runRoutine(root, "builder", "read-run-42", undefined, live.client);
+    expect(scheduled.stdout).toBe("Routines on this role are invalid.");
+    expect(live.calls()).toBe(0);
   });
 });
