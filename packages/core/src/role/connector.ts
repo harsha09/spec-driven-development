@@ -386,6 +386,8 @@ export async function runRoutine(
   roleName: string,
   routineName: string,
   source?: IssueSource,
+  actions?: ActionsSource,
+  ghDeadlineMs?: number,
 ): Promise<RoleCommandResult> {
   const name = canonicalRoleName(roleName);
   if (!name) return fail(ROLE_TEXT.notFound);
@@ -409,5 +411,7 @@ export async function runRoutine(
     connector: routine.read,
     record: routine.record,
     source,
+    actions,
+    ghDeadlineMs,
   });
 }
