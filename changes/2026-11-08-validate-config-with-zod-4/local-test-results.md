@@ -1,20 +1,26 @@
-# Local test results
+<!-- sdd:verify-report:start -->
 
-> **Validate config with Zod 4** · `2026-11-08-validate-config-with-zod-4`
+# Local verify results
 
-## Results
+> Change: Validate config with Zod 4
+> Stage: local_verify
+<!-- sdd:verify stage="local_verify" head_sha="5779747008183cd4b59e964b3a8ea05d9ed15d15" result_count="1" -->
+> At: 2026-11-08T11:46:33.748Z
+> Overall: PASS
 
-| # | Result | Notes |
-|---|--------|-------|
-| 1 | PASS / FAIL | |
+## Commands
 
-## Commands run
+### Workspace tests
+- Command: `pnpm test`
+- Exit: 0
 
-```
-# paste local commands
-```
+## Checklist
 
-## Sign-off
+- [ ] Happy path verified locally
+- [ ] Key edge cases covered or waived with notes
 
-- Tested by:
-- Date:
+## Notes
+
+-
+
+<!-- sdd:verify-report:end -->

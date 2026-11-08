@@ -2,7 +2,7 @@ id: 2026-11-08-validate-config-with-zod-4
 title: Validate config with Zod 4
 workflow: feature
 created: 2026-11-08T11:43:07.379Z
-updated: 2026-11-08T11:44:07.033Z
+updated: 2026-11-08T11:46:33.750Z
 status: in_progress
 stage: local_verify
 depends: []
@@ -29,4 +29,12 @@ skipped:
     reason: the task list is the work
     at: 2026-11-08T11:44:06.345Z
 gates: {}
-verify_results: {}
+verify_results:
+  local_verify:
+    ok: true
+    status: pass
+    head_sha: 5779747008183cd4b59e964b3a8ea05d9ed15d15
+    at: 2026-11-08T11:46:33.750Z
+    results:
+      - name: Workspace tests
+        exitCode: 0
