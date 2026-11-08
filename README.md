@@ -21,7 +21,7 @@ node --version
 
 **CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`. Node.js v24.22.2 passed that line. Replace this paragraph when a released CLI changes the check.
 
-Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20.
+Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20. CI runs that suite on Node 20 and Node 24.
 
 Install once. The first command follows the current npm release and is also the upgrade. The second command installs the release this page was checked against.
 
