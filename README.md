@@ -1,110 +1,80 @@
 # sdd — Spec-Driven Development CLI for AI coding agents
 
-Your AI writes fast. The reasons disappear into chat.
+sdd keeps a short note in the project, so the reason for a change is a file you can reopen. Copilot, Claude Code, Grok, Ollama, or Kilo Code can follow that folder later. Chat can help along the way.
 
-**sdd** (**Structured Vibe Coding**, npm `@structured-vibe-coding/cli`) is a **local Spec-Driven Development CLI**: short steps, notes **in your repo**, so you, your team, and Copilot / Claude Code / Grok / Ollama / Kilo Code stay aligned.
-
-- No cloud process product
-- No required IDE extension
-- One AI at setup: Copilot, Grok, Claude Code, Ollama, or Kilo Code
+**sdd** (**Structured Vibe Coding**, npm `@structured-vibe-coding/cli`) is a local Spec-Driven Development CLI. You set up a folder, start a change, write the note, move stage by stage, and finish.
 
 | | |
 |---|---|
-| **Docs (start here)** | https://harsha09.github.io/spec-driven-development/tutorials/first-change/ |
-| **Site** | https://harsha09.github.io/spec-driven-development/ |
+| **Start here** | [First change](docs/tutorials/first-change.md) — one loop, about 10 minutes |
+| **Docs site** | https://harsha09.github.io/spec-driven-development/ |
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
-| **Roadmap** | [ROADMAP.md](./ROADMAP.md) (priorities P0–P3, intent for implementers) |
-| **MCP sources** | sdd *calls* org design-system / AST / API MCPs (`.sdd/mcp.yaml`) |
-| **Needs** | Node 24+ · about 10 minutes for the first loop |
+| **Needs** | Node.js 24 or newer |
 
----
+This page was checked against CLI **0.24.0** (`sdd --version`) on Node.js **24.22.2**, from source `9e96194ee002d434cb9f19f1e7109fad57343fc5`. `npm view @structured-vibe-coding/cli version` prints the current npm release. During the check it printed `0.24.0`. A later release can change that number.
 
-## Install
+## Install and check the version
+
+```bash
+node --version
+```
+
+`node --version` needs to be v24 or newer. The package `engines` field is `>=24`. `sdd doctor` compares the major version with 24 and fails that line when the major is lower.
+
+Install once. The first command follows the current npm release and is also the upgrade. The second command installs the release this page was checked against.
 
 ```bash
 npm install -g @structured-vibe-coding/cli
 ```
 
----
-
-## First loop (about 10 minutes)
-
 ```bash
-cd your-app
-sdd setup
-sdd go "Fix empty list crash" --no-agent
-# answer the question it prints
-sdd go --answer "People who open an empty list" --no-agent
+npm install -g @structured-vibe-coding/cli@0.24.0
 ```
 
-On a terminal, `sdd setup` asks one piece at a time. Press Enter to create three roles when the folder has no roles yet. `sdd setup --yes --no-agent` writes those roles without questions. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans the change, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks one question at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
-
-What they are, why that split helps, and how to set up a software team: [docs/guides/roles.md](./docs/guides/roles.md).
-
-To pick one AI host yourself:
+Then confirm what you have, and what the registry currently marks as latest:
 
 ```bash
-sdd init --here --ai copilot     # or grok | claude | ollama | kilo
-sdd new "Fix empty list crash" -w hotfix -y --no-agent
-sdd next --no-agent
-sdd complete --no-agent
+sdd --version
+npm view @structured-vibe-coding/cli version
 ```
 
-Use `--no-agent` while learning so nothing launches an AI window. Drop the flag later when you want help.
+Without a global install, run `npx @structured-vibe-coding/cli` wherever these pages say `sdd`.
 
-Full walkthrough: [docs/tutorials/first-change.md](./docs/tutorials/first-change.md)
+## Who should open what next
 
----
+### A person learning the process
 
-## Common paths
+Finish one small change with no AI window.
 
-```bash
-# Normal feature
-sdd new "Add CSV export" -w feature -y
+1. Follow [First change](docs/tutorials/first-change.md) once. It uses `--no-agent` the whole way.
+2. After that, the everyday commands are `sdd status`, `sdd next`, and `sdd complete`.
+3. When you want an AI host, install one: `sdd agents install --ai copilot` (or `grok`, `claude`, `ollama`, `kilo`).
 
-# New product from one sentence
-sdd greenfield "Team expense tracker for remote startups"
-sdd backlog list
-sdd backlog start F-001
-```
+### A coding bot, or a person driving one
 
-| Guide | Link |
-|-------|------|
-| Start in 10 minutes | [docs/tutorials/first-change.md](./docs/tutorials/first-change.md) |
-| Roles and duties | [docs/guides/roles.md](./docs/guides/roles.md) |
-| Everyday commands | [docs/guides/everyday-loop.md](./docs/guides/everyday-loop.md) |
-| New product | [docs/guides/greenfield.md](./docs/guides/greenfield.md) |
-| Enterprise | [docs/guides/enterprise.md](./docs/guides/enterprise.md) |
-| Design and role procedures | [docs/guides/skills.md](./docs/guides/skills.md) |
+Read the files. The change folder and the handoff are the record for the next session.
 
----
+1. Read `changes/<id>/` and `.sdd/handoff.md`. Stage commands rewrite the handoff. `sdd setup` lists `handoff.md` in `.sdd/.gitignore`. The [first-change check](docs/tutorials/first-change.md) used a folder that was not a git repository and did not commit anything.
+2. Run that same tutorial with `--no-agent` until the folder is set up. The change in the tutorial is simulated: no application code is edited, and verify records **NOT RUN**.
+3. An AI **host** (Copilot, Grok, Claude, Ollama, or Kilo) is separate from `SDD_ROLE_MODEL`. The host is what `sdd agents install` prepares. `SDD_ROLE_MODEL` is an optional environment command a **role** can use when it should draft a stage note. The first tutorial needs neither.
+4. Read flags in the [CLI reference](docs/reference/cli.md) before adding options. `sdd <command> --help` prints the flags for that command.
 
-## Name a team (optional)
+## Other pages
 
-The first loop does not need this.
+| I want to… | Open |
+|------------|------|
+| Finish the first loop | [First change](docs/tutorials/first-change.md) |
+| Use the daily commands | [Everyday loop](docs/guides/everyday-loop.md) |
+| Ship a normal feature | [Simple feature](docs/guides/simple-feature.md) |
+| Start a product from one sentence | [Greenfield](docs/guides/greenfield.md) |
+| Understand planner, architect, and builder | [Roles and duties](docs/guides/roles.md) |
+| Look up a command | [CLI reference](docs/reference/cli.md) |
+| Attach org MCP sources | [MCP guide](docs/guides/mcp.md) |
+| Load the repository skill pack | [Skill pack](docs/guides/skills.md) |
 
-```bash
-sdd team init --template software
-sdd team show
-sdd role context developer --text "This app uses pnpm."
-sdd new "Ship the export" -w team-software -y
-sdd team signoff --note "I accept this stage"
-```
+Roles, team templates, rooms, and maintainer build steps wait until the first change is done.
 
-`team-software` stops on every stage until a person signs that commit. A role prepares the page and does not sign. Merge stays with you after product-owner sign-off. Who owns each stage, and the commands that assign those stages, are in [docs/guides/roles.md](./docs/guides/roles.md).
-
-`sdd role room` prints the active change. `sdd role room <change-id>` prints that change. Notes: [docs/reference/cli.md](./docs/reference/cli.md).
-
----
-
-## Develop this monorepo
-
-```bash
-pnpm install && pnpm build && pnpm test
-pnpm docs:dev
-```
-
----
+The skill pack is optional. It is the `skills/` directory in this repository. The npm tarball contains `dist` and the package readme. `sdd init` and `sdd agents install` do not copy `skills/` into a project or a host folder. [Skill pack](docs/guides/skills.md) is the map.
 
 ## License
 
