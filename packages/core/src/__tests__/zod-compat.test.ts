@@ -4,6 +4,7 @@ import { ChangeMetricsSchema } from "../metrics.js";
 import { ModelsConfigSchema } from "../role/models/schema.js";
 import { TeamSchema, formatTeamError } from "../role/schema.js";
 import { ChangeMetaSchema, ConfigSchema, WorkflowSchema } from "../schemas.js";
+import { LoopStepSchema } from "../team/loop.js";
 
 const team = {
   branch: "feat/{bot}",
@@ -65,6 +66,11 @@ describe("zod 4 validation keeps the previous sentences", () => {
     expect(message(ConfigSchema.safeParse({ policy: { gates: "nope" } }))).toBe(
       "Invalid enum value. Expected 'soft' | 'hard', received 'nope'",
     );
+    expect(message(ConfigSchema.safeParse({ policy: { gates: null } }))).toBe(
+      "Expected 'soft' | 'hard', received null",
+    );
+    expect(message(z.enum(["soft", "hard"]).safeParse(undefined))).toBe("Required");
+    expect(message(z.literal(1).safeParse("nope"))).toBe("Invalid literal value, expected 1");
     expect(message(WorkflowSchema.safeParse({ name: "n", stages: [] }))).toBe(
       "Array must contain at least 1 element(s)",
     );
@@ -180,6 +186,12 @@ describe("zod 4 validation keeps the previous sentences", () => {
       },
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("parses a tool step that omits args", () => {
+    const parsed = LoopStepSchema.parse({ step: "tool", name: "x" });
+    expect(parsed).toEqual({ step: "tool", name: "x" });
+    expect(Object.keys(parsed)).toEqual(["step", "name"]);
   });
 
   it("rejects Infinity in config and an integer past Number.MAX_SAFE_INTEGER", () => {

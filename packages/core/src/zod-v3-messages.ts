@@ -144,8 +144,11 @@ function zod3Message(issue: Issue): string | undefined {
       if (issue.inst?._zod?.def?.type === "literal" && values.length === 1) {
         return `Invalid literal value, expected ${JSON.stringify(values[0])}`;
       }
-      const received = typeof issue.input === "string" ? issue.input : String(issue.input);
-      return `Invalid enum value. Expected ${joinValues(values)}, received '${received}'`;
+      if (typeof issue.input !== "string") {
+        if (issue.input === undefined) return "Required";
+        return `Expected ${joinValues(values)}, received ${parsedType(issue.input)}`;
+      }
+      return `Invalid enum value. Expected ${joinValues(values)}, received '${issue.input}'`;
     }
     case "unrecognized_keys":
       return `Unrecognized key(s) in object: ${joinValues(issue.keys ?? [], ", ")}`;

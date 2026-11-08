@@ -16,7 +16,7 @@ const planStep = z.strictObject({ step: z.literal("plan"), items: z.array(z.stri
 const toolStep = z.strictObject({
   step: z.literal("tool"),
   name: z.string().min(1),
-  args: z.unknown(),
+  args: z.unknown().optional(),
 });
 const checkStep = z.strictObject({
   step: z.literal("check"),
