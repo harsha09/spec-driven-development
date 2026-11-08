@@ -9,7 +9,7 @@ sdd keeps a short note in the project, so the reason for a change is a file you 
 | **Start here** | [First change](docs/tutorials/first-change.md) — one loop, about 10 minutes |
 | **Docs site** | https://harsha09.github.io/spec-driven-development/ |
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
-| **Needs** | Node.js 24 or newer |
+| **Needs** | Node 24+ · about 10 minutes for the first loop |
 
 This page was checked against CLI **0.24.0** (`sdd --version`) on Node.js **24.22.2**, from source `9e96194ee002d434cb9f19f1e7109fad57343fc5`. `npm view @structured-vibe-coding/cli version` prints the current npm release. During the check it printed `0.24.0`. A later release can change that number.
 
@@ -19,7 +19,7 @@ This page was checked against CLI **0.24.0** (`sdd --version`) on Node.js **24.2
 node --version
 ```
 
-`node --version` needs to be v24 or newer. The package `engines` field is `>=24`. `sdd doctor` compares the major version with 24 and fails that line when the major is lower.
+**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`. Node.js v24.22.2 passed that line. Replace this paragraph when a released CLI changes the check.
 
 Install once. The first command follows the current npm release and is also the upgrade. The second command installs the release this page was checked against.
 

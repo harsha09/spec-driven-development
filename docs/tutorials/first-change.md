@@ -10,7 +10,7 @@ You install `sdd`, start one simulated change, write a short note in the project
 | | |
 |--|--|
 | **Time** | About 10 minutes |
-| **You need** | Node.js 24 or newer, and a new empty folder |
+| **You need** | Node.js 24+ and a folder for an app (or an empty folder) |
 | **You will do** | `setup` → `new` → write `intent.md` → `next` → `next` → write a result note → `verify` → `complete` |
 | **Install** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
 | **Checked with** | CLI **0.24.0** on Node.js **24.22.2**, source `9e96194ee002d434cb9f19f1e7109fad57343fc5` |
@@ -25,15 +25,9 @@ The check below used a new empty folder. It was not a git repository, and nothin
 
 ## Step 1 — Check Node and install
 
-`sdd --version` prints the release you installed. On the check, that line was `0.24.0`.
-
-The package declares `engines.node` of `>=24`. `sdd doctor` compares the major version with 24.
-
 ```bash
 node --version
 ```
-
-v24 or newer. The check used `v24.22.2`.
 
 Install once. Use the current release:
 
@@ -56,22 +50,21 @@ npm view @structured-vibe-coding/cli version
 
 During the check, `sdd --version` and `npm view` both printed `0.24.0`. A later release can make `npm view` print a different version. The snippets below were captured from CLI 0.24.0. If a line on your machine differs, trust `sdd --version` and `sdd <command> --help`.
 
-If `sdd` is not on your PATH, use `npx @structured-vibe-coding/cli` wherever this page says `sdd`.
+**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`, so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, and that line passed. Replace this paragraph when a released CLI changes the check.
 
-::: warning Node below 24
-`sdd doctor` fails the Node line when the major version is below 24. The detail is `v<version> (24+ required)`, so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, which passed. Use Node 24 or newer before you rely on sdd.
-:::
+If `sdd` is not on your PATH, use `npx @structured-vibe-coding/cli` wherever this page says `sdd`.
 
 ---
 
-## Step 2 — A new empty folder
+## Step 2 — Open a folder
 
 ```bash
 mkdir demo-first-change
 cd demo-first-change
+# or: cd ~/projects/my-app
 ```
 
-`sdd` sits next to your code. It does not replace your app's language or build tool. This folder can be empty.
+`sdd` sits next to your code. The check used a new empty folder. In an app folder, leave the application code unchanged.
 
 ---
 
@@ -104,7 +97,7 @@ Then:
 sdd doctor
 ```
 
-On Node 24, after setup, the check printed this shape. The first line includes your folder path. The Node patch version is the runtime you have.
+After setup, the v24.22.2 check printed this shape. The first line includes your folder path. The Node patch version is the runtime you have.
 
 ```text
 sdd doctor · demo-first-change
@@ -373,7 +366,7 @@ That line means there is no in-progress change. It is not the success check.
 | What you see | What to do |
 |--------------|------------|
 | `sdd: command not found` | Install again, or use `npx @structured-vibe-coding/cli` |
-| `✗ Node.js … (24+ required)` from `sdd doctor` | Use Node.js 24 or newer |
+| `✗ Node.js … (24+ required)` from `sdd doctor` | CLI 0.24.0 failed that line. This page was checked on v24.22.2 |
 | `next` says `intent.md` is incomplete | Paste the sample intent above |
 | Doctor before setup exits 1 on `SDD init` | Run `sdd setup --yes --no-agent`, then `sdd doctor` |
 | `Verify NOT RUN` and exit 1 | Expected on this hotfix. The result note should say NOT RUN |
