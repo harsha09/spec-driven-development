@@ -4,14 +4,14 @@
 
 > Change: Validate config with Zod 4
 > Stage: local_verify
-<!-- sdd:verify stage="local_verify" head_sha="5779747008183cd4b59e964b3a8ea05d9ed15d15" result_count="1" -->
-> At: 2026-11-08T11:46:33.748Z
+<!-- sdd:verify stage="local_verify" head_sha="cbdea9ed1b3430059a0bdb376c481c73caccbd91" result_count="1" -->
+> At: 2026-11-08T12:19:15.424Z
 > Overall: PASS
 
 ## Commands
 
 ### Workspace tests
-- Command: `pnpm test`
+- Command: `pnpm --filter @structured-vibe-coding/core exec vitest run --maxWorkers=1 && pnpm --filter @structured-vibe-coding/cli exec vitest run --maxWorkers=1`
 - Exit: 0
 
 ## Checklist
