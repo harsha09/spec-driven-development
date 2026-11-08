@@ -35,7 +35,7 @@ const open = defineCommand({
 const list = defineCommand({
   meta: {
     name: "list",
-    description: "Print each sandbox id and status",
+    description: "Print each sandbox id, status, and profile",
   },
   async run() {
     await withProject(async ({ root }) => {

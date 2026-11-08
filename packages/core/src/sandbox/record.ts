@@ -10,6 +10,7 @@ import { z } from "zod";
 import { loadChangeMeta } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { type SandboxLease, allocateLease, releaseLease } from "./lease.js";
+import { type SandboxProfile, loadSandboxProfile } from "./profile.js";
 
 const RECORD_FILE = "record.json";
 const WORKTREE_DIR = "worktree";
@@ -34,6 +35,7 @@ export interface SandboxRecord {
   buildDir: string;
   leasePid: number;
   env: SandboxLease["env"];
+  profile: SandboxProfile;
 }
 
 export interface SandboxCommandResult {
@@ -57,6 +59,14 @@ const SandboxRecordSchema = z
       .object({
         PORT: z.string(),
         CARGO_TARGET_DIR: z.string(),
+      })
+      .strict(),
+    profile: z
+      .object({
+        name: z.enum(["workspace", "devbox", "read-only"]),
+        env: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
+        caches: z.array(z.string()),
+        network: z.array(z.string()),
       })
       .strict(),
   })
@@ -575,6 +585,7 @@ async function resume(
   repo: string,
   recordReal: string,
   record: SandboxRecord,
+  profile: SandboxProfile,
 ): Promise<SandboxCommandResult> {
   const id = record.id;
   if (record.path !== worktreeRel(id) || !(await commitExists(repo, record.baseSha)))
@@ -582,7 +593,7 @@ async function resume(
   if (record.status === "failed" || record.status === "closed") {
     return fail(`Sandbox ${id} is ${record.status}. Close it with sdd sandbox close ${id}.\n`);
   }
-  const leased = await withLease(repo, record);
+  const leased = await withLease(repo, { ...record, profile });
   if ("error" in leased) return fail(leased.error);
   record = leased;
   const kind = await classifyWorktree(repo, recordReal);
@@ -613,6 +624,7 @@ async function createFresh(
   recordReal: string,
   id: string,
   base: { sha: string; branch: string },
+  profile: SandboxProfile,
 ): Promise<SandboxCommandResult> {
   const kind = await classifyWorktree(repo, recordReal);
   if (kind === "escape") return fail(LEAVE);
@@ -627,6 +639,7 @@ async function createFresh(
       branch: base.branch,
       status: "ready",
       ...lease,
+      profile,
     };
     if (!(await writeRecord(recordReal, ready))) return fail(LEAVE);
     return ok(`Sandbox ${id} is ready.\n`);
@@ -642,6 +655,7 @@ async function createFresh(
     branch: base.branch,
     status: "opening",
     ...lease,
+    profile,
   };
   if (!(await writeRecord(recordReal, opening))) return fail(LEAVE);
   if ((await addWorktree(repo, recordReal, base.sha)) === "fail") {
@@ -656,12 +670,13 @@ async function openLocked(
   repo: string,
   changeId: string,
   branch: string | undefined,
+  profile: SandboxProfile,
 ): Promise<SandboxCommandResult> {
   const existingDir = await anchor(repo, [".sdd", "sandboxes", changeId], false);
   if (existingDir.ok) {
     const existing = await readRecord(existingDir.path);
     if (existing === "bad" || (existing && existing.id !== changeId)) return fail(stale(changeId));
-    if (existing) return resume(repo, existingDir.path, existing);
+    if (existing) return resume(repo, existingDir.path, existing, profile);
   } else if (!("missing" in existingDir)) {
     return fail(existingDir.error);
   }
@@ -669,7 +684,7 @@ async function openLocked(
   if ("error" in base) return fail(base.error);
   const recordDir = await anchor(repo, [".sdd", "sandboxes", changeId], true);
   if (!recordDir.ok) return fail("error" in recordDir ? recordDir.error : LEAVE);
-  return createFresh(repo, recordDir.path, changeId, base);
+  return createFresh(repo, recordDir.path, changeId, base, profile);
 }
 
 export async function openSandbox(
@@ -691,13 +706,15 @@ export async function openSandbox(
   if (!sdd.ok) return fail("error" in sdd ? sdd.error : "SDD is not initialized here.\n");
   const ignored = await ensureSandboxIgnore(sdd.path);
   if (ignored) return fail(ignored);
+  const profile = await loadSandboxProfile(repo);
+  if ("error" in profile) return fail(profile.error);
   const placed = await anchor(repo, [".sdd", "sandboxes", changeId], false);
   if (!placed.ok && !("missing" in placed)) return fail(placed.error);
   if (!placed.ok) {
     const base = await resolveBase(repo, meta.branch);
     if ("error" in base) return fail(base.error);
   }
-  return withSandboxLock(repo, changeId, () => openLocked(repo, changeId, meta.branch));
+  return withSandboxLock(repo, changeId, () => openLocked(repo, changeId, meta.branch, profile));
 }
 
 export async function listSandboxes(projectRoot: string): Promise<SandboxCommandResult> {
@@ -725,7 +742,7 @@ export async function listSandboxes(projectRoot: string): Promise<SandboxCommand
     const record = await readRecord(real);
     if (!record) lines.push(`${id} opening`);
     else if (record === "bad" || record.id !== id) lines.push(`${id} failed`);
-    else lines.push(`${id} ${record.status}`);
+    else lines.push(`${id} ${record.status} ${record.profile.name}`);
   }
   if (lines.length === 0) return ok("No sandboxes.\n");
   return ok(`${lines.join("\n")}\n`);
