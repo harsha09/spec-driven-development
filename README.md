@@ -15,7 +15,7 @@ Your AI writes fast. The reasons disappear into chat.
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
 | **Roadmap** | [ROADMAP.md](./ROADMAP.md) (priorities P0–P3, intent for implementers) |
 | **MCP sources** | sdd *calls* org design-system / AST / API MCPs (`.sdd/mcp.yaml`) |
-| **Needs** | Node 24+ · about 10 minutes for the first loop |
+| **Needs** | Node 20+ (Node 24 recommended because Node 20 is past upstream end of life) · about 10 minutes for the first loop |
 
 ---
 
