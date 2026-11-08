@@ -1,6 +1,6 @@
 /**
- * One sandbox record and its git worktree. This slice does not run a command
- * in the worktree, lease a port, or apply a role action.
+ * One sandbox record and its git worktree. Opening also leases a port range
+ * and a build slot. This slice does not run a command in the worktree.
  */
 import { spawn } from "node:child_process";
 import { constants, type Stats } from "node:fs";
@@ -9,6 +9,7 @@ import { isAbsolute, join, relative } from "pathe";
 import { z } from "zod";
 import { loadChangeMeta } from "../change-context.js";
 import { loadConfig } from "../config.js";
+import { type SandboxLease, allocateLease, releaseLease } from "./lease.js";
 
 const RECORD_FILE = "record.json";
 const WORKTREE_DIR = "worktree";
@@ -27,6 +28,12 @@ export interface SandboxRecord {
   baseSha: string;
   branch: string;
   status: SandboxStatus;
+  port: number;
+  portEnd: number;
+  buildSlot: number;
+  buildDir: string;
+  leasePid: number;
+  env: SandboxLease["env"];
 }
 
 export interface SandboxCommandResult {
@@ -41,6 +48,17 @@ const SandboxRecordSchema = z
     baseSha: z.string().regex(SHA),
     branch: z.string().min(1),
     status: z.enum(STATUSES),
+    port: z.number().int(),
+    portEnd: z.number().int(),
+    buildSlot: z.number().int(),
+    buildDir: z.string(),
+    leasePid: z.number().int(),
+    env: z
+      .object({
+        PORT: z.string(),
+        CARGO_TARGET_DIR: z.string(),
+      })
+      .strict(),
   })
   .strict();
 
@@ -544,6 +562,15 @@ async function writeRecord(recordReal: string, record: SandboxRecord): Promise<b
   return true;
 }
 
+async function withLease(
+  repo: string,
+  record: SandboxRecord,
+): Promise<SandboxRecord | { error: string }> {
+  const lease = await allocateLease(repo, record.id);
+  if ("error" in lease) return lease;
+  return { ...record, ...lease };
+}
+
 async function resume(
   repo: string,
   recordReal: string,
@@ -555,6 +582,9 @@ async function resume(
   if (record.status === "failed" || record.status === "closed") {
     return fail(`Sandbox ${id} is ${record.status}. Close it with sdd sandbox close ${id}.\n`);
   }
+  const leased = await withLease(repo, record);
+  if ("error" in leased) return fail(leased.error);
+  record = leased;
   const kind = await classifyWorktree(repo, recordReal);
   if (record.status === "opening") {
     if (kind === "escape") return fail(LEAVE);
@@ -574,6 +604,7 @@ async function resume(
     return ok(`Sandbox ${id} is ready.\n`);
   }
   if (kind !== "ours") return fail(stale(id));
+  if (!(await writeRecord(recordReal, record))) return fail(LEAVE);
   return ok(`Sandbox ${id} is ${record.status}.\n`);
 }
 
@@ -585,14 +616,17 @@ async function createFresh(
 ): Promise<SandboxCommandResult> {
   const kind = await classifyWorktree(repo, recordReal);
   if (kind === "escape") return fail(LEAVE);
+  if (kind === "ours" && (await worktreeHead(recordReal)) !== base.sha) return fail(stale(id));
+  const lease = await allocateLease(repo, id);
+  if ("error" in lease) return fail(lease.error);
   if (kind === "ours") {
-    if ((await worktreeHead(recordReal)) !== base.sha) return fail(stale(id));
     const ready: SandboxRecord = {
       id,
       path: worktreeRel(id),
       baseSha: base.sha,
       branch: base.branch,
       status: "ready",
+      ...lease,
     };
     if (!(await writeRecord(recordReal, ready))) return fail(LEAVE);
     return ok(`Sandbox ${id} is ready.\n`);
@@ -607,6 +641,7 @@ async function createFresh(
     baseSha: base.sha,
     branch: base.branch,
     status: "opening",
+    ...lease,
   };
   if (!(await writeRecord(recordReal, opening))) return fail(LEAVE);
   if ((await addWorktree(repo, recordReal, base.sha)) === "fail") {
@@ -782,6 +817,8 @@ export async function closeSandbox(
     }
     const removed = await removeRecord(repo, again.path, options?.force === true);
     if (removed) return fail(removed);
+    const released = await releaseLease(repo, sandboxId);
+    if (released) return fail(released);
     if (edits === true) return ok(`Sandbox ${sandboxId} is closed. Local edits were discarded.\n`);
     return ok(`Sandbox ${sandboxId} is closed.\n`);
   });
