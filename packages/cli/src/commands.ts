@@ -63,6 +63,7 @@ import { nodeDoctorDetail, nodeRequirementPhrase, nodeSupportLevel } from "./nod
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
 import { roleCmd } from "./role-cmd.js";
+import { sandboxCmd } from "./sandbox-cmd.js";
 import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
@@ -1787,6 +1788,7 @@ export const commands = {
   agent,
   agents,
   role: roleCmd,
+  sandbox: sandboxCmd,
   team: teamCmd,
   fact: factCmd,
   models: modelsCmd,
