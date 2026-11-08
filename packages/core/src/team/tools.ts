@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "pathe";
+import "../zod-v3-messages.js";
 import { z } from "zod";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { generateCodeContext } from "../code-context/index.js";
@@ -18,26 +19,20 @@ import { getStage } from "../workflow.js";
 const OUTPUT_CAP = 4000;
 const SCOPES = new Set<SearchScope>(["code", "specs", "memory"]);
 
-const ToolsSchema = z
-  .object({
-    allow: z.array(z.object({ run: z.string().trim().min(1) }).strict()).default([]),
-  })
-  .strict();
+const ToolsSchema = z.strictObject({
+  allow: z.array(z.strictObject({ run: z.string().trim().min(1) })).default([]),
+});
 
-const EvidenceSchema = z
-  .object({
-    sha: z.string(),
-    runs: z.array(
-      z
-        .object({
-          command: z.string(),
-          exitCode: z.number().int().nullable(),
-          output: z.string(),
-        })
-        .strict(),
-    ),
-  })
-  .strict();
+const EvidenceSchema = z.strictObject({
+  sha: z.string(),
+  runs: z.array(
+    z.strictObject({
+      command: z.string(),
+      exitCode: z.number().int().nullable(),
+      output: z.string(),
+    }),
+  ),
+});
 
 type EvidenceFile = z.infer<typeof EvidenceSchema>;
 

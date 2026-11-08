@@ -1,3 +1,4 @@
+import "../../zod-v3-messages.js";
 import { z } from "zod";
 import { recordDecisionMetric } from "../../metrics.js";
 import type { Config } from "../../schemas.js";
@@ -10,17 +11,15 @@ import { type ModelContext, selectModel } from "./select.js";
 
 const tokenField = z.number().int().nonnegative().nullable().optional();
 
-const DecisionReplySchema = z
-  .object({
-    pick: z.string(),
-    probs: z.record(z.string(), z.number()),
-    model: z.string().trim().min(1).optional(),
-    input_tokens: tokenField,
-    cache_read_tokens: tokenField,
-    cache_write_tokens: tokenField,
-    output_tokens: tokenField,
-  })
-  .strict();
+const DecisionReplySchema = z.strictObject({
+  pick: z.string(),
+  probs: z.record(z.string(), z.number()),
+  model: z.string().trim().min(1).optional(),
+  input_tokens: tokenField,
+  cache_read_tokens: tokenField,
+  cache_write_tokens: tokenField,
+  output_tokens: tokenField,
+});
 
 type DecisionReply = z.infer<typeof DecisionReplySchema>;
 

@@ -1,3 +1,4 @@
+import "./zod-v3-messages.js";
 import { z } from "zod";
 
 export const GateSchema = z.object({
@@ -47,7 +48,7 @@ export const StageSchema = z.object({
     .regex(/^(?!.*\.\.)[A-Za-z0-9._-]+\/[A-Za-z0-9._-]*\*[A-Za-z0-9._-]*$/)
     .optional(),
   artifacts: z.array(ArtifactDefSchema).default([]),
-  gate: GateSchema.default({}),
+  gate: GateSchema.prefault({}),
   skippable: z.boolean().default(true),
   skip_when: z
     .object({
@@ -101,7 +102,7 @@ export const ConfigSchema = z.object({
       enabled: z.boolean().default(true),
       exclude: z.array(z.string().min(1)).default([]),
     })
-    .default({}),
+    .prefault({}),
   memory_path: z.string().default("memory"),
   changes_path: z.string().default("changes"),
   archive_path: z.string().default("archive"),
@@ -115,7 +116,7 @@ export const ConfigSchema = z.object({
       allow_custom_stages: z.boolean().default(true),
       require_reason_on_skip: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   persistence: z
     .object({
       default: z.enum(["change_only", "domain_sync"]).default("change_only"),
@@ -125,14 +126,14 @@ export const ConfigSchema = z.object({
           mode: z.enum(["never", "recommend", "require"]).default("never"),
           anchored_domains: z.array(z.string()).default([]),
         })
-        .default({}),
+        .prefault({}),
     })
-    .default({}),
+    .prefault({}),
   policy: z
     .object({
       gates: z.enum(["soft", "hard"]).default("soft"),
     })
-    .default({}),
+    .prefault({}),
 });
 
 export const ChangeMetaSchema = z.object({
@@ -150,14 +151,14 @@ export const ChangeMetaSchema = z.object({
   story: z.string().optional(),
   depends: z.array(z.string()).optional(),
   domain: z.string().optional(),
-  flags: z.record(z.union([z.boolean(), z.string(), z.number()])).default({}),
+  flags: z.record(z.string(), z.union([z.boolean(), z.string(), z.number()])).default({}),
   overrides: z
     .object({
       skip_stages: z.array(z.string()).default([]),
-      gates: z.record(z.enum(["none", "soft", "hard"])).default({}),
+      gates: z.record(z.string(), z.enum(["none", "soft", "hard"])).default({}),
       extra_stages: z.array(StageSchema).default([]),
     })
-    .default({}),
+    .prefault({}),
   skipped: z
     .array(
       z.object({
@@ -169,6 +170,7 @@ export const ChangeMetaSchema = z.object({
     .default([]),
   gates: z
     .record(
+      z.string(),
       z.object({
         status: z.enum(["pending", "approved", "failed", "waived"]),
         note: z.string().optional(),
@@ -179,6 +181,7 @@ export const ChangeMetaSchema = z.object({
   /** Results from `sdd verify` keyed by stage id */
   verify_results: z
     .record(
+      z.string(),
       z.object({
         ok: z.boolean(),
         /** pass | fail | not_run (absent in metas written before 0.17.3) */
