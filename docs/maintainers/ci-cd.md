@@ -1,6 +1,6 @@
 ---
 title: sdd CI and manual npm release
-description: GitHub Actions for this repo only. Tests run on pull requests. The docs site rebuilds when docs changes hit main. npm publish stays manual. Node.js 24.
+description: GitHub Actions for this repo only. Tests run on pull requests. The docs site rebuilds when docs changes hit main. npm publish stays manual. The test suite runs on Node 20 and Node 24. Node 24 is recommended. Not long-term support for Node 20.
 ---
 
 # CI/CD
@@ -9,8 +9,9 @@ GitHub Actions pipelines for continuous integration and **manual-only npm releas
 
 ## Runtime
 
-- **Node.js 24** everywhere: app `engines` (`>=24`), local develop, and GitHub Actions
-- Actions: `actions/setup-node@v5`, `actions/checkout@v5`, `upload-artifact@v5`, `softprops/action-gh-release@v3` (Node 24 runtimes)
+- Root, core, and CLI `engines.node` are `>=20`. `sdd doctor` warns on Node.js 20–23 and fails only below 20. Node 20–23 works but isn't recommended; Node 24 is recommended. The test suite runs on Node 20 and Node 24. This is not long-term support for Node 20.
+- **CI tests** run on Node.js 20 and Node.js 24. The docs site and the manual release workflow stay on Node.js 24.
+- Actions: `actions/setup-node@v5`, `actions/checkout@v5`, `upload-artifact@v5`, `softprops/action-gh-release@v3` (release and docs use the Node 24 runtime)
 - **pnpm**: `pnpm/action-setup@v4` **before** `setup-node`, with `package-manager-cache: false`  
   (`setup-node@v5` otherwise looks for `pnpm` too early and fails with “Unable to locate executable file: pnpm”)
 

@@ -13,9 +13,13 @@ concurrency:
 
 jobs:
   build-test:
-    name: Build, test & typecheck
+    name: Build, test & typecheck (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "24"]
 
     steps:
       - name: Checkout
@@ -30,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: ${{ matrix.node }}
           cache: pnpm
           # v5 defaults to package-manager-cache:true which looks for pnpm too early
           package-manager-cache: false
