@@ -8,6 +8,7 @@ import { constants, type Stats } from "node:fs";
 import { lstat, mkdir, open, readFile, realpath, rename, unlink } from "node:fs/promises";
 import { isAbsolute, join, relative } from "pathe";
 import { z } from "zod";
+import { type SandboxProfile, profileEnv } from "./profile.js";
 
 const PORT_BASE = 45_000;
 const PORT_SPAN = 10;
@@ -340,10 +341,11 @@ async function ensureBuildDir(repo: string, id: string): Promise<string | { erro
   return expectedBuildDir(id);
 }
 
-async function startHolder(port: number): Promise<number | null> {
+async function startHolder(port: number, env: Record<string, string>): Promise<number | null> {
   const child = spawn(process.execPath, ["-e", LISTEN_SCRIPT, String(port)], {
     detached: true,
     stdio: ["ignore", "pipe", "ignore"],
+    env,
   });
   const ready = await new Promise<boolean>((resolve) => {
     const timer = setTimeout(() => resolve(false), 2_000);
@@ -405,6 +407,7 @@ async function reclaimDead(leases: LeaseRow[]): Promise<LeaseRow[]> {
 export async function allocateLease(
   repo: string,
   id: string,
+  profile: SandboxProfile,
 ): Promise<SandboxLease | { error: string }> {
   const sandboxes = await sandboxesDir(repo);
   if ("error" in sandboxes) return sandboxes;
@@ -430,7 +433,7 @@ export async function allocateLease(
     while (true) {
       const port = nextPort(live, skipped);
       if (port === null) return { error: "No free sandbox port.\n" };
-      const pid = await startHolder(port);
+      const pid = await startHolder(port, profileEnv(profile, process.env));
       if (pid === null) {
         skipped.add(port);
         continue;

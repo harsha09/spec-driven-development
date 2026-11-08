@@ -65,6 +65,11 @@ describe("sdd sandbox", () => {
     expect(ids).toHaveLength(1);
     const id = ids[0] ?? "";
 
+    const openHelp = runSdd(root, ["sandbox", "open", "--help"]);
+    expect(openHelp.stdout).toContain(".sdd/sandbox.yaml");
+    expect(openHelp.stdout).toContain("devbox");
+    expect(openHelp.stdout).toContain("PATH");
+
     const help = runSdd(root, ["sandbox", "--help"]);
     expect(help.stdout).toContain("open");
     expect(help.stdout).toContain("list");
