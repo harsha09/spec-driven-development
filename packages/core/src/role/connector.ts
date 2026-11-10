@@ -25,8 +25,14 @@ const JENKINS_HTTPS = "A Jenkins URL must use HTTPS.";
 const JENKINS_CREDENTIALS = "A Jenkins URL must not include credentials.";
 const JENKINS_TOKEN_ENV = "A Jenkins token_env must name an environment variable.";
 const JENKINS_USER_ENV = "A Jenkins user_env must name an environment variable.";
+const JFROG_DEADLINE_MS = 30000;
+const BAD_JFROG_ID = "A JFrog artifact id is a repository and a path.";
+const JFROG_HTTPS = "A JFrog URL must use HTTPS.";
+const JFROG_CREDENTIALS = "A JFrog URL must not include credentials.";
+const JFROG_TOKEN_ENV = "A JFrog token_env must name an environment variable.";
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const JOB_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+const JFROG_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$/;
 const QA_LINE = "A routine cannot write a QA result.";
 const BAD_ROUTINES = "Routines on this role are invalid.";
 const NO_ROUTINE = "That routine is not on this role.";
@@ -103,6 +109,14 @@ function actionsMissing(id: string): string {
 
 function actionsUnread(id: string): string {
   return `GitHub Actions run ${id} could not be read.`;
+}
+
+function jfrogMissing(id: string): string {
+  return `JFrog artifact ${id} was not found.`;
+}
+
+function jfrogUnread(id: string): string {
+  return `JFrog artifact ${id} could not be read.`;
 }
 
 function jenkinsMissing(id: string): string {
@@ -318,7 +332,7 @@ function parseJenkinsRecord(
   return { segments, build, id: `${segments.join("/")}/${build}` };
 }
 
-function isLocalJenkinsHost(hostname: string): boolean {
+function isLocalHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
@@ -330,7 +344,7 @@ function jenkinsBuildUrl(base: string, segments: string[], build: number): strin
     return null;
   }
   if (url.username || url.password) return null;
-  const local = isLocalJenkinsHost(url.hostname);
+  const local = isLocalHost(url.hostname);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) return null;
   const path = url.pathname;
   if (path.includes("..") || path.includes("\\") || path.toLowerCase().includes("%2e")) return null;
@@ -406,7 +420,7 @@ async function readJenkinsBuild(input: {
   }
   if (base.username || base.password) return fail(JENKINS_CREDENTIALS);
   if (leaks(jenkins.url, token)) return jenkinsFail(id, token, false);
-  const localHttp = base.protocol === "http:" && isLocalJenkinsHost(base.hostname);
+  const localHttp = base.protocol === "http:" && isLocalHost(base.hostname);
   if (base.protocol !== "https:" && !localHttp) return fail(JENKINS_HTTPS);
   const target = jenkinsBuildUrl(jenkins.url, segments, build);
   if (!target || leaks(target, token)) return jenkinsFail(id, token, false);
@@ -453,6 +467,195 @@ async function readJenkinsBuild(input: {
   }
 }
 
+function jfrogDeadline(value: number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  return JFROG_DEADLINE_MS;
+}
+
+function parseJfrogRecord(record: string): { repo: string; segments: string[]; id: string } | null {
+  if (!record || record.startsWith("/") || /[?#%\\]/.test(record)) return null;
+  const parts = record.split("/");
+  if (parts.length < 2 || parts.some((part) => !JFROG_SEGMENT.test(part))) return null;
+  const repo = parts[0] ?? "";
+  const segments = parts.slice(1);
+  return { repo, segments, id: parts.join("/") };
+}
+
+function jfrogStorageUrl(base: string, repo: string, segments: string[]): string | null {
+  let url: URL;
+  try {
+    url = new URL(base);
+  } catch {
+    return null;
+  }
+  if (url.username || url.password) return null;
+  const local = isLocalHost(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) return null;
+  const path = url.pathname;
+  if (path.includes("..") || path.includes("\\") || path.toLowerCase().includes("%2e")) return null;
+  const prefix = path.replace(/\/+$/, "");
+  const encoded = [repo, ...segments].map((segment) => encodeURIComponent(segment)).join("/");
+  url.pathname = `${prefix}/api/storage/${encoded}`;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+function jfrogFail(id: string, secret: string, missing: boolean): RoleCommandResult {
+  if (leaks(id, secret)) {
+    return fail(missing ? "JFrog artifact was not found." : "JFrog artifact could not be read.");
+  }
+  return fail(missing ? jfrogMissing(id) : jfrogUnread(id));
+}
+
+function digitText(value: unknown): string | null {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
+  if (typeof value === "string" && /^[0-9]+$/.test(value)) return value;
+  return null;
+}
+
+function checksumLines(value: unknown, secret: string): string[] | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rec = value as Record<string, unknown>;
+  const lines: string[] = [];
+  for (const name of ["md5", "sha1", "sha256"]) {
+    const text = cleanLine(rec[name]);
+    if (!text) continue;
+    if (leaks(text, secret)) return null;
+    lines.push(`${name}: ${text}`);
+  }
+  return lines.length > 0 ? lines : null;
+}
+
+function propertyLines(body: unknown, secret: string): string[] {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return [];
+  const props = (body as Record<string, unknown>).properties;
+  if (!props || typeof props !== "object" || Array.isArray(props)) return [];
+  const lines: string[] = [];
+  for (const key of Object.keys(props).sort()) {
+    const name = cleanLine(key);
+    const raw = (props as Record<string, unknown>)[key];
+    const values = Array.isArray(raw) ? raw : [raw];
+    const cleaned: string[] = [];
+    for (const value of values) {
+      const text = cleanLine(value);
+      if (!text) return [];
+      cleaned.push(text);
+    }
+    if (!name || cleaned.length === 0) return [];
+    const rendered = `${name}: ${cleaned.join(", ")}`;
+    if (leaks(rendered, secret)) return [];
+    lines.push(rendered);
+  }
+  return lines;
+}
+
+async function readJfrogArtifact(input: {
+  record: string;
+  config?: Config;
+  env?: Readonly<Record<string, string | undefined>>;
+  jfrogDeadlineMs?: number;
+}): Promise<RoleCommandResult> {
+  const parsed = parseJfrogRecord(input.record.trim());
+  if (!parsed) return fail(BAD_JFROG_ID);
+  const { repo, segments, id } = parsed;
+  const jfrog = input.config?.jfrog;
+  const tokenEnv = envName(jfrog?.token_env);
+  if (!jfrog?.url || !tokenEnv) {
+    if (jfrog?.token_env && !tokenEnv) return fail(JFROG_TOKEN_ENV);
+    return fail(jfrogUnread(id));
+  }
+  const env = input.env ?? process.env;
+  const token = secretText(env[tokenEnv]) ?? "";
+  if (!token || leaks(id, token)) return jfrogFail(id, token, false);
+  let base: URL;
+  try {
+    base = new URL(jfrog.url);
+  } catch {
+    return jfrogFail(id, token, false);
+  }
+  if (base.username || base.password) return fail(JFROG_CREDENTIALS);
+  if (leaks(jfrog.url, token)) return jfrogFail(id, token, false);
+  const localHttp = base.protocol === "http:" && isLocalHost(base.hostname);
+  if (base.protocol !== "https:" && !localHttp) return fail(JFROG_HTTPS);
+  const target = jfrogStorageUrl(jfrog.url, repo, segments);
+  if (!target || leaks(target, token)) return jfrogFail(id, token, false);
+  const deadline = jfrogDeadline(input.jfrogDeadlineMs);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deadline);
+  const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      headers,
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (response.status === 404) return jfrogFail(id, token, true);
+    if (!response.ok) return jfrogFail(id, token, false);
+    const text = await response.text();
+    if (leaks(text, token)) return jfrogFail(id, token, false);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return jfrogFail(id, token, false);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body))
+      return jfrogFail(id, token, false);
+    const rec = body as Record<string, unknown>;
+    if (typeof rec.repo === "string" && rec.repo !== repo) return jfrogFail(id, token, false);
+    const expectedPath = `/${segments.join("/")}`;
+    if (typeof rec.path === "string" && rec.path !== expectedPath)
+      return jfrogFail(id, token, false);
+    const size = digitText(rec.size);
+    const created = cleanLine(rec.created);
+    const modified = cleanLine(rec.lastModified);
+    const sums = checksumLines(rec.checksums, token);
+    if (!size || !created || !modified || !sums) return jfrogFail(id, token, false);
+    if (leaks(size, token) || leaks(created, token) || leaks(modified, token)) {
+      return jfrogFail(id, token, false);
+    }
+    let props: string[] = [];
+    try {
+      const propertiesUrl = new URL(target);
+      propertiesUrl.search = "properties";
+      const extra = await fetch(propertiesUrl, {
+        method: "GET",
+        headers,
+        redirect: "error",
+        signal: controller.signal,
+      });
+      if (extra.ok) {
+        const propText = await extra.text();
+        if (!leaks(propText, token)) {
+          try {
+            props = propertyLines(JSON.parse(propText), token);
+          } catch {
+            props = [];
+          }
+        }
+      }
+    } catch {
+      props = [];
+    }
+    const lines = [
+      id,
+      `size: ${size}`,
+      ...sums,
+      `created: ${created}`,
+      `lastModified: ${modified}`,
+      ...props,
+    ];
+    if (lines.some((line) => leaks(line, token))) return jfrogFail(id, token, false);
+    return ok(lines.join("\n"));
+  } catch {
+    return jfrogFail(id, token, false);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function readConnector(input: {
   verb: string;
   connector: string;
@@ -462,6 +665,7 @@ export async function readConnector(input: {
   actions?: ActionsSource;
   ghDeadlineMs?: number;
   jenkinsDeadlineMs?: number;
+  jfrogDeadlineMs?: number;
   env?: Readonly<Record<string, string | undefined>>;
   projectRoot?: string;
   config?: Config;
@@ -500,6 +704,7 @@ export async function readConnector(input: {
     return readActionsRun(record, input.actions, input.ghDeadlineMs);
   }
   if (verb === "read" && connector === "jenkins") return readJenkinsBuild(input);
+  if (verb === "read" && connector === "jfrog") return readJfrogArtifact(input);
   if (connector !== "github-issue") return fail(NOT_IN_SLICE);
   const number = positiveInteger(record);
   if (number === null) return fail(BAD_NUMBER);

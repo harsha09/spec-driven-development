@@ -141,6 +141,12 @@ export const ConfigSchema = z.object({
       user_env: z.string().optional(),
     })
     .optional(),
+  jfrog: z
+    .object({
+      url: z.string(),
+      token_env: z.string(),
+    })
+    .optional(),
 });
 
 export const ChangeMetaSchema = z.object({
