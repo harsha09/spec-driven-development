@@ -1233,3 +1233,286 @@ async function treeHas(dir: string, needle: string): Promise<boolean> {
   }
   return false;
 }
+
+const JFROG_TOKEN = "sdd-jfrog-token-do-not-print";
+const JFROG_ID = "libs-release/com/acme/widget/1.0/widget.jar";
+const JFROG_PATH = "/api/storage/libs-release/com/acme/widget/1.0/widget.jar";
+
+function jfrogConfig(url: string, tokenEnv = "JFROG_TOKEN"): Config {
+  return ConfigSchema.parse({
+    jfrog: { url, token_env: tokenEnv },
+  });
+}
+
+const artifactBody = {
+  repo: "libs-release",
+  path: "/com/acme/widget/1.0/widget.jar",
+  size: "1200",
+  checksums: { sha256: "ghi", md5: "abc", sha1: "def" },
+  created: "2026-01-01T00:00:00.000Z",
+  lastModified: "2026-01-02T00:00:00.000Z",
+  downloadUri: "http://127.0.0.1/artifactory/libs-release/com/acme/widget/1.0/widget.jar",
+};
+
+const artifactStdout = [
+  JFROG_ID,
+  "size: 1200",
+  "md5: abc",
+  "sha1: def",
+  "sha256: ghi",
+  "created: 2026-01-01T00:00:00.000Z",
+  "lastModified: 2026-01-02T00:00:00.000Z",
+  "build.number: 7",
+  "color: blue",
+].join("\n");
+
+describe("sdd role connector jfrog", () => {
+  it("prints artifact metadata and does not leak the token", async () => {
+    const root = await tempRoot();
+    const live = await jenkinsServer((req, res) => {
+      const url = req.url ?? "";
+      if (url.includes("properties")) {
+        sendJson(res, 200, { properties: { color: ["blue"], "build.number": ["7"] } });
+        return;
+      }
+      sendJson(res, 200, artifactBody);
+    });
+    const read = await captured(() =>
+      readConnector({
+        verb: "read",
+        connector: "jfrog",
+        record: JFROG_ID,
+        projectRoot: root,
+        config: jfrogConfig(live.url),
+        env: { JFROG_TOKEN },
+      }),
+    );
+    expect(read.exitCode).toBe(0);
+    expect(read.stdout).toBe(artifactStdout);
+    expect(read.stdout).not.toContain(JFROG_TOKEN);
+    expect(read.stdout).not.toContain("downloadUri");
+    expect(read.logged).not.toContain(JFROG_TOKEN);
+    expect(live.requests.map((hit) => hit.url.split("?")[0])).toEqual([JFROG_PATH, JFROG_PATH]);
+    expect(live.requests[1]?.url).toBe(`${JFROG_PATH}?properties`);
+    expect(live.requests.every((hit) => hit.method === "GET")).toBe(true);
+    expect(live.requests.every((hit) => hit.authorization === `Bearer ${JFROG_TOKEN}`)).toBe(true);
+    expect(live.requests.every((hit) => !hit.url.includes(JFROG_TOKEN))).toBe(true);
+    await mkdir(join(root, "logs", "deep"), { recursive: true });
+    await writeFile(join(root, "logs", "deep", "note.txt"), "no secret here");
+    expect(await treeHas(root, "no secret here")).toBe(true);
+    expect(await treeHas(root, JFROG_TOKEN)).toBe(false);
+
+    const bare = await jenkinsServer((req, res) => {
+      if ((req.url ?? "").includes("properties")) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
+      sendJson(res, 200, artifactBody);
+    });
+    const withoutProps = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(bare.url),
+      env: { JFROG_TOKEN },
+    });
+    expect(withoutProps.exitCode).toBe(0);
+    expect(withoutProps.stdout).toBe(artifactStdout.split("\n").slice(0, -2).join("\n"));
+    expect(withoutProps.stdout).not.toContain("color");
+  });
+
+  it("reports missing, auth, html, bad json, timeout, and network errors", async () => {
+    const missing = await jenkinsServer((_req, res) => {
+      res.writeHead(404);
+      res.end(JFROG_TOKEN);
+    });
+    const gone = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(missing.url),
+      env: { JFROG_TOKEN },
+    });
+    expect(gone).toEqual({ exitCode: 1, stdout: `JFrog artifact ${JFROG_ID} was not found.` });
+    expect(gone.stdout).not.toContain(JFROG_TOKEN);
+
+    const denied = await jenkinsServer((_req, res) => {
+      res.writeHead(401);
+      res.end("unauthorized");
+    });
+    const forbidden = await jenkinsServer((_req, res) => {
+      res.writeHead(403);
+      res.end("forbidden");
+    });
+    const login = await jenkinsServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end("<html><body>login success</body></html>");
+    });
+    const broken = await jenkinsServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("{not json");
+    });
+    const failed = await jenkinsServer((_req, res) => {
+      res.writeHead(500);
+      res.end(JFROG_TOKEN);
+    });
+    for (const server of [denied, forbidden, login, broken, failed]) {
+      const result = await readConnector({
+        verb: "read",
+        connector: "jfrog",
+        record: JFROG_ID,
+        config: jfrogConfig(server.url),
+        env: { JFROG_TOKEN },
+      });
+      expect(result).toEqual({
+        exitCode: 1,
+        stdout: `JFrog artifact ${JFROG_ID} could not be read.`,
+      });
+      expect(result.stdout.toLowerCase()).not.toMatch(/success|green|login|unauthorized/);
+      expect(result.stdout).not.toContain(JFROG_TOKEN);
+    }
+
+    const redirect = await jenkinsServer((_req, res) => {
+      res.writeHead(302, { location: `/next?access=${JFROG_TOKEN}` });
+      res.end();
+    });
+    const bounced = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(redirect.url),
+      env: { JFROG_TOKEN },
+      jfrogDeadlineMs: 200,
+    });
+    expect(bounced.exitCode).toBe(1);
+    expect(bounced.stdout).toBe(`JFrog artifact ${JFROG_ID} could not be read.`);
+    expect(bounced.stdout).not.toContain(JFROG_TOKEN);
+    expect(redirect.requests).toHaveLength(1);
+    expect(redirect.requests[0]?.url).not.toContain(JFROG_TOKEN);
+
+    const hanging = await jenkinsServer(() => {
+      // Leave the socket open until the deadline aborts the read.
+    });
+    const started = Date.now();
+    const timed = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(hanging.url),
+      env: { JFROG_TOKEN },
+      jfrogDeadlineMs: 200,
+    });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(timed).toEqual({ exitCode: 1, stdout: `JFrog artifact ${JFROG_ID} could not be read.` });
+    expect(hanging.requests[0]?.url).not.toContain(JFROG_TOKEN);
+
+    const closed = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, artifactBody);
+    });
+    const closedUrl = closed.url;
+    const stopped = servers.pop();
+    stopped?.closeAllConnections();
+    await new Promise<void>((resolve) => stopped?.close(() => resolve()));
+    const refused = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(closedUrl),
+      env: { JFROG_TOKEN },
+      jfrogDeadlineMs: 200,
+    });
+    expect(refused).toEqual({
+      exitCode: 1,
+      stdout: `JFrog artifact ${JFROG_ID} could not be read.`,
+    });
+    expect(refused.stdout).not.toContain(JFROG_TOKEN);
+  });
+
+  it("refuses a bad path, a non-HTTPS URL, and a write before any request", async () => {
+    const live = await jenkinsServer((_req, res) => {
+      sendJson(res, 200, artifactBody);
+    });
+    const config = jfrogConfig(live.url);
+    const env = { JFROG_TOKEN };
+    for (const record of [
+      "../secret",
+      "libs/../secret",
+      "libs/%2e%2e/secret",
+      "libs/%2fsecret",
+      "libs/a?x=1",
+      "libs/a#frag",
+      "/libs/a",
+      "libs//a",
+      "libs",
+      "libs/",
+    ]) {
+      const result = await readConnector({
+        verb: "read",
+        connector: "jfrog",
+        record,
+        config,
+        env,
+      });
+      expect(result.exitCode, record).toBe(1);
+      expect(result.stdout, record).toBe("A JFrog artifact id is a repository and a path.");
+      expect(result.stdout).not.toContain(JFROG_TOKEN);
+    }
+    expect(live.requests).toHaveLength(0);
+
+    const remote = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig("http://artifactory.example.com"),
+      env,
+      jfrogDeadlineMs: 200,
+    });
+    expect(remote).toEqual({ exitCode: 1, stdout: "A JFrog URL must use HTTPS." });
+
+    const embedded = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: jfrogConfig(`https://alice:${JFROG_TOKEN}@artifactory.example.com`),
+      env,
+      jfrogDeadlineMs: 200,
+    });
+    expect(embedded.stdout).toBe("A JFrog URL must not include credentials.");
+    expect(embedded.stdout).not.toContain(JFROG_TOKEN);
+
+    const named = await readConnector({
+      verb: "read",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config: { ...config, jfrog: { url: live.url, token_env: JFROG_TOKEN } },
+      env,
+    });
+    expect(named.stdout).toBe("A JFrog token_env must name an environment variable.");
+    expect(named.stdout).not.toContain(JFROG_TOKEN);
+    expect(live.requests).toHaveLength(0);
+
+    for (const verb of ["promote", "copy", "move", "deploy", "delete", "set-properties"]) {
+      const stopped = await readConnector({
+        verb,
+        connector: "jfrog",
+        record: JFROG_ID,
+        config,
+        env,
+      });
+      expect(stopped, verb).toEqual({
+        exitCode: 1,
+        stdout: "That connector action does not run in this slice.",
+      });
+    }
+    const seeded = await readConnector({
+      verb: "seed",
+      connector: "jfrog",
+      record: JFROG_ID,
+      config,
+      env,
+    });
+    expect(seeded.stdout).toBe("That connector is not in this slice.");
+    expect(live.requests).toHaveLength(0);
+  });
+});
