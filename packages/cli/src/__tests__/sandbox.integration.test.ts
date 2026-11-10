@@ -65,6 +65,11 @@ describe("sdd sandbox", () => {
     expect(ids).toHaveLength(1);
     const id = ids[0] ?? "";
 
+    const openHelp = runSdd(root, ["sandbox", "open", "--help"]);
+    expect(openHelp.stdout).toContain(".sdd/sandbox.yaml");
+    expect(openHelp.stdout).toContain("devbox");
+    expect(openHelp.stdout).toContain("PATH");
+
     const help = runSdd(root, ["sandbox", "--help"]);
     expect(help.stdout).toContain("open");
     expect(help.stdout).toContain("list");
@@ -75,7 +80,7 @@ describe("sdd sandbox", () => {
     expect(opened.stdout).toBe(`Sandbox ${id} is ready.\n`);
     const listed = runSdd(root, ["sandbox", "list"]);
     expect(listed.status, listed.stderr + listed.stdout).toBe(0);
-    expect(listed.stdout).toBe(`${id} ready\n`);
+    expect(listed.stdout).toBe(`${id} ready devbox\n`);
     expect((await lstat(join(root, ".git"))).isDirectory()).toBe(true);
 
     const closed = runSdd(root, ["sandbox", "close", id]);

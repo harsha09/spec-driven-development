@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  type SandboxProfile,
   closeSandbox,
   createChange,
   initProject,
@@ -14,6 +15,7 @@ import {
   loadConfig,
   openSandbox,
   pathExists,
+  rejectWrite,
   saveChangeMeta,
 } from "../index.js";
 
@@ -154,7 +156,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(second.exitCode).toBe(0);
     const listed = await listSandboxes(root);
     expect(listed.exitCode).toBe(0);
-    expect(listed.stdout).toBe(`${id} ready\n${other} ready\n`);
+    expect(listed.stdout).toBe(`${id} ready devbox\n${other} ready devbox\n`);
 
     const closed = await closeSandbox(root, id);
     expect(closed.exitCode).toBe(0);
@@ -171,7 +173,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect((await git(root, ["worktree", "list"])).split("\n").filter(Boolean)).toHaveLength(2);
 
     const rest = await listSandboxes(root);
-    expect(rest.stdout).toBe(`${other} ready\n`);
+    expect(rest.stdout).toBe(`${other} ready devbox\n`);
     expect((await closeSandbox(root, other)).exitCode).toBe(0);
     expect((await listSandboxes(root)).stdout).toBe("No sandboxes.\n");
     expect(await git(root, ["rev-parse", "--show-toplevel"])).toBe(root);
@@ -188,7 +190,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
       join(dir, "record.json"),
       `${JSON.stringify({ ...record, status: "opening" }, null, 2)}\n`,
     );
-    expect((await listSandboxes(root)).stdout).toBe(`${id} opening\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} opening devbox\n`);
 
     const resumed = await openSandbox(root, id);
     expect(resumed.exitCode).toBe(0);
@@ -202,7 +204,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(stale.exitCode).toBe(1);
     expect(stale.stdout).toBe(`Sandbox ${id} is stale. Close it with sdd sandbox close ${id}.\n`);
     expect(await pathExists(join(dir, "worktree"))).toBe(false);
-    expect((await listSandboxes(root)).stdout).toBe(`${id} ready\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready devbox\n`);
 
     const closed = await closeSandbox(root, id);
     expect(closed.exitCode).toBe(0);
@@ -521,5 +523,100 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     ) as { leases: { id: string; port: number }[] };
     expect(after.leases.map((row) => row.port)).toEqual([crashed.port]);
     expect(after.leases.map((row) => row.id)).toEqual([nextId]);
+  });
+
+  it("records the isolation profile and lists it", async () => {
+    const root = await gitRepo();
+    const secret = "s3cret-value-profile";
+    await writeFile(
+      join(root, ".sdd", "sandbox.yaml"),
+      [
+        "profile: read-only",
+        "env:",
+        "  - PATH",
+        "caches:",
+        "  - npm",
+        "network:",
+        "  - registry.npmjs.org",
+        "",
+      ].join("\n"),
+    );
+    const id = await addChange(root, "Profiled sandbox");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const raw = await readFile(join(recordDir(root, id), "record.json"), "utf8");
+    expect(raw).not.toContain(secret);
+    const record = JSON.parse(raw) as { profile: SandboxProfile };
+    expect(record.profile).toEqual({
+      name: "read-only",
+      env: ["PATH"],
+      caches: ["npm"],
+      network: ["registry.npmjs.org"],
+    });
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready read-only\n`);
+    expect(
+      await rejectWrite(record.profile, join(recordDir(root, id), "worktree"), "src/app.ts"),
+    ).toBe("A read-only sandbox cannot write src/app.ts.\n");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const again = JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")) as {
+      profile: typeof record.profile;
+    };
+    expect(again.profile).toEqual(record.profile);
+  });
+
+  it("treats a record without a profile as devbox and resumes the worktree", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Legacy record");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const file = join(recordDir(root, id), "record.json");
+    const stored = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown> & {
+      profile?: unknown;
+    };
+    const { profile: dropped, ...legacy } = stored;
+    expect(dropped).toBeDefined();
+    await writeFile(file, `${JSON.stringify(legacy, null, 2)}\n`);
+    expect((await listSandboxes(root)).stdout).toBe(`${id} ready devbox\n`);
+    const again = await openSandbox(root, id);
+    expect(again.exitCode).toBe(0);
+    expect(again.stdout).toBe(`Sandbox ${id} is ready.\n`);
+    expect(await readFile(join(recordDir(root, id), "worktree", "README.md"), "utf8")).toBe(
+      "keep\n",
+    );
+    const reread = JSON.parse(await readFile(file, "utf8")) as {
+      profile: { name: string; env: string[]; caches: string[]; network: string[] };
+    };
+    expect(reread.profile).toEqual({
+      name: "devbox",
+      env: ["PATH"],
+      caches: [],
+      network: [],
+    });
+  });
+
+  it("does not pass an unlisted env var to the port holder", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Holder env");
+    const sentinel = "SDD_SENTINEL_SECRET";
+    const previous = process.env[sentinel];
+    process.env[sentinel] = "sentinel-secret-value";
+    try {
+      expect((await openSandbox(root, id)).exitCode).toBe(0);
+      const record = JSON.parse(
+        await readFile(join(recordDir(root, id), "record.json"), "utf8"),
+      ) as {
+        leasePid: number;
+      };
+      const environ = await readFile(`/proc/${record.leasePid}/environ`);
+      const text = environ.toString("utf8");
+      expect(text).not.toContain(sentinel);
+      expect(text).not.toContain("sentinel-secret-value");
+      expect(
+        await listenResult(
+          JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")).port,
+        ),
+      ).toBe("busy");
+    } finally {
+      if (previous === undefined) delete process.env[sentinel];
+      else process.env[sentinel] = previous;
+    }
   });
 });
