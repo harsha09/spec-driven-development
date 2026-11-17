@@ -11,6 +11,7 @@ tmp/
 # Private local planning (do not publish)
 ENTERPRISE-GRADE-PLAN.local.md
 *.local.md
+.sdd-forbidden-terms.local
 
 # VitePress
 docs/.vitepress/dist
