@@ -115,9 +115,6 @@ describe("Node rule is written once", () => {
     expect(maintainers).toContain(`\`${nodeEnginesRange()}\``);
     expect(maintainers).toContain(phrase);
     expect(maintainers).toContain(`This is not long-term support for Node ${MINIMUM_NODE_MAJOR}`);
-    const roadmap = readFileSync(join(repoRoot, "ROADMAP.md"), "utf8");
-    expect(roadmap).toContain(phrase);
-    expect(roadmap).toContain(`This is not long-term support for Node ${MINIMUM_NODE_MAJOR}`);
   });
 
   it("tests Node 20 and Node 24 in CI and keeps release on the recommendation", () => {

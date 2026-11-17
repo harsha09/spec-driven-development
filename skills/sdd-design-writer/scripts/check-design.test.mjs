@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -28,9 +28,29 @@ const skillFiles = [
   "sdd-default-roles/SKILL.md",
 ];
 
+// Private names (products, clients) never live in this repo. Each contributor
+// can add their own through SDD_FORBIDDEN_TERMS (comma or newline separated)
+// or a gitignored .sdd-forbidden-terms.local file at the repo root (one term
+// per line, # starts a comment). With neither set, only the generic checks run.
+const LOCAL_TERMS_FILE = ".sdd-forbidden-terms.local";
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function privateTermPatterns(envValue, localFile) {
+  const sources = [envValue ?? ""];
+  if (localFile && existsSync(localFile)) sources.push(readFileSync(localFile, "utf8"));
+  return sources
+    .join("\n")
+    .split(/[\n,]/)
+    .map((term) => term.trim())
+    .filter((term) => term && !term.startsWith("#"))
+    .map((term) => new RegExp(escapeRegExp(term), "i"));
+}
+
 const forbidden = [
-  /exampleapp/i,
-  /exampleapp/i,
+  ...privateTermPatterns(process.env.SDD_FORBIDDEN_TERMS, join(repoRoot, LOCAL_TERMS_FILE)),
   /\/home\//,
   /\/Users\//,
   /ghp_[A-Za-z0-9]/,
@@ -100,6 +120,21 @@ describe("design checker", () => {
     for (const heading of REQUIRED_HEADINGS) {
       assert.match(skill, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     }
+  });
+});
+
+describe("private forbidden terms", () => {
+  it("adds nothing when neither the variable nor the local file is set", () => {
+    assert.deepEqual(privateTermPatterns(undefined, join(here, "no-such-terms-file")), []);
+    assert.deepEqual(privateTermPatterns("", undefined), []);
+  });
+
+  it("reads comma and newline separated terms, ignoring blanks and comments", () => {
+    const patterns = privateTermPatterns(" Acme Widget ,\n# note\n\nfoo.bar", undefined);
+    assert.equal(patterns.length, 2);
+    assert.equal(patterns[0].test("uses acme widget here"), true);
+    assert.equal(patterns[1].test("foo.bar"), true);
+    assert.equal(patterns[1].test("fooxbar"), false);
   });
 });
 
