@@ -50,8 +50,20 @@ function tokenize(text: string): string[] {
   return tokens;
 }
 
-const SDD_LINE =
-  /^\s*(?:\$\s+)?(?:[A-Z_]+=(?:"[^"]*"|'[^']*'|\S+)\s+)*(?:pnpm\s+sdd|npx\s+(?:-y\s+)?@structured-vibe-coding\/cli|sdd)\s+(.*)$/;
+const ENV_ASSIGNMENT = /^[A-Z_]+=(?:"[^"]*"|'[^']*'|\S*)\s+/;
+const SDD_INVOCATION = /^(?:pnpm\s+sdd|npx\s+(?:-y\s+)?@structured-vibe-coding\/cli|sdd)\s+(.*)$/;
+
+/** The arguments after `sdd` on a shell line, or null when the line does not run sdd. */
+function sddArguments(line: string): string | null {
+  let rest = line.trim().replace(/^\$\s+/, "");
+  // Strip leading VAR=value words one at a time. A loop keeps the regex free of nested repeats.
+  for (let guard = 0; guard < 10; guard++) {
+    const assignment = ENV_ASSIGNMENT.exec(rest);
+    if (!assignment) break;
+    rest = rest.slice(assignment[0].length);
+  }
+  return SDD_INVOCATION.exec(rest)?.[1] ?? null;
+}
 
 interface Shown {
   file: string;
@@ -82,9 +94,9 @@ function shownCommands(file: string, source: string): Shown[] {
         else carry.text = carry.text.replace(/\\\s*$/, "");
         return;
       }
-      const match = SDD_LINE.exec(text);
-      if (!match) return;
-      text = match[1] ?? "";
+      const args = sddArguments(text);
+      if (args === null) return;
+      text = args;
       const entry: Shown = { file, line: index + 1, text: text.replace(/\\\s*$/, "") };
       found.push(entry);
       if (text.trimEnd().endsWith("\\")) carry = entry;
@@ -169,6 +181,15 @@ describe("the docs checker", () => {
   it("accepts real commands and flags", async () => {
     expect(await check(at('new "Title" -w hotfix -y --no-agent'))).toBeNull();
     expect(await check(at("mcp sources add --id a --command npx --arg -y"))).toBeNull();
+  });
+
+  it("finds sdd after an env assignment and ignores other commands", () => {
+    expect(sddArguments('SDD_ROLE_MODEL="node a.mjs" sdd role run builder')).toBe(
+      "role run builder",
+    );
+    expect(sddArguments("$ pnpm sdd status")).toBe("status");
+    expect(sddArguments("git status")).toBeNull();
+    expect(sddArguments(`${'A="'.repeat(5000)}x`)).toBeNull();
   });
 
   it("rejects a command, a subcommand, and a flag that do not exist", async () => {
