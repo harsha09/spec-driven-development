@@ -203,7 +203,7 @@ A local adapter shows the three passes. It reads `{"roleId","prompt"}` and write
 SDD_ROLE_MODEL="node docs/examples/role-model.mjs" sdd role run builder --kind code --change <id> --section <section> --task "..."
 ```
 
-A prompt that contains `changed must list every gap cite.` is the revision. Its `text` is `Revised draft.`, `changed` lists every gap cite, and `action` is `write_file` on `notes/draft.md`. A prompt that contains `Draft:` and `Cite:` is the critique. Its `text` is `Checked the draft.`, and the gap `text` is `The draft misses this check.` The gap cite is the first check id under `Check ids:`. Any other prompt is the author pass and returns `Draft from the local example.` The `write_file` action stops for Allow once, Always allow, or Deny.
+A prompt that contains `changed must list every gap cite.` is the revision. Its `text` is `Revised draft.`, `changed` lists every gap cite, and `action` is `write_file` on `notes/draft.md`. A prompt that has a `Draft` input and a `Check ids:` list (or `Draft:` and `Cite:` lines) is the critique. Its `text` is `Checked the draft.`, and the gap `text` is `The draft misses this check.` The gap cite is the first check id under `Check ids:`. Any other prompt is the author pass and returns `Draft from the local example.` The `write_file` action stops for Allow once, Always allow, or Deny.
 
 ## Epic stories
 

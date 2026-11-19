@@ -6,7 +6,7 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   const input = JSON.parse(raw);
   const prompt = typeof input.prompt === "string" ? input.prompt : "";
-  const label = /^(Job|Description|Task|Kind|Section|Decision|Check ids|Section text|Cite|Draft|Gaps):/;
+  const label = /^(Job|Description|Task|Kind|Section|Decision|Check ids|Section text|Cite|Draft|Gaps):|^Cite for [^:]*:/;
   const block = (name) => {
     const lines = prompt.split(/\r?\n/);
     const start = lines.findIndex((line) => line === name);
@@ -18,9 +18,28 @@ process.stdin.on("end", () => {
     }
     return out;
   };
+  // The current layout puts each input in a fenced block under "### <name> (untrusted data, ...)".
+  const fencedBlock = (name) => {
+    const lines = prompt.split(/\r?\n/);
+    const start = lines.findIndex((line) => line.startsWith(`### ${name} (`));
+    if (start < 0) return null;
+    const open = lines[start + 1] ?? "";
+    const fence = open.match(/^`+/)?.[0];
+    if (!fence) return null;
+    const out = [];
+    for (const line of lines.slice(start + 2)) {
+      if (line === fence) break;
+      out.push(line);
+    }
+    return out;
+  };
+  const gapLines = () => fencedBlock("Gaps") ?? block("Gaps:");
+  const isCritique =
+    (prompt.includes("Draft:") && prompt.includes("Cite:")) ||
+    (fencedBlock("Draft") !== null && prompt.includes("Check ids:"));
   let result;
   if (prompt.includes("changed must list every gap cite.")) {
-    const changed = block("Gaps:")
+    const changed = gapLines()
       .filter((line) => line.includes(":"))
       .map((line) => line.slice(0, line.indexOf(":")));
     const text = "Revised draft.";
@@ -33,7 +52,7 @@ process.stdin.on("end", () => {
         inputs: { path: "notes/draft.md", contents: text },
       },
     };
-  } else if (prompt.includes("Draft:") && prompt.includes("Cite:")) {
+  } else if (isCritique) {
     const cite = block("Check ids:")[0] ?? "";
     result = {
       text: "Checked the draft.",
