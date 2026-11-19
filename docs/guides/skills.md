@@ -38,6 +38,8 @@ Names, extra bans, tools, component lists, and commands stay in the product repo
 | `sdd-constitution-interview` | The constitution is still a skeleton, or the person named one section to revise. |
 | `sdd-default-roles` | You need to know which procedure the shipped planner, architect, builder, or software-team role follows. |
 
+The software, research, and solo team templates write each role with a short playbook (Process, Done when, Example, Voice); `sdd-default-roles` maps each role to the longer procedure. Projects that already ran `sdd team init` keep their role files.
+
 `sdd-default-roles` does not rewrite `.sdd/roles`. Planner, architect, and builder are still written by `sdd setup` when that folder is empty. Their `never` lists still hold: the planner and architect do not write product code, and the builder does not generate a release.
 
 ## Design writer
