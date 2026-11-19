@@ -2,7 +2,7 @@
 
 Release notes for each version are also generated on the GitHub Releases page when a version is published. This file keeps the notes that need more than a line, such as a compatibility window.
 
-## Unreleased
+## 0.25.0 (19/11/2026)
 
 ### Changed
 
