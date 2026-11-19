@@ -1,4 +1,5 @@
 import {
+  PROMPT_TEXT,
   type PromptInputBlock,
   type RoleCard,
   buildPrompt,
@@ -134,46 +135,80 @@ export function authorPrompt(input: {
   });
 }
 
+/** The review room prompt (`reviewRoom` in team/room.ts). Its own spec: no critique or revision text. */
 export function roomPrompt(input: {
   role: RoleProfile;
-  section: AcceptedSection;
+  stageId: string;
+  round: number;
+  cap: number;
+  /** True when this role owns the stage's artifact. */
+  owner: boolean;
   draft: string;
   entries: string[];
-  /** Set when this role owns the draft and objections are still open. */
+  /** Open objections from the last round. Only the owner is shown them. */
   open?: { cite: string; text: string }[];
+  /** The stage has verify commands, so an agree needs an evidence path. */
+  verify?: boolean;
+  /** The evidence path for the current commit, when a passing check run exists. */
+  evidence?: string | null;
 }): string {
   const me = who(input.role);
-  const owner = input.open !== undefined && input.open.length > 0;
+  const open = input.owner ? (input.open ?? []) : [];
+  const answering = input.owner && open.length > 0;
   const inputs: PromptInputBlock[] = [
-    { label: "Draft", source: "the stage artifact", text: input.draft },
-    { label: "Room so far", source: "the room log", text: input.entries.join("\n") },
+    { label: "Draft", source: "the stage artifact", text: input.draft || "(none)" },
+    { label: "Room so far", source: "the room log", text: input.entries.join("\n") || "(empty)" },
   ];
-  if (owner) {
+  if (answering) {
     inputs.push({
       label: "Open objections",
       source: "the room log",
-      text: (input.open ?? []).map((gap) => `${gap.cite}: ${gap.text}`).join("\n"),
+      text: open.map((gap) => `${gap.cite}: ${gap.text}`).join("\n"),
+    });
+  }
+  if (input.verify) {
+    inputs.push({
+      label: "Evidence path",
+      source: "the latest check run",
+      text: input.evidence || "none",
     });
   }
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
+    scope: [
+      ...me.scope,
+      `You are in a review room for stage \`${input.stageId}\`. Other roles speak here too. Round ${input.round} of ${input.cap}.`,
+      input.owner
+        ? "You own this stage's artifact."
+        : "You review. You do not own this stage's artifact.",
+    ],
     task: [
-      owner
-        ? "Post one entry to the room. You own this draft: answer the open objections."
-        : "Post one entry to the room about the draft. Object, agree, or add a point.",
-      ...checkLines(input.section),
+      "Post one entry in the room.",
+      "1. Read the draft and the room so far.",
+      answering
+        ? "2. Answer the open objections. Say in one line how you fixed each, or use block if you cannot."
+        : "2. Decide what the draft needs.",
+      "3. Choose one type:",
+      "   - post: a note or an answer.",
+      "   - objection: the draft misses a check or breaks a rule. Cite what it breaks.",
+      "   - agree: you accept the draft as it is.",
+      "   - block: you cannot go on until the person decides.",
+      "4. Write the entry in one line.",
+      "Done when: you posted exactly one entry that follows the contract.",
     ],
     inputs,
     guardrails: [
-      "Write one line. Do not repeat an earlier room entry.",
-      "Name the check id or section your point is about.",
+      "An objection needs a cite: the check id, section or file it is about.",
+      input.verify
+        ? "Use agree only with the evidence path from this commit in cite."
+        : "Use agree only if every check is met.",
+      "Do not write pass, works or fixed unless you cite the evidence path.",
+      "Do not use the type decision. Only the person records a decision.",
       "Agree only with a point you checked.",
+      "Write one line. Do not repeat an earlier room entry.",
     ],
-    output: renderReplyContract(RoomPostSchema, {
-      rules: ["An objection needs a cite."],
-      examples: ROOM_POST_EXAMPLES,
-    }),
+    style: ["Write text as one line. No line breaks.", ...PROMPT_TEXT.style],
+    output: renderReplyContract(RoomPostSchema, { examples: ROOM_POST_EXAMPLES }),
   });
 }
 

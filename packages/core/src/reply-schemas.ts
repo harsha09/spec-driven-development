@@ -43,24 +43,47 @@ export const MODEL_REPLY_EXAMPLES: ReplyExamples = {
   invalid: { value: { gaps: "none" }, why: "text is missing, and gaps must be a list." },
 };
 
-/** One room entry (`entryFromReply` in team/room.ts). */
-export const RoomPostSchema = z.object({
-  type: z.enum(ROOM_TYPES).describe("post, objection, agree, block, or decision."),
-  text: z.string().describe("One line."),
-  cite: z.string().optional().describe("What you point at. An objection needs one."),
-});
+/**
+ * What a model may send as a room entry. `decision` is left out: only a person records a decision.
+ * `ROOM_TYPES` still has it, for people who post and for the entry classifier's options.
+ */
+export const MODEL_ROOM_TYPES = ["post", "objection", "agree", "block"] as const;
+
+/** One room entry from a model (`entryFromReply` in team/room.ts). */
+export const RoomPostSchema = z
+  .object({
+    type: z
+      .enum(MODEL_ROOM_TYPES, {
+        error: 'must be post, objection, agree or block. "decision" is for the person.',
+      })
+      .describe("post, objection, agree, or block."),
+    text: z.string().describe("One line."),
+    cite: z
+      .string()
+      .optional()
+      .describe("What you point at. An objection needs one. An agree needs an evidence path."),
+  })
+  .refine((value) => value.type !== "objection" || (value.cite ?? "").trim() !== "", {
+    message: "an objection needs a cite",
+    path: ["cite"],
+  });
 
 export const ROOM_POST_EXAMPLES: ReplyExamples = {
   valid: [
     {
       type: "objection",
-      text: "CHK-004: the retry limit for a failed payment is missing.",
-      cite: "CHK-004",
+      text: "The draft does not say what happens when a card is declined.",
+      cite: "declined-card-path",
+    },
+    {
+      type: "agree",
+      text: "All checks are met.",
+      cite: "changes/refund-retry/evidence/0a1b2c3.json",
     },
   ],
   invalid: {
-    value: { type: "shrug", text: "Not sure." },
-    why: "type must be post, objection, agree, block or decision.",
+    value: { type: "objection", text: "Needs more detail." },
+    why: "An objection has no cite. It also does not say what is missing.",
   },
 };
 

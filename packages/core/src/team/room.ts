@@ -1,5 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "pathe";
+import { type ParseOutcome, askModel, parseJsonObject, zodIssues } from "../ask.js";
 import { cleanReply } from "../reply-text.js";
 import "../zod-v3-messages.js";
 import { z } from "zod";
@@ -7,7 +8,7 @@ import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, pathExists, readText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
-import { ROOM_TYPES } from "../reply-schemas.js";
+import { ROOM_TYPES, RoomPostSchema } from "../reply-schemas.js";
 import { decide } from "../role/models/decide.js";
 import { loadModels } from "../role/models/schema.js";
 import { readRole, rolesListingStage } from "../role/profile.js";
@@ -19,7 +20,7 @@ import { ROLE_TEXT, type RoleCommandResult, type RoleModel } from "../role/types
 import type { ChangeMeta, Stage, Workflow } from "../schemas.js";
 import { nowIso } from "../slug.js";
 import { getStage } from "../workflow.js";
-import { claimsPass, evidenceSupports, reviewNeedsEvidence } from "./tools.js";
+import { claimsPass, evidenceRel, evidenceSupports, reviewNeedsEvidence } from "./tools.js";
 
 export type RoomType = (typeof ROOM_TYPES)[number];
 
@@ -342,36 +343,44 @@ export async function reviewRoom(
   const draft = await draftOf(opened.path, stage);
   const before = consensus(prior.filter((entry) => entry.round === highest));
   const sha = await headSha(root);
+  const verify = (stage.verify?.commands?.length ?? 0) > 0;
+  let evidence: string | null = null;
+  if (verify && sha) {
+    const config = await loadConfig(root);
+    const rel = evidenceRel(config.changes_path, opened.id, sha);
+    if (await evidenceSupports(root, opened.id, rel)) evidence = rel;
+  }
   const written: RoomEntry[] = [];
   for (const bot of bots) {
     const role = await readRole(root, bot.role);
     if (!role) return fail(ROLE_TEXT.notFound);
-    const section = {
-      id: stageId,
-      decision: "room",
-      checks: before.open.map((entry) => entry.cite || "room"),
-      body: draft,
-    };
-    if (section.checks.length === 0) section.checks = ["room"];
     const listedOwner = stage.owner ?? (listed.length === 1 ? listed[0] : undefined);
     const owner = listedOwner === bot.role || listedOwner === bot.name;
     const prompt = roomPrompt({
       role,
-      section,
-      draft: draft || "(none)",
+      stageId,
+      round,
+      cap,
+      owner,
+      draft,
       entries: prior.map(formatEntry),
-      open:
-        owner && before.open.length > 0
-          ? before.open.map((entry) => ({ cite: entry.cite || "room", text: entry.text }))
-          : undefined,
+      open: before.open.map((entry) => ({ cite: entry.cite || "room", text: entry.text })),
+      verify,
+      evidence,
     });
-    let raw = "";
-    try {
-      raw = await input.model.complete({ roleId: role.name, prompt });
-    } catch {
-      return fail("A room entry is not valid.");
-    }
-    const stored = await entryFromReply(root, raw, input.env, input.runCommand);
+    let refusal: string | undefined;
+    const asked = await askModel({
+      model: input.model,
+      roleId: role.name,
+      prompt,
+      parse: (raw) => {
+        const read = readRoomReply(raw);
+        if (!read.ok) refusal = read.refusal;
+        return read;
+      },
+    });
+    if (!asked.ok) return fail(refusal ?? "A room entry is not valid.");
+    const stored = await storedEntry(root, asked.value, input.env, input.runCommand);
     if (isFailure(stored)) return stored;
     const needed = await reviewNeedsEvidence(
       root,
@@ -407,30 +416,73 @@ export async function reviewRoom(
   return ok(`Round ${round}.`);
 }
 
-async function entryFromReply(
-  root: string,
-  raw: string,
-  env: Readonly<Record<string, string | undefined>> = process.env,
-  runCommand?: (command: string, stdin: string) => Promise<string>,
-): Promise<{ type: RoomType; text: string; cite?: string } | RoleCommandResult> {
-  let value: unknown;
-  try {
-    value = JSON.parse(cleanReply(raw));
-  } catch {
-    value = null;
-  }
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const rec = value as Record<string, unknown>;
-    if (typeof rec.type === "string" && typeof rec.text === "string") {
-      return checked(rec.type, rec.text, typeof rec.cite === "string" ? rec.cite : "");
+type StoredEntry = { type: RoomType; text: string; cite?: string };
+
+/** A model reply read for the room: a typed entry that passed every check, or one line of text. */
+type RoomRead = { kind: "typed"; entry: StoredEntry } | { kind: "text"; text: string };
+
+/**
+ * Read one room reply from a model. A reply that fails gets a repair try, so each problem is one
+ * line. `refusal` is the text a person sees if the repair does not fix it.
+ */
+function readRoomReply(raw: string): ParseOutcome<RoomRead> & { refusal?: string } {
+  const object = parseJsonObject(raw);
+  if (
+    object.ok &&
+    (typeof object.value.type === "string" || typeof object.value.text === "string")
+  ) {
+    const rec = object.value;
+    const parsed = RoomPostSchema.safeParse({
+      type: rec.type,
+      text: rec.text,
+      cite: typeof rec.cite === "string" ? rec.cite : undefined,
+    });
+    if (!parsed.success) {
+      const noCite =
+        rec.type === "objection" &&
+        parsed.error.issues.every((issue) => issue.path.join(".") === "cite");
+      return {
+        ok: false,
+        issues: zodIssues(parsed.error),
+        refusal: noCite ? "An objection needs a cite." : "A room entry is not valid.",
+      };
     }
+    const entry = checked(parsed.data.type, parsed.data.text, parsed.data.cite ?? "");
+    if (isFailure(entry)) return { ok: false, issues: [entry.stdout], refusal: entry.stdout };
+    return { ok: true, value: { kind: "typed", entry } };
+  }
+  if (object.ok) {
+    return {
+      ok: false,
+      issues: ["type: required", "text: required"],
+      refusal: "A room entry is not valid.",
+    };
   }
   const text = cleanReply(raw);
-  if (!text || text.includes("\n") || text.includes("\r"))
-    return fail("A room entry is not valid.");
-  const typed = await classifyReply(root, text, env, runCommand);
+  if (!text || text.includes("\n") || text.includes("\r")) {
+    return {
+      ok: false,
+      issues: ["(reply): one JSON object, or one line of text"],
+      refusal: "A room entry is not valid.",
+    };
+  }
+  return { ok: true, value: { kind: "text", text } };
+}
+
+/**
+ * Turn a read reply into the entry to store. One line of text is typed by the entry classifier. A
+ * model never records a decision, so a classifier pick of `decision` becomes a post.
+ */
+async function storedEntry(
+  root: string,
+  read: RoomRead,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  runCommand?: (command: string, stdin: string) => Promise<string>,
+): Promise<StoredEntry | RoleCommandResult> {
+  if (read.kind === "typed") return read.entry;
+  const typed = await classifyReply(root, read.text, env, runCommand);
   if (typeof typed !== "string") return typed;
-  return checked(typed, text, "");
+  return checked(typed === "decision" ? "post" : typed, read.text, "");
 }
 
 function checked(

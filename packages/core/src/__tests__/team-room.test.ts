@@ -126,9 +126,10 @@ describe("rooms", () => {
     ]);
     const reviewed = await reviewRoom(root, { stage: "requirements", model: round.model });
     expect(reviewed.stdout).toBe("Round 1.");
-    expect(round.prompts[0]).toContain("Check ids:");
+    expect(round.prompts[0]).toContain("You are in a review room for stage `requirements`.");
     expect(round.prompts[0]).toContain("Job: Write the reading");
-    expect(round.prompts[1]).toContain("Cite for a gap that fits no check id: requirements:room");
+    expect(round.prompts[1]).toMatch(/Round 1 of \d+\./);
+    expect(round.prompts[1]).toContain("You review. You do not own this stage's artifact.");
     expect(await readFile(draft, "utf8")).toBe("Keep the reading.\n");
     const shown = await showRoom(root, { stage: "requirements" });
     expect(shown.stdout).toContain("1 product-manager agree Ship the reading.");
@@ -141,13 +142,165 @@ describe("rooms", () => {
     expect(await readFile(join(root, ".sdd", ".gitignore"), "utf8")).toContain("rooms/");
 
     const again = script([
-      { type: "decision", text: "Keep the ignore switch." },
+      { type: "post", text: "Keep the ignore switch." },
       { type: "agree", text: "Agreed." },
     ]);
     const second = await reviewRoom(root, { stage: "requirements", model: again.model });
     expect(second.stdout).toBe("Round 2.");
     expect(again.prompts[0]).toContain("### Open objections");
     expect(await readFile(join(ctx.path, "meta.yaml"), "utf8")).toContain("stage: requirements");
+  });
+
+  it("repairs an objection without a cite, then stores it", async () => {
+    const root = await project();
+    await role(root, "product-manager", "Write the reading");
+    await role(root, "architect", "Name the seams");
+    await writeTeam(root, ["product-manager", "architect"]);
+    await workflow(root);
+    const config = await loadConfig(root);
+    await createChange({ projectRoot: root, config, title: "Repair", workflowName: "rooms" });
+    const fake = script([
+      { type: "objection", text: "The ignore seam is missing." },
+      { type: "objection", text: "The ignore seam is missing.", cite: "requirements.md#scope" },
+      { type: "agree", text: "Noted." },
+    ]);
+    const reviewed = await reviewRoom(root, { stage: "requirements", model: fake.model });
+    expect(reviewed.stdout).toBe("Round 1.");
+    expect(fake.prompts).toHaveLength(3);
+    expect(fake.prompts[1]).toContain("# Repair");
+    expect(fake.prompts[1]).toContain("cite: an objection needs a cite");
+    expect(fake.prompts[2]).not.toContain("# Repair");
+    const shown = (await showRoom(root, { stage: "requirements" })).stdout;
+    expect(shown).toContain(
+      "1 product-manager objection requirements.md#scope The ignore seam is missing.",
+    );
+  });
+
+  it("does not let a model record a decision: it is repaired, then refused", async () => {
+    const root = await project();
+    await role(root, "product-manager", "Write the reading");
+    await role(root, "architect", "Name the seams");
+    await writeTeam(root, ["product-manager", "architect"]);
+    await workflow(root);
+    const config = await loadConfig(root);
+    await createChange({ projectRoot: root, config, title: "Decide", workflowName: "rooms" });
+    const repaired = script([
+      { type: "decision", text: "Keep the ignore switch." },
+      { type: "post", text: "Keep the ignore switch." },
+      { type: "agree", text: "Noted." },
+    ]);
+    expect((await reviewRoom(root, { stage: "requirements", model: repaired.model })).stdout).toBe(
+      "Round 1.",
+    );
+    expect(repaired.prompts[1]).toContain(
+      'type: must be post, objection, agree or block. "decision" is for the person.',
+    );
+    expect(repaired.prompts[0]).not.toMatch(/"type": "post"[^\n]*"decision"/);
+    const shown = (await showRoom(root, { stage: "requirements" })).stdout;
+    expect(shown).toContain("1 product-manager post Keep the ignore switch.");
+    expect(shown).not.toContain(" decision ");
+
+    const stubborn = script([
+      { type: "decision", text: "Keep it." },
+      { type: "decision", text: "Keep it." },
+    ]);
+    const refused = await reviewRoom(root, { stage: "requirements", model: stubborn.model });
+    expect(refused.exitCode).toBe(1);
+    expect(refused.stdout).toBe("A room entry is not valid.");
+    expect(stubborn.prompts).toHaveLength(2);
+    expect((await showRoom(root, { stage: "requirements" })).stdout).not.toContain(" decision ");
+  });
+
+  it("repairs a reply that is not one line or one JSON object", async () => {
+    const root = await project();
+    await role(root, "product-manager", "Write the reading");
+    await role(root, "architect", "Name the seams");
+    await writeTeam(root, ["product-manager", "architect"]);
+    await workflow(root);
+    const config = await loadConfig(root);
+    await createChange({ projectRoot: root, config, title: "Lines", workflowName: "rooms" });
+    const fake = script([
+      "First line.\nSecond line.",
+      { type: "post", text: "One line." },
+      { foo: 1 },
+      { type: "post", text: "Another." },
+    ]);
+    expect((await reviewRoom(root, { stage: "requirements", model: fake.model })).stdout).toBe(
+      "Round 1.",
+    );
+    expect(fake.prompts[1]).toContain("- (reply): one JSON object, or one line of text");
+    expect(fake.prompts[3]).toContain("- type: required");
+  });
+
+  it("keeps decision for people and the classifier options, and makes a model's pick a post", async () => {
+    const root = await project();
+    await role(root, "one", "one");
+    await role(root, "two", "two");
+    await writeFile(
+      join(root, ".sdd", "team.yaml"),
+      [
+        "branch: bot/{bot}/{change}",
+        "rooms:",
+        "  commit: false",
+        "bots:",
+        "  - { name: one, role: one, wip: 1 }",
+        "  - { name: two, role: two, wip: 1 }",
+        "humans: []",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await workflow(root);
+    const config = await loadConfig(root);
+    await createChange({ projectRoot: root, config, title: "People", workflowName: "rooms" });
+    const person = await postRoom(root, {
+      stage: "trio",
+      type: "decision",
+      text: "Keep the ignore switch.",
+      from: "Ada Lovelace",
+    });
+    expect(person.stdout).toBe("Posted.");
+    await writeFile(
+      join(root, ".sdd", "models.yaml"),
+      [
+        "version: 1",
+        "models:",
+        "  local: { kind: decide, provider: command, command_env: SDD_DECIDE_MODEL }",
+        "  writer: { kind: reason, provider: command, command_env: SDD_ROLE_MODEL }",
+        "defaults:",
+        "  by_work_type: { classify: local }",
+        "  fallback_reason: writer",
+        "  fallback_decide: local",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const seen: string[] = [];
+    const fake = script(["Keep the ignore switch.", "Keep the ignore switch."]);
+    await reviewRoom(root, {
+      stage: "trio",
+      roles: ["one", "two"],
+      model: fake.model,
+      env: { SDD_DECIDE_MODEL: "echo", SDD_ROLE_MODEL: "echo" },
+      runCommand: async (_command, stdin) => {
+        seen.push(stdin);
+        return JSON.stringify({
+          pick: "decision",
+          probs: { post: 0, objection: 0, agree: 0, block: 0, decision: 1 },
+        });
+      },
+    });
+    expect(JSON.parse(seen[0] ?? "{}").options).toEqual([
+      "post",
+      "objection",
+      "agree",
+      "block",
+      "decision",
+    ]);
+    const shown = (await showRoom(root, { stage: "trio" })).stdout;
+    expect(shown).toContain("Ada Lovelace decision Keep the ignore switch.");
+    expect(shown).toContain("one post Keep the ignore switch.");
+    expect(shown).toContain("two post Keep the ignore switch.");
   });
 
   it("stops at room_rounds and lets a person post", async () => {
