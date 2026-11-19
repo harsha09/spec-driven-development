@@ -44,6 +44,53 @@ export const MODEL_REPLY_EXAMPLES: ReplyExamples = {
   invalid: { value: { gaps: "none" }, why: "text is missing, and gaps must be a list." },
 };
 
+/**
+ * The reply of an author, hand-off receiver, or network owner run: `{text, action?}`. This is
+ * what the parser accepts. It takes any non-empty action name, so a refused name still reaches
+ * the runtime refusal (`rejected`, `unavailable`) and its log line. See `DraftContractSchema`.
+ */
+export const DraftReplySchema = z.object({
+  text: z.string().describe("Your answer in plain words."),
+  action: ModelActionSchema.optional().describe("A file write you want a person to approve."),
+});
+
+/**
+ * The same reply as the prompt shows it. The only action name offered is `write_file`. This
+ * schema is for the prompt text only; the parser is `DraftReplySchema` (decision 2c).
+ */
+export const DraftContractSchema = z.object({
+  text: z.string().describe("Your answer in plain words."),
+  action: z
+    .object({
+      name: z.literal("write_file").describe("Only write_file is applied."),
+      words: z.string().optional().describe("One line that says why you write the file."),
+      inputs: z.object({
+        path: z.string().describe("A relative file path inside the project."),
+        contents: z.string().describe("The whole file."),
+      }),
+    })
+    .optional()
+    .describe("A file write you want a person to approve. At most one."),
+});
+
+export const DRAFT_REPLY_EXAMPLES: ReplyExamples = {
+  valid: [
+    {
+      text: "I added the retry note to the design.",
+      action: {
+        name: "write_file",
+        words: "Save the retry note in the design file.",
+        inputs: { path: "design.md", contents: "Retry up to 3 times, 2 seconds apart." },
+      },
+    },
+    { text: "The section does not say how long to wait. Please say." },
+  ],
+  invalid: {
+    value: { text: "Merged it.", action: { name: "merge" } },
+    why: "merge is not an allowed action. Only write_file is, and a bot cannot merge.",
+  },
+};
+
 type CiteIds = [string, ...string[]];
 
 /** The reply of a critique (`critiquePrompt`). A gap may cite only an id the section allows. */
@@ -190,7 +237,11 @@ const PlanLeafSchema = z.object({
   decision: z.string().describe("A decision named in Inputs. Use each decision once."),
   after: z.array(z.string()).describe("Decisions that must finish first. Use [] for none."),
   artifact: z.string().describe("A relative file path inside the project."),
-  boundary: z.enum(["ask", "stop"]).describe("What the owner does at the edge of the artifact."),
+  boundary: z
+    .enum(["ask", "stop"])
+    .describe(
+      'At the edge of the artifact: "ask" asks the person one question and waits; "stop" stops and says what change is needed and where.',
+    ),
 });
 
 /** The lead's plan (`parsePlan` in role/handoff.ts). A node has children one level deep. */

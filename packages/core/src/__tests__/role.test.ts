@@ -934,14 +934,54 @@ describe("role run", () => {
     expect(calls.map((call) => call.roleId)).toEqual(["builder"]);
   });
 
-  it("spends a bad model call and does not retry it", async () => {
+  it("repairs a bad author reply once, then spends the call", async () => {
     const root = await project();
     await builder(root);
-    const { model, calls } = fake(["not-json", json({ text: "retry" })]);
+    const { model, calls } = fake(["not-json", "still not json", json({ text: "never asked" })]);
     const result = await runRole(root, { name: "builder", task: "hi", model, now: clock(0) });
     expect(result.exitCode).toBe(1);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.prompt).toContain("# Repair");
+    expect(recordTypes(await log(root))).toEqual(["repair", "bad_call"]);
     expect(await log(root)).toContain('{"type":"bad_call","roleId":"builder"}');
+  });
+
+  it("takes a repaired author reply, and does not repair a model that fails to answer", async () => {
+    const root = await project();
+    await builder(root);
+    const fixed = fake(["not-json", json({ text: "fixed" })]);
+    const ok = await runRole(root, {
+      name: "builder",
+      task: "hi",
+      model: fixed.model,
+      now: clock(0),
+    });
+    expect(ok.exitCode).toBe(0);
+    expect(ok.stdout).toBe("fixed");
+    expect(fixed.calls).toHaveLength(2);
+
+    const down = fake(["THROW", json({ text: "never asked" })]);
+    const failed = await runRole(root, {
+      name: "builder",
+      task: "hi",
+      model: down.model,
+      now: clock(5),
+    });
+    expect(failed.exitCode).toBe(1);
+    expect(down.calls).toHaveLength(1);
+  });
+
+  it("still refuses and logs an action name that is not write_file", async () => {
+    const root = await project();
+    await builder(root);
+    const { model, calls } = fake([
+      json({ text: "Merged it.", action: { name: "merge", words: "Merge the branch." } }),
+    ]);
+    const result = await runRole(root, { name: "builder", task: "hi", model, now: clock(0) });
+    expect(calls).toHaveLength(1);
+    expect(recordTypes(await log(root))).not.toContain("repair");
+    expect(result.exitCode).toBe(0);
+    expect(await log(root)).toContain('"name":"merge"');
   });
 
   it("still installs only a host stub", async () => {

@@ -334,13 +334,17 @@ const networkAccept = defineCommand({
 
 const networkRun = defineCommand({
   meta: { name: "run", description: "Run ready nodes in an accepted plan" },
-  args: networkArgs(),
+  args: {
+    ...networkArgs(),
+    answer: { type: "string" as const, description: "Answer the question a node asked" },
+  },
   async run({ args }) {
     await withProject(async ({ root }) => {
       emit(
         await runNetwork(root, {
           change: textArg(args.change),
           section: textArg(args.section),
+          answer: textArg(args.answer),
           model: modelFromEnv(process.env),
         }),
       );

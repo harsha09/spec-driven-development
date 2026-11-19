@@ -9,10 +9,10 @@ import {
   scopeLines,
 } from "../prompt.js";
 import {
+  DRAFT_REPLY_EXAMPLES,
+  DraftContractSchema,
   GUIDE_REPLY_EXAMPLES,
   GuideReplySchema,
-  MODEL_REPLY_EXAMPLES,
-  ModelReplySchema,
   PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
   ROOM_POST_EXAMPLES,
@@ -42,8 +42,11 @@ function who(role: RoleProfile): { role: string[]; scope: string[]; card: RoleCa
   return { role: roleLines(card), scope: scopeLines(card), card };
 }
 
-const REPLY = (rules: string[] = []): string =>
-  renderReplyContract(ModelReplySchema, { rules, examples: MODEL_REPLY_EXAMPLES });
+/** The contract for `{text, action?}` replies: author, hand-off receiver, and network owner. */
+const DRAFT = (rules: string[] = []): string =>
+  renderReplyContract(DraftContractSchema, { rules, examples: DRAFT_REPLY_EXAMPLES });
+
+const WRITE_ONLY = "Write only through the write_file action. No other action name is allowed.";
 
 /** The ids a critic may cite: the section's check ids, then `<section id>:<decision>`. */
 export function citeIds(section: AcceptedSection): [string, ...string[]] {
@@ -139,6 +142,13 @@ export function authorPrompt(input: {
 }): string {
   const me = who(input.role);
   const task = [input.task, `Kind: ${input.kind}`];
+  const steps = [
+    "1. Read the task and the Inputs.",
+    "2. Do only what the task asks.",
+    "3. Put your answer in text, in a few short sentences.",
+    "4. If a file must be written, add one write_file action. A person approves it.",
+    "Done when: the task is answered, or you named the one fact you need.",
+  ];
   const inputs: PromptInputBlock[] = [
     { label: "Context", source: "the role context file", text: input.context ?? "" },
   ];
@@ -154,9 +164,10 @@ export function authorPrompt(input: {
   return buildPrompt({
     role: me.role,
     scope: me.scope,
-    task,
+    task: [...task, ...steps],
     inputs,
-    output: REPLY(
+    guardrails: [WRITE_ONLY],
+    output: DRAFT(
       input.guide
         ? [
             'If one fact is missing, set text to one line that starts with "Question: ".',
@@ -302,11 +313,27 @@ export function receiverPrompt(
   const me = who(role);
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
-    task: [task, "Kind: handoff", `Section: ${section.id}`, `Decision: ${section.decision}`],
+    scope: [
+      ...me.scope,
+      "You received this work from another role. You are the only owner of this section.",
+    ],
+    task: [
+      `Do the task for section ${section.id}, decision ${section.decision}.`,
+      `Task: ${task}`,
+      "Kind: handoff",
+      "1. Read the section text.",
+      "2. Do only what the task asks.",
+      "3. In text, say what you did or what you need, in a few short sentences.",
+      "4. If a file must be written, add one write_file action with a one-line reason. A person approves it.",
+      "Done when: the task is answered, or you named the one fact you need.",
+    ],
     inputs: [{ label: "Section text", source: "the accepted-decisions file", text: section.body }],
-    guardrails: ["Answer only for this section."],
-    output: REPLY(["Put what you will do for this section in text."]),
+    guardrails: [
+      "Answer only for this section.",
+      "Do not accept a spec. Do not record a decision. Do not hand the work to anyone else.",
+      WRITE_ONLY,
+    ],
+    output: DRAFT(["Put what you will do for this section in text."]),
   });
 }
 
@@ -314,12 +341,25 @@ export function leadPrompt(input: {
   lead: RoleProfile;
   task: string;
   services: { service: string; module: string; owner: string; decision: string }[];
+  owners: string[];
 }): string {
   const me = who(input.lead);
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
-    task: ["Split the task into a plan. Name who writes which artifact, and in what order."],
+    scope: [...me.scope, "You plan who does what. You write no artifact yourself."],
+    task: [
+      "Make a plan for the task. Split it into pieces. Give each piece one owner.",
+      "1. Make one node for each piece. scope is a service or module id from Services.",
+      "2. owner is a role name from Owners. decision is a decision id from Services.",
+      "3. Use each decision id once.",
+      "4. after lists the decision ids that must finish first. Use [] if none.",
+      "5. artifact is the path of the file the owner will write. It must be a relative path inside the project.",
+      '6. boundary is "ask" or "stop". It says what the owner does at the edge of the artifact.',
+      '   Use "ask" when the owner may need to ask the person one question before going on.',
+      '   Use "stop" when the owner should stop and report what change is needed and where.',
+      "7. Put a node under children only to split it once. Never go deeper than one level of children.",
+      "Done when: every service has an owner, and no decision id is used twice.",
+    ],
     inputs: [
       { label: "Task", source: "the person", text: input.task },
       {
@@ -329,10 +369,11 @@ export function leadPrompt(input: {
           .map((s) => `${s.service} module ${s.module} owner ${s.owner} decision ${s.decision}`)
           .join("\n"),
       },
+      { label: "Owners", source: "the team roles", text: input.owners.join("\n") },
     ],
     guardrails: [
-      "Use only services, modules, owners, and decisions listed in Inputs.",
-      "Each artifact has exactly one owner.",
+      "Do not use a scope, owner, or decision id that is not listed in Inputs.",
+      "Do not give one piece to two owners. Each artifact has exactly one owner.",
       "List an artifact before anything that depends on it.",
     ],
     output: renderReplyContract(PlanReplySchema, {
@@ -350,18 +391,47 @@ export function ownerRunPrompt(input: {
   task: string;
   artifact: string;
   boundary: string;
+  /** Summaries of the nodes this one comes after, and of its children. */
+  prior?: { decision: string; summary: string }[];
+  /** Answers the person gave to this node's earlier questions. */
+  answers?: { question: string; answer: string }[];
 }): string {
   const me = who(input.owner);
+  const inputs: PromptInputBlock[] = [];
+  if (input.prior && input.prior.length > 0) {
+    inputs.push({
+      label: "Prior results",
+      source: "the nodes that finished before this one",
+      text: input.prior.map((item) => `${item.decision}: ${item.summary}`).join("\n"),
+    });
+  }
+  if (input.answers && input.answers.length > 0) {
+    inputs.push({
+      label: "Answers",
+      source: "the person",
+      text: input.answers.map((item) => `Q: ${item.question}\nA: ${item.answer}`).join("\n"),
+    });
+  }
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
-    task: [input.task, `Artifact: ${input.artifact}`, `Boundary: ${input.boundary}`],
-    guardrails: [
-      "Work only on this artifact. If the work needs a change outside it, follow boundary.",
-      "If boundary is ask, ask the owner named in the plan and wait.",
-      "If boundary is stop, stop and say what change is needed and where.",
-      "You are done when every check for this artifact passes.",
+    scope: [...me.scope, "You received this work from the lead. You own one artifact."],
+    task: [
+      input.task,
+      `Write the artifact ${input.artifact}.`,
+      `Boundary: ${input.boundary}`,
+      "1. Do only the work for this artifact.",
+      "2. Put what you did in text, in a few short sentences.",
+      "3. If a file must be written, add one write_file action for the artifact. A person approves it.",
+      "4. If the work needs a change outside the artifact, follow Boundary.",
+      "Done when: every check for this artifact passes, or you followed Boundary.",
     ],
-    output: REPLY(["Put what you did for the artifact in text."]),
+    inputs,
+    guardrails: [
+      "Work only on this artifact.",
+      'If Boundary is ask and you need an answer from the person, set text to one line that starts with "Question: ". Add no action. The run waits for the answer.',
+      "If Boundary is stop, stop and say in text what change is needed and where. Add no action.",
+      WRITE_ONLY,
+    ],
+    output: DRAFT(["Put what you did for the artifact in text."]),
   });
 }
