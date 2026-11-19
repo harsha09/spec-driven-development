@@ -9,6 +9,8 @@ description: Tell the shipped planner, architect, and builder which skill proced
 
 Keep the short role files the CLI writes, and point each duty at a procedure that is long enough to do the work. The role file is the routing contract: job, owns, never, questions, and stages. The skill is the procedure. Pasting a skill into `.sdd/roles/*.md` would change files `sdd setup` owns and would mix product rules into the role body.
 
+The role bodies that `sdd team init` writes for the software, research, and solo templates now carry a short playbook: a lead line, Process, Done when, Example, and Voice. It is the short form of the procedure in the table below. For a longer artifact, such as a design or a QA scenario, follow the longer procedure. The role file's `never` list wins over both. Projects that already ran `sdd team init` keep the bodies they have.
+
 `sdd setup` still writes planner, architect, and builder when the roles directory is empty. `sdd team init --template software` still writes the software roles. This skill does not edit those files and does not change `sdd go`.
 
 ## When to use
