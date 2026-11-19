@@ -5,7 +5,9 @@ import type { TeamConfig } from "../role/schema.js";
 import { ROLE_TEXT, type RoleProfile } from "../role/types.js";
 import { countTokens } from "../search/tokenize.js";
 import { type Fact, getFacts } from "./facts.js";
+import { renderLoopContract } from "./loop-contract.js";
 import { type Lesson, readLessons, readMemory } from "./memory.js";
+import { TOOL_SPECS, allowedChecks } from "./tools.js";
 
 export interface PackedFile {
   path: string;
@@ -46,6 +48,7 @@ export async function loadBrain(
   const context = await roleContextBody(root, spec.role);
   const memoryAll = await readMemory(root, spec.name);
   const lessonsNewest = (await readLessons(root, spec.name)).slice().reverse();
+  const contract = renderLoopContract({ tools: TOOL_SPECS, checks: await allowedChecks(root) });
   const factsNewest = (await getFacts(root, { query: item.text })).slice().reverse();
   const packed = pack({
     roleText,
@@ -54,6 +57,7 @@ export async function loadBrain(
     lessons: lessonsNewest,
     facts: factsNewest,
     item: item.text,
+    contract,
     budget: budgetTokens,
   });
   return {
@@ -75,6 +79,7 @@ function pack(input: {
   lessons: Lesson[];
   facts: Fact[];
   item: string;
+  contract: string;
   budget: number;
 }): { memory: string; lessons: Lesson[]; facts: Fact[]; prompt: string; warning: string } {
   let memory = input.memoryAll;
@@ -96,6 +101,7 @@ function pack(input: {
       parts.push(`Facts:\n${facts.map((fact) => `${fact.key}: ${fact.value}`).join("\n")}`);
     }
     parts.push(itemBlock);
+    parts.push(input.contract);
     return parts.join("\n");
   };
 
