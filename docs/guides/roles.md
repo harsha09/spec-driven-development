@@ -192,7 +192,7 @@ sdd role route --stage=intent
 
 ## Set up your own roles
 
-Use this when the three duties are the wrong split for your repo.
+Use this when the three duties are the wrong split for your repo. The folder needs `.sdd/` first: run `sdd init --here --no-agent` (or the setup above). Without it, `sdd role create` stops with `SDD is not initialized here. Run sdd init first.`
 
 ```bash
 sdd role create analyst --label "Analyst" --job "Write the reading" --stages intent,requirements
@@ -207,7 +207,7 @@ sdd role route
 
 ## Set up a software team
 
-Use this when you want named jobs and a sign-off on every stage. On a terminal, `sdd setup`, choose the roles piece, and pick the software team. The same writer is:
+Use this when you want named jobs and a sign-off on every stage. On a terminal, `sdd setup`, choose the roles piece, and pick the software team. The same writer needs `.sdd/` to exist, so run `sdd init --here --no-agent` first in a new folder. It is:
 
 ```bash
 sdd team init --template software
@@ -271,7 +271,7 @@ Every `team-software` stage is a hard gate. `sdd go` and `sdd next` stop until y
 sdd team signoff --note "I accept this stage"
 ```
 
-The sign-off stores your git name and the commit SHA. A new commit needs a new sign-off. Your git name has to be listed under humans in `.sdd/team.yaml`.
+The sign-off stores your git name and the commit SHA, so the folder must be a git repository with at least one commit. With none, it prints `Cannot sign off: Git HEAD is unavailable in this project.` A new commit needs a new sign-off. Your git name has to be listed under humans in `.sdd/team.yaml`.
 
 ---
 

@@ -190,7 +190,10 @@ describe("team-software workflow", () => {
     await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/not approved|gate/i);
   });
 
-  it("stops on every stage until the person signs this commit", async () => {
+  // This walks all 12 stages. Each one runs a real git commit and sign-off, about 40 git
+  // processes in total, with no sleeps. It takes ~4 s alone and slows down under a loaded
+  // machine, so it gets a 60 s limit instead of the 5 s default.
+  it("stops on every stage until the person signs this commit", { timeout: 60_000 }, async () => {
     const root = await project();
     const config = await loadConfig(root);
     const ctx = await createChange({

@@ -37,10 +37,34 @@ beforeAll(async () => {
   await readFile(sddBin, "utf8");
 });
 
+/** Stop the port holder of any sandbox a test left open. Only a real holder is killed. */
+async function stopHolders(root: string): Promise<void> {
+  try {
+    const raw = await readFile(join(root, ".sdd", "sandboxes", "leases.json"), "utf8");
+    const parsed = JSON.parse(raw) as { leases?: { pid?: number }[] };
+    for (const row of parsed.leases ?? []) {
+      if (!row.pid) continue;
+      const shown = spawnSync("ps", ["-ww", "-o", "command=", "-p", String(row.pid)], {
+        encoding: "utf8",
+      });
+      if (!(shown.stdout ?? "").includes("exclusive: true }")) continue;
+      try {
+        process.kill(row.pid, "SIGKILL");
+      } catch {
+        // Already gone.
+      }
+    }
+  } catch {
+    // No lease table here.
+  }
+}
+
 afterEach(async () => {
   while (temps.length) {
     const dir = temps.pop();
-    if (dir) await rm(dir, { recursive: true, force: true });
+    if (!dir) continue;
+    await stopHolders(dir);
+    await rm(dir, { recursive: true, force: true });
   }
 });
 
