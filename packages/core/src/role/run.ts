@@ -7,7 +7,7 @@ import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
-import { RevisionReplySchema, critiqueReplySchema } from "../reply-schemas.js";
+import { DraftReplySchema, RevisionReplySchema, critiqueReplySchema } from "../reply-schemas.js";
 import { cleanReply } from "../reply-text.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
@@ -328,31 +328,8 @@ export async function acceptedFile(root: string, changeId: string): Promise<stri
   return join(changesDir(root, config), changeId, "accepted.md");
 }
 
-async function callModel(
-  model: RoleModel,
-  file: string,
-  roleId: string,
-  prompt: string,
-  pass: number,
-): Promise<ModelReply | null> {
-  let raw: string;
-  try {
-    raw = await model.complete({ roleId, prompt });
-  } catch {
-    await appendJson(file, { type: "bad_call", roleId });
-    return null;
-  }
-  const parsed = parseReply(raw);
-  if (!parsed) {
-    await appendJson(file, { type: "bad_call", roleId });
-    return null;
-  }
-  await appendJson(file, { type: "model", pass, roleId, text: parsed.text });
-  return parsed;
-}
-
 /** What a schema read gives back, in the shape the rest of this file uses. */
-function replyFrom(value: Record<string, unknown>): ModelReply {
+export function replyFrom(value: Record<string, unknown>): ModelReply {
   const gaps = (value.gaps as { cite: string; text: string }[] | undefined) ?? [];
   const action = value.action as
     | { name: string; words?: string; inputs?: Record<string, unknown> }
@@ -372,7 +349,7 @@ function replyFrom(value: Record<string, unknown>): ModelReply {
  * Ask for a critique or revision. A reply that does not fit the schema, or fails `check`, gets one
  * repair try. A `repair` line goes to the run log for each try, and `bad_call` if it still fails.
  */
-async function askRole(input: {
+export async function askRole(input: {
   model: RoleModel;
   file: string;
   roleId: string;
@@ -667,11 +644,11 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     });
   }
 
-  const draft = await callModel(
-    input.model,
+  const draft = await askRole({
+    model: input.model,
     file,
-    role.name,
-    authorPrompt({
+    roleId: role.name,
+    prompt: authorPrompt({
       role,
       task,
       kind,
@@ -679,8 +656,9 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
       context: await roleContextBody(root, role.name),
       guide: input.guide !== undefined,
     }),
-    1,
-  );
+    pass: 1,
+    schema: DraftReplySchema,
+  });
   if (!draft) return fail("", runId);
 
   let final = draft;

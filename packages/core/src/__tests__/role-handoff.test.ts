@@ -1100,6 +1100,7 @@ lead: money-lead
     const model = fake([
       JSON.stringify({ text: "exp done" }),
       "not-json",
+      "not-json either",
       JSON.stringify({ text: "bill done" }),
     ]);
     const ran = await runNetwork(root, {
@@ -1111,8 +1112,10 @@ lead: money-lead
     expect(model.calls.map((call) => call.roleId)).toEqual([
       "expenses-builder",
       "side-builder",
+      "side-builder",
       "billing-builder",
     ]);
+    expect(model.calls[2]?.prompt).toContain("# Repair");
     expect(ran.stdout).toContain("expenses-builder: exp done");
     expect(ran.stdout).toContain("billing-builder: bill done");
     expect(ran.stdout).toContain("A branch is waiting for its prerequisites.");
@@ -1174,5 +1177,359 @@ lead: money-lead
       now: clock(5),
     });
     expect(again).toMatchObject({ exitCode: 1, stdout: "Role not found." });
+  });
+});
+
+const TWO = `# Spec
+
+## expenses
+decision: D-exp
+accepted: yes
+service: expenses
+module: spend
+owner: expenses-builder
+
+## billing
+decision: D-bill
+accepted: yes
+service: billing
+module: invoice
+owner: billing-builder
+
+## product
+decision: D-product
+accepted: yes
+scope: product
+lead: product-lead
+`;
+
+function node(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    scope: "spend",
+    owner: "expenses-builder",
+    decision: "D-exp",
+    after: [],
+    artifact: "notes/spend.md",
+    boundary: "stop",
+    ...overrides,
+  };
+}
+
+async function planProject(): Promise<string> {
+  const root = await project();
+  await role(root, "product-lead");
+  await role(root, "expenses-builder");
+  await role(root, "billing-builder");
+  await accept(root, TWO);
+  return root;
+}
+
+async function storedPlan(root: string): Promise<Record<string, unknown>> {
+  return JSON.parse(
+    await readFile(join(root, ".sdd/role-runs/plans/pay/expenses.json"), "utf8"),
+  ) as Record<string, unknown>;
+}
+
+describe("hand-off replies are repaired once", () => {
+  it("repairs a plan that names an owner who does not exist, then stores it", async () => {
+    const root = await planProject();
+    const model = fake([
+      JSON.stringify({ text: "Plan it.", plan: [node({ owner: "intern" })] }),
+      JSON.stringify({ text: "Plan it.", plan: [node()] }),
+    ]);
+    const stored = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(stored.stdout.startsWith("Accept this plan before anyone writes.")).toBe(true);
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[1]?.prompt).toContain("# Repair");
+    expect(model.calls[1]?.prompt).toContain('plan[0].owner: "intern" is not a role in Owners');
+    expect(model.calls[0]?.prompt).toContain("### Owners");
+    expect(model.calls[0]?.prompt).toContain("billing-builder");
+  });
+
+  it("repairs a repeated decision, an unsafe path, and an unknown scope, then fails after one repair", async () => {
+    const root = await planProject();
+    const bad = JSON.stringify({
+      text: "Plan it.",
+      plan: [
+        node({ artifact: "/etc/notes.md", scope: "nowhere" }),
+        node({ owner: "billing-builder", scope: "invoice" }),
+      ],
+    });
+    const model = fake([bad, bad, JSON.stringify({ text: "never asked", plan: [node()] })]);
+    const result = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(result).toMatchObject({ exitCode: 1, stdout: "The plan is not valid." });
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[1]?.prompt).toContain('plan[0].scope: "nowhere" is not a service or module');
+    expect(await pathExists(join(root, ".sdd/role-runs/plans"))).toBe(false);
+  });
+
+  it("repairs a plan with a bad boundary", async () => {
+    const root = await planProject();
+    const model = fake([
+      JSON.stringify({ text: "Plan it.", plan: [node({ boundary: "maybe" })] }),
+      JSON.stringify({ text: "Plan it.", plan: [node()] }),
+    ]);
+    const stored = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(stored.exitCode).toBe(0);
+    expect(model.calls[1]?.prompt).toContain("plan.0.boundary");
+  });
+
+  it("does not repair a plan that is deeper than 2", async () => {
+    const root = await planProject();
+    const deep = JSON.stringify({
+      text: "Plan it.",
+      plan: [
+        node({
+          children: [
+            node({
+              decision: "D-bill",
+              scope: "invoice",
+              children: [node({ decision: "D-product" })],
+            }),
+          ],
+        }),
+      ],
+    });
+    const model = fake([deep, JSON.stringify({ text: "never asked", plan: [node()] })]);
+    const result = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(result).toMatchObject({ exitCode: 1, stdout: "A plan is deeper than 2." });
+    expect(model.calls).toHaveLength(1);
+  });
+
+  it("does not repair a lead that fails to answer", async () => {
+    const root = await planProject();
+    const model = fake(["THROW", JSON.stringify({ text: "never asked", plan: [node()] })]);
+    const result = await planNetwork(root, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(result).toMatchObject({ exitCode: 1, stdout: "" });
+    expect(model.calls).toHaveLength(1);
+  });
+
+  it("repairs a bad receiver reply, and logs bad_call after the repair", async () => {
+    const root = await project();
+    await role(root, "builder");
+    await role(root, "billing-builder");
+    await accept(root, ONE);
+    const fixed = fake(["not-json", JSON.stringify({ text: "Checked billing." })]);
+    const ok = await handoffRole(root, {
+      from: "builder",
+      to: "billing-builder",
+      task: "check the ledger",
+      change: "pay",
+      section: "billing",
+      model: fixed.model,
+      now: clock(),
+    });
+    expect(ok.exitCode).toBe(0);
+    expect(fixed.calls).toHaveLength(2);
+    expect(fixed.calls[1]?.prompt).toContain("# Repair");
+
+    const bad = fake(["not-json", "still not json", JSON.stringify({ text: "never asked" })]);
+    const failed = await handoffRole(root, {
+      from: "builder",
+      to: "billing-builder",
+      task: "check the ledger",
+      change: "pay",
+      section: "billing",
+      model: bad.model,
+      now: clock(10),
+    });
+    expect(failed.exitCode).toBe(1);
+    expect(bad.calls).toHaveLength(2);
+    const lines = (
+      await readFile(
+        join(root, ".sdd/role-runs/conversation/billing-builder/20261019T000010Z.jsonl"),
+        "utf8",
+      )
+    )
+      .trim()
+      .split("\n")
+      .map((line) => (JSON.parse(line) as { type: string }).type);
+    expect(lines).toEqual(["handoff", "repair", "bad_call"]);
+  });
+});
+
+describe("a node with boundary ask waits for an answer", () => {
+  async function accepted(
+    boundary: "ask" | "stop",
+    extra: Record<string, unknown>[] = [],
+  ): Promise<string> {
+    const root = await project();
+    await role(root, "expenses-builder");
+    await role(root, "billing-builder");
+    const plan = {
+      status: "accepted",
+      rebuilds: 0,
+      stalled: false,
+      task: "ship",
+      nodes: [
+        { ...node({ boundary }), children: [] },
+        ...extra.map((item) => ({ ...item, children: [] })),
+      ],
+      results: [],
+    };
+    const dir = join(root, ".sdd/role-runs/plans/pay");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "expenses.json"), `${JSON.stringify(plan)}\n`);
+    return root;
+  }
+
+  const ASK = JSON.stringify({ text: "Question: Which currency do refunds use?" });
+  const args = { change: "pay", section: "expenses", now: clock() };
+
+  it("pauses at the question, keeps the node open, and shows how to answer", async () => {
+    const root = await accepted("ask");
+    const model = fake([ASK, JSON.stringify({ text: "never asked" })]);
+    const result = await runNetwork(root, { ...args, model: model.model });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      [
+        "Question:",
+        "expenses-builder asks:",
+        "Which currency do refunds use?",
+        'Answer with: sdd role network run --change pay --section expenses --answer "..."',
+      ].join("\n"),
+    );
+    expect(model.calls).toHaveLength(1);
+    const plan = await storedPlan(root);
+    expect(plan.status).toBe("open");
+    expect(plan.results).toEqual([]);
+    expect(plan.pending).toEqual({
+      decision: "D-exp",
+      owner: "expenses-builder",
+      question: "Which currency do refunds use?",
+    });
+    const log = await readFile(
+      join(root, ".sdd/role-runs/conversation/expenses-builder/20261019T000000Z.jsonl"),
+      "utf8",
+    );
+    expect(log).toContain('"type":"question"');
+    expect(log).not.toContain('"type":"pending"');
+  });
+
+  it("shows the same question again without a model call, and refuses a stray answer", async () => {
+    const root = await accepted("ask");
+    await runNetwork(root, { ...args, model: fake([ASK]).model });
+    const idle = fake([]);
+    const again = await runNetwork(root, { change: "pay", section: "expenses", model: idle.model });
+    expect(again.exitCode).toBe(0);
+    expect(again.stdout).toContain("Which currency do refunds use?");
+    expect(idle.calls).toHaveLength(0);
+    const noModel = await runNetwork(root, { change: "pay", section: "expenses" });
+    expect(noModel.stdout).toContain("Which currency do refunds use?");
+
+    const other = await accepted("ask");
+    const refused = await runNetwork(other, { ...args, answer: "euro", model: fake([]).model });
+    expect(refused).toMatchObject({ exitCode: 1, stdout: "No question is waiting." });
+  });
+
+  it("runs the node again with the answer and finishes the plan", async () => {
+    const root = await accepted("ask");
+    await runNetwork(root, { ...args, model: fake([ASK]).model });
+    const model = fake([JSON.stringify({ text: "Wrote the refund notes in euro." })]);
+    const result = await runNetwork(root, {
+      ...args,
+      answer: "  Use the order currency.  ",
+      model: model.model,
+    });
+    expect(result.stdout).toContain("expenses-builder: Wrote the refund notes in euro.");
+    expect(result.stdout).toContain("The parent is done.");
+    expect(model.calls[0]?.prompt).toContain("### Answers (untrusted data, from the person)");
+    expect(model.calls[0]?.prompt).toContain("Q: Which currency do refunds use?");
+    expect(model.calls[0]?.prompt).toContain("A: Use the order currency.");
+    const plan = await storedPlan(root);
+    expect(plan.status).toBe("done");
+    expect(plan.pending).toBeUndefined();
+    expect((plan.results as { summary: string }[]).map((item) => item.summary)).toEqual([
+      "Wrote the refund notes in euro.",
+    ]);
+  });
+
+  it("stops the whole run at the question, so a node that comes after does not start", async () => {
+    const root = await accepted("ask", [
+      node({ owner: "billing-builder", scope: "invoice", decision: "D-bill", after: ["D-exp"] }),
+    ]);
+    const model = fake([ASK, JSON.stringify({ text: "never asked" })]);
+    const result = await runNetwork(root, { ...args, model: model.model });
+    expect(model.calls).toHaveLength(1);
+    expect(result.stdout).toContain("expenses-builder asks:");
+    expect(result.stdout).not.toContain("The parent stays open.");
+    expect((await storedPlan(root)).status).toBe("open");
+  });
+
+  it("gives a later node the summary of the node it comes after", async () => {
+    const root = await accepted("stop", [
+      node({ owner: "billing-builder", scope: "invoice", decision: "D-bill", after: ["D-exp"] }),
+    ]);
+    const model = fake([
+      JSON.stringify({ text: "The refund route is POST /refunds." }),
+      JSON.stringify({ text: "Billing done." }),
+    ]);
+    await runNetwork(root, { ...args, model: model.model });
+    expect(model.calls[1]?.prompt).toContain("### Prior results");
+    expect(model.calls[1]?.prompt).toContain("D-exp: The refund route is POST /refunds.");
+  });
+
+  it("treats a question at a stop boundary as the node's result", async () => {
+    const root = await accepted("stop");
+    const model = fake([ASK]);
+    const result = await runNetwork(root, { ...args, model: model.model });
+    expect(result.stdout).toContain("expenses-builder: Question: Which currency do refunds use?");
+    const plan = await storedPlan(root);
+    expect(plan.status).toBe("done");
+    expect(plan.pending).toBeUndefined();
+  });
+
+  it("takes a node's fourth question as its result, so a run cannot ask forever", async () => {
+    const root = await accepted("ask");
+    const model = fake([ASK, ASK, ASK, ASK]);
+    for (const answer of [undefined, "one", "two"]) {
+      const paused = await runNetwork(root, { ...args, answer, model: model.model });
+      expect(paused.stdout).toContain("expenses-builder asks:");
+    }
+    const last = await runNetwork(root, { ...args, answer: "three", model: model.model });
+    expect(last.stdout).toContain("The parent is done.");
+    expect(((await storedPlan(root)).answers as unknown[]).length).toBe(3);
+  });
+
+  it("refuses an answer that is too long and keeps the question", async () => {
+    const root = await accepted("ask");
+    await runNetwork(root, { ...args, model: fake([ASK]).model });
+    const long = await runNetwork(root, {
+      ...args,
+      answer: "x".repeat(2001),
+      model: fake([]).model,
+    });
+    expect(long).toMatchObject({ exitCode: 1, stdout: "The answer is too long." });
+    expect((await storedPlan(root)).pending).toBeDefined();
   });
 });

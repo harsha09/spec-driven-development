@@ -1,15 +1,16 @@
 import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { pathExists, readText, writeText } from "../fs.js";
-import { cleanReply } from "../reply-text.js";
-import { canonicalRoleName, conversationDir, readRole } from "./profile.js";
+import { type ParseOutcome, askModel, parseJsonObject, readWith } from "../ask.js";
+import { listFiles, pathExists, readText, writeText } from "../fs.js";
+import { DraftReplySchema, PlanReplySchema } from "../reply-schemas.js";
+import { canonicalRoleName, conversationDir, readRole, roleFilePath } from "./profile.js";
 import { leadPrompt, ownerRunPrompt, receiverPrompt } from "./prompts.js";
 import { matchRoute, writeHandoffInboxes } from "./routing.js";
 import {
   acceptedFile,
   appendJson,
+  askRole,
   isSafeProductPath,
-  parseReply,
   parseSection,
   runIdFrom,
   settleRoleReply,
@@ -49,6 +50,10 @@ interface PlanFile {
   task: string;
   nodes: PlanNode[];
   results: { decision: string; artifact: string; summary: string }[];
+  /** A question an owner asked at a `boundary: ask` node. The run waits for an answer. */
+  pending?: { decision: string; owner: string; question: string };
+  /** The answers the person gave, kept so the node's next run sees them. */
+  answers?: { decision: string; question: string; answer: string }[];
 }
 
 interface PlanContext {
@@ -260,22 +265,15 @@ export async function handoffRole(
   await appendJson(senderFile, record);
   await appendJson(receiverFile, record);
   await writeHandoffInboxes(root, record);
-  let raw: string;
-  try {
-    raw = await input.model.complete({
-      roleId: to,
-      prompt: receiverPrompt(receiver, task, loaded.current),
-    });
-  } catch {
-    await appendJson(receiverFile, { type: "bad_call", roleId: to });
-    return fail("", runId);
-  }
-  const parsed = parseReply(raw);
-  if (!parsed) {
-    await appendJson(receiverFile, { type: "bad_call", roleId: to });
-    return fail("", runId);
-  }
-  await appendJson(receiverFile, { type: "model", pass: 1, roleId: to, text: parsed.text });
+  const parsed = await askRole({
+    model: input.model,
+    file: receiverFile,
+    roleId: to,
+    prompt: receiverPrompt(receiver, task, loaded.current),
+    pass: 1,
+    schema: DraftReplySchema,
+  });
+  if (!parsed) return fail("", runId);
   const settled = await settleRoleReply(root, receiverFile, receiver, parsed, now, runId);
   await appendJson(senderFile, {
     type: "handoff_reply",
@@ -374,82 +372,89 @@ function contextOf(all: SectionFacts[]): PlanContext {
   return { services, modules, decisions };
 }
 
-async function parsePlan(
-  root: string,
-  raw: string,
-  ctx: PlanContext,
-): Promise<PlanNode[] | "invalid" | "deep"> {
-  let value: unknown;
-  try {
-    value = JSON.parse(cleanReply(raw));
-  } catch {
-    return "invalid";
+/** The names of the roles that exist, so a plan can name only those. */
+async function roleNames(root: string): Promise<Set<string>> {
+  const names = new Set<string>();
+  const dir = join(roleFilePath(root, "x"), "..");
+  for (const file of await listFiles(dir)) {
+    if (!file.endsWith(".md")) continue;
+    const name = file.slice(0, -3);
+    if (await readRole(root, name)) names.add(name);
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "invalid";
-  const rec = value as Record<string, unknown>;
-  if (typeof rec.text !== "string" || !Array.isArray(rec.plan)) return "invalid";
-  const seen = new Set<string>();
-  const nodes = await parseNodes(root, rec.plan, ctx, seen, true);
-  return nodes;
+  return names;
 }
 
-async function parseNodes(
-  root: string,
-  value: unknown,
-  ctx: PlanContext,
-  seen: Set<string>,
-  roots: boolean,
-): Promise<PlanNode[] | "invalid" | "deep"> {
-  if (!Array.isArray(value)) return "invalid";
-  const nodes: PlanNode[] = [];
-  for (const item of value) {
-    const parsed = await parseNode(root, item, ctx, seen);
-    if (parsed === "invalid" || parsed === "deep") return parsed;
-    if (!roots && parsed.children.length > 0) return "deep";
-    for (const child of parsed.children) {
-      if (child.children.length > 0) return "deep";
+type PlanRead = { deep: true } | { deep: false; nodes: PlanNode[] };
+
+function tooDeep(plan: unknown[]): boolean {
+  for (const node of plan) {
+    if (!node || typeof node !== "object") continue;
+    const children = (node as Record<string, unknown>).children;
+    if (!Array.isArray(children)) continue;
+    for (const child of children) {
+      if (!child || typeof child !== "object") continue;
+      const grand = (child as Record<string, unknown>).children;
+      if (Array.isArray(grand) && grand.length > 0) return true;
     }
-    nodes.push(parsed);
   }
-  return nodes;
+  return false;
 }
 
-async function parseNode(
-  root: string,
-  value: unknown,
-  ctx: PlanContext,
-  seen: Set<string>,
-): Promise<PlanNode | "invalid" | "deep"> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "invalid";
-  const rec = value as Record<string, unknown>;
-  const scope = typeof rec.scope === "string" ? rec.scope : "";
-  const owner = typeof rec.owner === "string" ? rec.owner : "";
-  const decision = typeof rec.decision === "string" ? rec.decision : "";
-  const artifact = typeof rec.artifact === "string" ? rec.artifact : "";
-  const boundary = rec.boundary;
-  if (!ctx.services.has(scope) && !ctx.modules.has(scope)) return "invalid";
-  if (!(await readRole(root, owner))) return "invalid";
-  if (!ctx.decisions.has(decision) || seen.has(decision)) return "invalid";
-  if (!Array.isArray(rec.after) || rec.after.some((id) => typeof id !== "string")) return "invalid";
-  if ((rec.after as string[]).some((id) => !ctx.decisions.has(id))) return "invalid";
-  if (!isSafeProductPath(artifact)) return "invalid";
-  if (boundary !== "ask" && boundary !== "stop") return "invalid";
-  seen.add(decision);
-  let children: PlanNode[] = [];
-  if (rec.children !== undefined) {
-    const parsed = await parseNodes(root, rec.children, ctx, seen, false);
-    if (parsed === "invalid" || parsed === "deep") return parsed;
-    children = parsed;
-  }
-  return {
-    scope,
-    owner,
-    decision,
-    after: rec.after as string[],
-    artifact,
-    boundary,
-    children,
+type RawNode = Omit<PlanNode, "children"> & { children?: Omit<PlanNode, "children">[] };
+
+/** Problems in a plan that the schema cannot see: ids that are not listed, a repeat, a bad path. */
+function planIssues(plan: RawNode[], ctx: PlanContext, owners: Set<string>): string[] {
+  const issues: string[] = [];
+  const seen = new Set<string>();
+  const check = (node: Omit<PlanNode, "children">, at: string): void => {
+    if (!ctx.services.has(node.scope) && !ctx.modules.has(node.scope)) {
+      issues.push(`${at}.scope: "${node.scope}" is not a service or module in Services`);
+    }
+    if (!owners.has(node.owner)) {
+      issues.push(`${at}.owner: "${node.owner}" is not a role in Owners`);
+    }
+    if (!ctx.decisions.has(node.decision)) {
+      issues.push(`${at}.decision: "${node.decision}" is not a decision in Services`);
+    } else if (seen.has(node.decision)) {
+      issues.push(`${at}.decision: "${node.decision}" is used twice`);
+    }
+    seen.add(node.decision);
+    for (const id of node.after) {
+      if (!ctx.decisions.has(id)) {
+        issues.push(`${at}.after: "${id}" is not a decision in Services`);
+      }
+    }
+    if (!isSafeProductPath(node.artifact)) {
+      issues.push(`${at}.artifact: "${node.artifact}" is not a relative path inside the project`);
+    }
   };
+  plan.forEach((node, index) => {
+    check(node, `plan[${index}]`);
+    (node.children ?? []).forEach((child, at) => check(child, `plan[${index}].children[${at}]`));
+  });
+  return issues;
+}
+
+/**
+ * Read a lead's reply. A plan that is deeper than 2 is not repaired: it ends the run with
+ * "A plan is deeper than 2." as before. Every other problem is a repair issue.
+ */
+function readPlanReply(raw: string, ctx: PlanContext, owners: Set<string>): ParseOutcome<PlanRead> {
+  const object = parseJsonObject(raw);
+  if (!object.ok) return object;
+  if (Array.isArray(object.value.plan) && tooDeep(object.value.plan)) {
+    return { ok: true, value: { deep: true } };
+  }
+  const read = readWith(PlanReplySchema)(raw);
+  if (!read.ok) return read;
+  const plan = read.value.plan as RawNode[];
+  const issues = planIssues(plan, ctx, owners);
+  if (issues.length > 0) return { ok: false, issues };
+  const nodes: PlanNode[] = plan.map((node) => ({
+    ...node,
+    children: (node.children ?? []).map((child) => ({ ...child, children: [] })),
+  }));
+  return { ok: true, value: { deep: false, nodes } };
 }
 
 function leadServices(
@@ -551,19 +556,27 @@ async function storeLeadPlan(
   model: RoleModel,
   previous: PlanFile | null,
 ): Promise<RoleCommandResult> {
-  let raw: string;
-  try {
-    raw = await model.complete({
-      roleId: lead.name,
-      prompt: leadPrompt({ lead, task, services: leadServices(services) }),
-    });
-  } catch {
-    return fail("");
-  }
-  const parsed = await parsePlan(root, raw, contextOf(all));
-  if (previous && (parsed === "invalid" || parsed === "deep")) return fail(planFailure(parsed));
-  if (parsed === "invalid") return fail("The plan is not valid.");
-  if (parsed === "deep") return fail("A plan is deeper than 2.");
+  const owners = await roleNames(root);
+  const ctx = contextOf(all);
+  let tried = false;
+  const asked = await askModel<PlanRead>({
+    model,
+    roleId: lead.name,
+    prompt: leadPrompt({
+      lead,
+      task,
+      services: leadServices(services),
+      owners: [...owners].sort(),
+    }),
+    parse: (raw) => readPlanReply(raw, ctx, owners),
+    onRepair: () => {
+      tried = true;
+    },
+  });
+  if (!asked.ok && asked.reason === "model_error" && !tried) return fail("");
+  if (!asked.ok) return fail(planFailure("invalid"));
+  if (asked.value.deep) return fail(planFailure("deep"));
+  const parsed = asked.value.nodes;
   if (previous && sameArtifacts(previous.nodes, parsed)) {
     previous.stalled = true;
     previous.rebuilds += 1;
@@ -578,6 +591,8 @@ async function storeLeadPlan(
         rebuilds: previous.rebuilds + 1,
         nodes: parsed,
         results: [],
+        pending: undefined,
+        answers: [],
       }
     : freshPlan(task, parsed);
   await writePlan(root, changeId, sectionId, next);
@@ -627,9 +642,33 @@ function ready(node: PlanNode, results: PlanFile["results"]): boolean {
   return afterOk && childrenOk;
 }
 
+const QUESTION = /^Question:\s*/;
+const ANSWER_LIMIT = 2000;
+/** The most questions one node may ask. After that its reply is taken as its result. */
+const QUESTION_LIMIT = 3;
+
+function questionText(
+  changeId: string,
+  sectionId: string,
+  pending: { owner: string; question: string },
+): string {
+  return [
+    "Question:",
+    `${pending.owner} asks:`,
+    pending.question,
+    `Answer with: sdd role network run --change ${changeId} --section ${sectionId} --answer "..."`,
+  ].join("\n");
+}
+
 export async function runNetwork(
   root: string,
-  input: { change?: string; section?: string; model?: RoleModel; now?: () => Date },
+  input: {
+    change?: string;
+    section?: string;
+    answer?: string;
+    model?: RoleModel;
+    now?: () => Date;
+  },
 ): Promise<RoleCommandResult> {
   const changeId = input.change?.trim() ?? "";
   const sectionId = input.section?.trim() ?? "";
@@ -639,17 +678,29 @@ export async function runNetwork(
   if (plan.status === "pending") return ok("Accept this plan before anyone writes.");
   if (plan.status === "done") return ok("The parent is done.");
   if (plan.status !== "accepted" && plan.status !== "open") return fail("No plan is stored.");
+  const answer = input.answer?.trim();
+  if (input.answer !== undefined && !plan.pending) return fail("No question is waiting.");
+  if (plan.pending && !answer) return ok(questionText(changeId, sectionId, plan.pending));
   if ((await messagingOn(root)) === "invalid") return fail(ROLE_TEXT.badYaml);
   const minutes = await timeoutMinutes(root);
   if (minutes === "invalid") return fail(ROLE_TEXT.badYaml);
   if (!input.model) return fail(ROLE_TEXT.noModel);
+  if (plan.pending && answer) {
+    if (answer.length > ANSWER_LIMIT) return fail("The answer is too long.");
+    plan.answers = [
+      ...(plan.answers ?? []),
+      { decision: plan.pending.decision, question: plan.pending.question, answer },
+    ];
+    plan.pending = undefined;
+  }
   const now = (input.now ?? (() => new Date()))();
   const summaries: string[] = [];
   const called = new Set<string>();
   let index = 0;
   let progressed = true;
   let missingOwner = false;
-  while (progressed && !missingOwner) {
+  let paused = false;
+  while (progressed && !missingOwner && !paused) {
     progressed = false;
     for (const node of walk(plan.nodes)) {
       if (!ready(node, plan.results) || called.has(node.decision)) continue;
@@ -663,23 +714,34 @@ export async function runNetwork(
       index += 1;
       const runId = runIdFrom(when);
       const file = join(conversationDir(root, owner.name), `${runId}.jsonl`);
-      let raw: string;
-      try {
-        raw = await input.model.complete({
-          roleId: owner.name,
-          prompt: ownerRunPrompt({
-            owner,
-            task: plan.task,
-            artifact: node.artifact,
-            boundary: node.boundary,
+      const mine = (plan.answers ?? []).filter((item) => item.decision === node.decision);
+      const parsed = await askRole({
+        model: input.model,
+        file,
+        roleId: owner.name,
+        prompt: ownerRunPrompt({
+          owner,
+          task: plan.task,
+          artifact: node.artifact,
+          boundary: node.boundary,
+          prior: [...node.after, ...node.children.map((child) => child.decision)].flatMap((id) => {
+            const found = plan.results.find((item) => item.decision === id);
+            return found ? [{ decision: id, summary: found.summary }] : [];
           }),
-        });
-      } catch {
-        continue;
-      }
-      const parsed = parseReply(raw);
+          answers: mine,
+        }),
+        pass: 1,
+        schema: DraftReplySchema,
+      });
       if (!parsed) continue;
-      await appendJson(file, { type: "model", pass: 1, roleId: owner.name, text: parsed.text });
+      const asked = QUESTION.test(parsed.text) && node.boundary === "ask";
+      if (asked && mine.length < QUESTION_LIMIT) {
+        const question = parsed.text.replace(QUESTION, "").trim() || parsed.text;
+        plan.pending = { decision: node.decision, owner: owner.name, question };
+        await appendJson(file, { type: "question", roleId: owner.name, question });
+        paused = true;
+        break;
+      }
       if (parsed.action) {
         const expiresAt = new Date(when.getTime() + minutes * 60_000).toISOString();
         await appendJson(file, {
@@ -707,6 +769,10 @@ export async function runNetwork(
   await writePlan(root, changeId, sectionId, plan);
   if (missingOwner) return fail(ROLE_TEXT.notFound);
   const lines = [...summaries];
+  if (plan.pending) {
+    lines.push(questionText(changeId, sectionId, plan.pending));
+    return ok(lines.join("\n"));
+  }
   if (waiting) {
     lines.push("A branch is waiting for its prerequisites.");
     lines.push("The parent stays open.");

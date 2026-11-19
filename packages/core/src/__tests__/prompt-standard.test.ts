@@ -16,6 +16,9 @@ import {
   scopeLines,
 } from "../prompt.js";
 import {
+  DRAFT_REPLY_EXAMPLES,
+  DraftContractSchema,
+  DraftReplySchema,
   GUIDE_REPLY_EXAMPLES,
   GuideReplySchema,
   MODEL_REPLY_EXAMPLES,
@@ -216,6 +219,7 @@ describe("reply schemas", () => {
     ["room post", RoomPostSchema, ROOM_POST_EXAMPLES],
     ["guide reply", GuideReplySchema, GUIDE_REPLY_EXAMPLES],
     ["plan reply", PlanReplySchema, PLAN_REPLY_EXAMPLES],
+    ["draft reply, as the prompt shows it", DraftContractSchema, DRAFT_REPLY_EXAMPLES],
   ];
 
   it.each(cases)("%s: valid examples pass and the invalid one fails", (_name, schema, examples) => {
@@ -232,6 +236,16 @@ describe("reply schemas", () => {
     expect(text).toContain(`Invalid: ${JSON.stringify(examples.invalid.value)}`);
     expect(text).toContain(`Why it is invalid: ${examples.invalid.why}`);
     expect(text.indexOf("Valid:")).toBeLessThan(text.indexOf("Invalid:"));
+  });
+
+  it("a draft prompt offers only write_file, but the parser still takes any action name", () => {
+    const merge = DRAFT_REPLY_EXAMPLES.invalid.value;
+    expect(DraftContractSchema.safeParse(merge).success).toBe(false);
+    expect(DraftReplySchema.safeParse(merge).success).toBe(true);
+    expect(parseReply(JSON.stringify(merge))?.action?.name).toBe("merge");
+    expect(renderReplyContract(DraftContractSchema, { examples: DRAFT_REPLY_EXAMPLES })).toContain(
+      '"name": "write_file"',
+    );
   });
 
   it("agrees with parseReply on what a model reply is", () => {
@@ -405,6 +419,7 @@ describe("prompt snapshots", () => {
         services: [
           { service: "payments-api", module: "refunds", owner: "developer", decision: "D1" },
         ],
+        owners: ["developer", "qa"],
       }),
     ));
   it("hand-off owner run", () =>
@@ -415,6 +430,18 @@ describe("prompt snapshots", () => {
         task: "Add a refund endpoint",
         artifact: "src/payments/refund.ts",
         boundary: "ask",
+      }),
+    ));
+  it("hand-off owner run, with prior results and an answer", () =>
+    snap(
+      "handoff-owner-answered",
+      ownerRunPrompt({
+        owner: role,
+        task: "Add a refund endpoint",
+        artifact: "src/payments/refund.ts",
+        boundary: "ask",
+        prior: [{ decision: "D0", summary: "The refund route is POST /refunds." }],
+        answers: [{ question: "Which currency?", answer: "Use the order currency." }],
       }),
     ));
 
