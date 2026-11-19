@@ -1,11 +1,12 @@
-import { pathExists, readText } from "../fs.js";
+import { pathExists } from "../fs.js";
+import { type PromptSpec, buildPrompt, roleCard, roleLines, scopeLines } from "../prompt.js";
 import { roleContextBody } from "../role/context.js";
 import { readRole, roleFilePath } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { ROLE_TEXT, type RoleProfile } from "../role/types.js";
 import { countTokens } from "../search/tokenize.js";
 import { type Fact, getFacts } from "./facts.js";
-import { renderLoopContract } from "./loop-contract.js";
+import { renderLoopContract, renderToolList } from "./loop-contract.js";
 import { type Lesson, readLessons, readMemory } from "./memory.js";
 import { TOOL_SPECS, allowedChecks } from "./tools.js";
 
@@ -26,10 +27,34 @@ export interface Brain {
   facts: Fact[];
   inputs: PackedFile[];
   prompt: string;
+  /** The prompt as sections, so the loop can add room lines and tool results and rebuild it. */
+  parts: PromptSpec;
   warning: string;
 }
 
 const WARNING = "Memory is longer than the budget.";
+
+const LOOP_GUARDRAILS = [
+  "Send one step per reply. Never send a list of steps.",
+  "Use only the tools listed.",
+  "Do not write pass, works or fixed in a check or done unless you cite an evidence path from run_check at the current commit.",
+  "If a step fails, read the error before the next step. Do not repeat the same failing step more than twice.",
+  "Do not write secrets or files outside the project.",
+  "If you reach the last step and are not done, use ask and say what is left.",
+];
+
+function loopTask(maxSteps: number): string[] {
+  return [
+    `Do the work item. Work in steps. Send exactly one step in each reply. You have at most ${maxSteps} steps.`,
+    'Your first step is a "plan" with 2 to 5 short items.',
+    'Then use "tool" steps to read, search, write and check. Read a file before you write it.',
+    'After a "tool" step, the next prompt shows its result under "Tool results".',
+    'Use "check" to state a claim and give its evidence before you finish.',
+    'Use "ask" when a fact is missing or an "Ask the person when" line is true. Give 2 to 4 options. Say which you suggest.',
+    'End with "done": a one-line summary and the paths you wrote.',
+    'Done when: every item under "You produce" exists, and every pass claim has evidence.',
+  ];
+}
 
 export async function loadBrain(
   root: string,
@@ -42,22 +67,23 @@ export async function loadBrain(
   if (!spec) return { error: "Bot not found." };
   const role = await readRole(root, spec.role);
   if (!role) return { error: ROLE_TEXT.notFound };
-  const file = roleFilePath(root, spec.role);
-  if (!(await pathExists(file))) return { error: ROLE_TEXT.notFound };
-  const roleText = await readText(file);
+  if (!(await pathExists(roleFilePath(root, spec.role)))) return { error: ROLE_TEXT.notFound };
+  const card = roleCard(role);
   const context = await roleContextBody(root, spec.role);
   const memoryAll = await readMemory(root, spec.name);
   const lessonsNewest = (await readLessons(root, spec.name)).slice().reverse();
-  const contract = renderLoopContract({ tools: TOOL_SPECS, checks: await allowedChecks(root) });
+  const tools = renderToolList({ tools: TOOL_SPECS, checks: await allowedChecks(root) });
   const factsNewest = (await getFacts(root, { query: item.text })).slice().reverse();
   const packed = pack({
-    roleText,
+    role: roleLines(card),
+    scope: scopeLines(card, tools),
+    task: loopTask(cfg.limits?.loop_max_steps ?? 8),
     context,
     memoryAll,
     lessons: lessonsNewest,
     facts: factsNewest,
     item: item.text,
-    contract,
+    contract: renderLoopContract(),
     budget: budgetTokens,
   });
   return {
@@ -68,12 +94,15 @@ export async function loadBrain(
     facts: packed.facts,
     inputs: [],
     prompt: packed.prompt,
+    parts: packed.parts,
     warning: packed.warning,
   };
 }
 
 function pack(input: {
-  roleText: string;
+  role: string[];
+  scope: string[];
+  task: string[];
   context: string;
   memoryAll: string;
   lessons: Lesson[];
@@ -81,38 +110,60 @@ function pack(input: {
   item: string;
   contract: string;
   budget: number;
-}): { memory: string; lessons: Lesson[]; facts: Fact[]; prompt: string; warning: string } {
+}): {
+  memory: string;
+  lessons: Lesson[];
+  facts: Fact[];
+  prompt: string;
+  parts: PromptSpec;
+  warning: string;
+} {
   let memory = input.memoryAll;
   let lessons = input.lessons.slice();
   let facts = input.facts.slice();
   let context = input.context;
   let warning = "";
-  const itemBlock = `Item:\n${input.item}`;
 
-  const render = (): string => {
-    const parts = [input.roleText.trimEnd()];
-    if (warning) parts.push(warning);
-    if (context.trim()) parts.push(`Context:\n${context.trimEnd()}`);
-    if (memory.trim()) parts.push(`Memory:\n${memory.trimEnd()}`);
+  const partsNow = (): PromptSpec => {
+    const inputs: PromptSpec["inputs"] = [];
+    inputs.push({ label: "Work item", source: "the person", text: input.item });
+    if (context.trim()) {
+      inputs.push({ label: "Context", source: "the role context file", text: context });
+    }
+    if (memory.trim()) inputs.push({ label: "Memory", source: "the bot memory", text: memory });
     if (lessons.length > 0) {
-      parts.push(`Lessons:\n${lessons.map((lesson) => `- ${lesson.text}`).join("\n")}`);
+      inputs.push({
+        label: "Lessons",
+        source: "earlier runs",
+        text: lessons.map((lesson) => `- ${lesson.text}`).join("\n"),
+      });
     }
     if (facts.length > 0) {
-      parts.push(`Facts:\n${facts.map((fact) => `${fact.key}: ${fact.value}`).join("\n")}`);
+      inputs.push({
+        label: "Facts",
+        source: "the fact store",
+        text: facts.map((fact) => `${fact.key}: ${fact.value}`).join("\n"),
+      });
     }
-    parts.push(itemBlock);
-    parts.push(input.contract);
-    return parts.join("\n");
+    return {
+      role: input.role,
+      scope: input.scope,
+      task: warning ? [...input.task, warning] : input.task,
+      inputs,
+      output: input.contract,
+      guardrails: LOOP_GUARDRAILS,
+    };
   };
+  const render = (): string => buildPrompt(partsNow());
 
-  const roleOnly = countTokens(input.roleText) > input.budget;
+  const roleOnly = countTokens([...input.role, ...input.scope].join("\n")) > input.budget;
   if (roleOnly) {
     memory = "";
     lessons = [];
     facts = [];
     context = "";
     warning = input.memoryAll.trim() ? WARNING : "";
-    return { memory, lessons, facts, prompt: render(), warning };
+    return { memory, lessons, facts, prompt: render(), parts: partsNow(), warning };
   }
 
   if (countTokens(render()) > input.budget && context.trim()) context = "";
@@ -132,5 +183,5 @@ function pack(input: {
     while (countTokens(render()) > input.budget && lessons.length > 0) lessons.pop();
     if (countTokens(render()) > input.budget) memory = "";
   }
-  return { memory, lessons, facts, prompt: render(), warning };
+  return { memory, lessons, facts, prompt: render(), parts: partsNow(), warning };
 }

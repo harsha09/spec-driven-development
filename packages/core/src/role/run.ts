@@ -5,6 +5,7 @@ import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
+import { cleanReply } from "../reply-text.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
 import { runLoop } from "../team/loop.js";
@@ -17,7 +18,7 @@ import {
   readAllowFile,
   readRole,
 } from "./profile.js";
-import { critiquePrompt, revisionPrompt } from "./prompts.js";
+import { authorPrompt, critiquePrompt, revisionPrompt } from "./prompts.js";
 import type { AcceptedSection } from "./prompts.js";
 import type { TeamConfig } from "./schema.js";
 import { readTeamConfig, resolveBot } from "./team.js";
@@ -190,7 +191,7 @@ export function parseSection(markdown: string, sectionId: string): AcceptedSecti
 export function parseReply(raw: string): ModelReply | null {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     return null;
   }
@@ -276,44 +277,6 @@ export async function timeoutMinutes(root: string): Promise<number | "invalid"> 
 
 function citeOk(cite: string, section: AcceptedSection): boolean {
   return section.checks.includes(cite) || cite === `${section.id}:${section.decision}`;
-}
-
-function purviewLines(role: RoleProfile): string[] {
-  const rows: string[] = [];
-  if (role.stages.length > 0) rows.push(`Stages: ${role.stages.join(", ")}`);
-  if (role.owns.length > 0) rows.push(`Owns: ${role.owns.join(", ")}`);
-  if (role.skills.length > 0) rows.push(`Skills: ${role.skills.join(", ")}`);
-  if (role.never.length > 0) rows.push(`Never: ${role.never.join(", ")}`);
-  if (role.askHumanWhen.length > 0) rows.push(`Ask when: ${role.askHumanWhen.join(", ")}`);
-  if (rows.length > 0) rows.push("Stay inside this role.");
-  return rows;
-}
-
-function authorPrompt(
-  role: RoleProfile,
-  task: string,
-  kind: string,
-  section?: AcceptedSection,
-  context = "",
-  guide = false,
-): string {
-  const rows = [`Job: ${role.job}`, `Description: ${role.description}`, ...purviewLines(role)];
-  if (context.trim()) rows.push(`Context:\n${context.trim()}`);
-  rows.push(`Task: ${task}`, `Kind: ${kind}`);
-  if (section) {
-    rows.push(
-      `Section: ${section.id}`,
-      `Decision: ${section.decision}`,
-      "Check ids:",
-      ...section.checks,
-    );
-    rows.push("Section text:", section.body);
-  }
-  if (guide) {
-    rows.push('If one fact is missing, reply with one line that starts with "Question: ".');
-    rows.push("Otherwise write the draft for this stage.");
-  }
-  return rows.join("\n");
 }
 
 function neverBlocks(role: RoleProfile, action: ModelAction): boolean {
@@ -627,14 +590,14 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     input.model,
     file,
     role.name,
-    authorPrompt(
+    authorPrompt({
       role,
       task,
       kind,
       section,
-      await roleContextBody(root, role.name),
-      input.guide !== undefined,
-    ),
+      context: await roleContextBody(root, role.name),
+      guide: input.guide !== undefined,
+    }),
     1,
   );
   if (!draft) return fail("", runId);

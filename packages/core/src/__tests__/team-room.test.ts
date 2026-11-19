@@ -128,7 +128,7 @@ describe("rooms", () => {
     expect(reviewed.stdout).toBe("Round 1.");
     expect(round.prompts[0]).toContain("Check ids:");
     expect(round.prompts[0]).toContain("Job: Write the reading");
-    expect(round.prompts[1]).toContain("Cite: requirements:room");
+    expect(round.prompts[1]).toContain("Cite for a gap that fits no check id: requirements:room");
     expect(await readFile(draft, "utf8")).toBe("Keep the reading.\n");
     const shown = await showRoom(root, { stage: "requirements" });
     expect(shown.stdout).toContain("1 product-manager agree Ship the reading.");
@@ -146,7 +146,7 @@ describe("rooms", () => {
     ]);
     const second = await reviewRoom(root, { stage: "requirements", model: again.model });
     expect(second.stdout).toBe("Round 2.");
-    expect(again.prompts[0]).toContain("changed must list every gap cite.");
+    expect(again.prompts[0]).toContain("### Open objections");
     expect(await readFile(join(ctx.path, "meta.yaml"), "utf8")).toContain("stage: requirements");
   });
 
@@ -296,7 +296,7 @@ describe("rooms", () => {
     await writeFile(join(roomDir, "intent.jsonl"), '{"text":"prior room sentence"}\n', "utf8");
     const loud = script([{ step: "done", summary: "loop posted", outputs: [] }]);
     await runRole(root, { name: "builder", task: "loud", model: loud.model });
-    expect(loud.prompts[0]).toContain("Room:");
+    expect(loud.prompts[0]).toContain("### Room");
     expect(loud.prompts[0]).toContain("prior room sentence");
     const body = await readFile(join(roomDir, "intent.jsonl"), "utf8");
     expect(body).toContain("prior room sentence");

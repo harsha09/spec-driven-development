@@ -15,6 +15,7 @@ import {
 } from "../fs.js";
 import { initProject } from "../init.js";
 import { templatesDir } from "../paths.js";
+import { cleanReply } from "../reply-text.js";
 import type { Stage } from "../schemas.js";
 import { getStage, loadWorkflow } from "../workflow.js";
 import { createRole, readRole } from "./profile.js";
@@ -325,12 +326,12 @@ function resultsBody(stage: Stage, role: string, request: string, headings: stri
   );
 }
 
-function parseGuideReply(
+export function parseGuideReply(
   raw: string,
 ): { text: string; parts: { heading: string; text: string }[] } | null {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     return null;
   }

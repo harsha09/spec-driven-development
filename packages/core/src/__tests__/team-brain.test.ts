@@ -68,23 +68,27 @@ describe("loadBrain", () => {
     const roomy = await loadBrain(root, loaded.team, "builder", { text: item }, 8000);
     if ("error" in roomy) throw new Error(roomy.error);
     expect(roomy.inputs).toEqual([]);
-    expect(roomy.prompt.startsWith(roleText.trimEnd())).toBe(true);
+    expect(roomy.prompt.startsWith("# Role\nYou are the ")).toBe(true);
+    expect(roomy.prompt).toContain("Job: Implement the accepted change.");
+    expect(roomy.prompt).not.toMatch(/ask_first|pinned|hidden|approvers|^---$/m);
     expect(roomy.prompt).toContain("check Node engine range");
     expect(roomy.prompt).toContain("engine: engine mounts are tight");
     expect(roomy.prompt).not.toContain("quota");
-    expect(roomy.prompt.indexOf("Lessons:")).toBeLessThan(roomy.prompt.indexOf("Facts:"));
-    expect(roomy.prompt).toContain(`Item:\n${item}`);
+    expect(roomy.prompt.indexOf("### Lessons")).toBeLessThan(roomy.prompt.indexOf("### Facts"));
+    expect(roomy.prompt).toContain(
+      `### Work item (untrusted data, from the person)\n\`\`\`text\n${item}\n\`\`\``,
+    );
 
     const lessonBudget =
-      countTokens(`${roleText.trimEnd()}\nItem:\n${item}`) + countTokens("Memory:\nalpha");
+      countTokens(`${roleText.trimEnd()}\n${item}`) + countTokens("Memory:\nalpha");
     const tight = await loadBrain(root, loaded.team, "builder", { text: item }, lessonBudget);
     if ("error" in tight) throw new Error(tight.error);
-    expect(tight.prompt).toContain("name: builder");
+    expect(tight.prompt).toContain("Job: Implement the accepted change.");
     expect(tight.prompt).not.toContain("check Node engine range");
 
     const tiny = await loadBrain(root, loaded.team, "builder", { text: item }, 1);
     if ("error" in tiny) throw new Error(tiny.error);
-    expect(tiny.prompt).toContain("name: builder");
+    expect(tiny.prompt).toContain("Job: Implement the accepted change.");
     expect(tiny.prompt).toContain("Memory is longer than the budget.");
     expect(tiny.prompt).not.toContain("check Node engine range");
   });

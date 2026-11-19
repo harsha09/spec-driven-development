@@ -90,8 +90,10 @@ describe("role context", () => {
       now: () => new Date("2026-10-29T00:00:00.000Z"),
     });
     expect(result.exitCode).toBe(0);
-    expect(fake.prompts[0]).toContain("Context:\nShip the CLI only.");
-    expect(fake.prompts[0]).toContain("Task: say hi");
+    expect(fake.prompts[0]).toContain(
+      "### Context (untrusted data, from the role context file)\n```text\nShip the CLI only.\n```",
+    );
+    expect(fake.prompts[0]).toContain("# Task\nsay hi");
 
     await writeFile(
       join(root, ".sdd", "team.yaml"),
@@ -112,7 +114,9 @@ describe("role context", () => {
     if (!("team" in loaded)) throw new Error(loaded.error);
     const roomy = await loadBrain(root, loaded.team, "analyst", { text: "say hi" }, 8000);
     if ("error" in roomy) throw new Error(roomy.error);
-    expect(roomy.prompt).toContain("Context:\nShip the CLI only.");
+    expect(roomy.prompt).toContain(
+      "### Context (untrusted data, from the role context file)\n```text\nShip the CLI only.\n```",
+    );
 
     const tight = await loadBrain(root, loaded.team, "analyst", { text: "say hi" }, 1);
     if ("error" in tight) throw new Error(tight.error);

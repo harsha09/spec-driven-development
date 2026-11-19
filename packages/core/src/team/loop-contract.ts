@@ -1,5 +1,6 @@
 import "../zod-v3-messages.js";
 import { z } from "zod";
+import { PROMPT_TEXT, type ReplyExamples, renderExamples } from "../prompt.js";
 import { describeFields, describeVariants } from "../schema-shape.js";
 
 const planStep = z
@@ -52,43 +53,59 @@ export interface ToolSpec {
   args: z.ZodType;
 }
 
-export interface LoopContractInput {
-  steps?: z.ZodType;
-  tools: readonly ToolSpec[];
-  /** Exact commands `run_check` accepts in this project. */
-  checks?: readonly string[];
-}
-
-/** A reply the parser accepts. Tests parse it with the schema, so it cannot go stale. */
-export const VALID_STEP_EXAMPLE: LoopStep = {
-  step: "tool",
-  name: "read_file",
-  args: { path: "src/index.ts" },
+/** One valid reply per step, and one the parser refuses. Tests parse them with the schema. */
+export const LOOP_STEP_EXAMPLES: ReplyExamples = {
+  valid: [
+    { step: "plan", items: ["Read the spec", "Add the retry", "Run the tests"] },
+    { step: "tool", name: "read_file", args: { path: "changes/refund-retry/spec.md" } },
+    {
+      step: "check",
+      claim: "Refund calls retry 3 times and the tests pass.",
+      evidence: ["changes/refund-retry/evidence/0a1b2c3.json"],
+    },
+    {
+      step: "ask",
+      question: "Should a retry also cover timeouts?",
+      options: ["yes", "no"],
+      suggest: "yes",
+    },
+    {
+      step: "done",
+      summary: "Refund calls retry 3 times, 2 seconds apart. Tests pass.",
+      outputs: ["src/refund/client.ts"],
+      evidence: ["changes/refund-retry/evidence/0a1b2c3.json"],
+    },
+  ],
+  invalid: {
+    value: { step: "read_file", path: "changes/refund-retry/spec.md" },
+    why: 'step must be plan, tool, check, ask or done. A tool call is {"step":"tool","name":"read_file","args":{...}}.',
+  },
 };
 
-/** A reply the parser refuses: a step name that does not exist, plus prose around it. */
-export const INVALID_STEP_EXAMPLE = '{"step":"think","text":"I will look at the file."}';
-
-/**
- * The reply format and tool list that go to the model. Both are generated from the loop's
- * zod schema and the registered tool specs, so a change to either changes this text.
- */
-export function renderLoopContract(input: LoopContractInput): string {
+/** The reply format for the loop, generated from the step schema the parser uses. */
+export function renderLoopContract(input: { steps?: z.ZodType } = {}): string {
   const lines: string[] = [
-    "Reply format:",
-    "Reply with exactly one JSON object per turn. No prose, no code fences. The object is one of:",
+    PROMPT_TEXT.replyIntro.replace("Shape:", "Send one step per reply. The step is one of:"),
   ];
   for (const variant of describeVariants(input.steps ?? LoopStepSchema)) {
     lines.push(`- ${variant.shape}${variant.note ? `  ${variant.note}` : ""}`);
   }
-  lines.push(
-    "Optional keys end in ?. A reply that does not match one of these is refused and the run stops.",
-    `Valid: ${JSON.stringify(VALID_STEP_EXAMPLE)}`,
-    `Invalid: ${INVALID_STEP_EXAMPLE} (no such step)`,
-    "",
-    "Tool list:",
-    'Call a tool with {"step":"tool","name":<name>,"args":{...}}. Results appear under "Tools:" on the next turn.',
-  );
+  lines.push(PROMPT_TEXT.optionalKeys, ...renderExamples(LOOP_STEP_EXAMPLES));
+  return lines.join("\n");
+}
+
+/**
+ * The tools a role may call, for the Scope section. Generated from the registered tool specs, so
+ * the list cannot drift from what `runTool` dispatches.
+ */
+export function renderToolList(input: {
+  tools: readonly ToolSpec[];
+  /** Exact commands `run_check` accepts in this project. */
+  checks?: readonly string[];
+}): string[] {
+  const lines: string[] = [
+    'Tools you may call, one per "tool" step. Send {"step":"tool","name":<name>,"args":{...}}:',
+  ];
   for (const tool of input.tools) {
     lines.push(`- ${tool.name}: ${tool.description}`);
     for (const field of describeFields(tool.args)) {
@@ -96,10 +113,12 @@ export function renderLoopContract(input: LoopContractInput): string {
       lines.push(`    ${field.name}${field.optional ? "?" : ""}: ${field.shape}.${note}`);
     }
   }
-  lines.push("Push, pull request, and merge are not tools. A person does those.");
+  lines.push(
+    "A person does these: push, pull request, merge, tag, deploy. A call to them is refused.",
+  );
   if (input.checks && input.checks.length > 0) {
     lines.push("run_check accepts only these exact commands:");
     for (const command of input.checks) lines.push(`    ${command}`);
   }
-  return lines.join("\n");
+  return lines;
 }

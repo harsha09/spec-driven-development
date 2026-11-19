@@ -6,10 +6,10 @@ import { z } from "zod";
 import { createRole, initProject, loadBrain, readTeamConfig, runLoop } from "../index.js";
 import type { RoleModel } from "../role/types.js";
 import {
-  INVALID_STEP_EXAMPLE,
+  LOOP_STEP_EXAMPLES,
   LoopStepSchema,
-  VALID_STEP_EXAMPLE,
   renderLoopContract,
+  renderToolList,
 } from "../team/loop-contract.js";
 import { TOOL_SPECS, runTool } from "../team/tools.js";
 
@@ -46,32 +46,35 @@ async function project(): Promise<string> {
 }
 
 const stepNames = LoopStepSchema.options.map((option) => option.shape.step.value);
+const tools = { tools: TOOL_SPECS };
 
 describe("loop contract", () => {
   it("states every step in the schema and every registered tool", () => {
-    const text = renderLoopContract({ tools: TOOL_SPECS });
+    const text = renderLoopContract();
     for (const step of stepNames) expect(text).toContain(`"step": "${step}"`);
-    for (const tool of TOOL_SPECS) expect(text).toContain(`- ${tool.name}: ${tool.description}`);
     expect(text).toContain('"items": string[]');
     expect(text).toContain('"claim": string');
     expect(text).toContain('"evidence"?: string[]');
     expect(text).toContain('"args"?: any');
+    expect(text).toContain("Start with { and end with }.");
+    const list = renderToolList(tools).join("\n");
+    for (const tool of TOOL_SPECS) expect(list).toContain(`- ${tool.name}: ${tool.description}`);
   });
 
   it("changes when the schema changes", () => {
-    const before = renderLoopContract({ tools: TOOL_SPECS });
+    const before = renderLoopContract();
     const extended = z.discriminatedUnion("step", [
       ...LoopStepSchema.options,
       z.strictObject({ step: z.literal("pause"), reason: z.string() }),
     ]);
-    const after = renderLoopContract({ steps: extended, tools: TOOL_SPECS });
+    const after = renderLoopContract({ steps: extended });
     expect(before).not.toContain("pause");
     expect(after).toContain('{"step": "pause", "reason": string}');
     const fewer = z.discriminatedUnion("step", [
       LoopStepSchema.options[0],
       LoopStepSchema.options[4],
     ]);
-    expect(renderLoopContract({ steps: fewer, tools: TOOL_SPECS })).not.toContain('"step": "ask"');
+    expect(renderLoopContract({ steps: fewer }).split("Valid:")[0]).not.toContain('"step": "ask"');
   });
 
   it("changes when a tool is added or its arguments change", () => {
@@ -80,17 +83,24 @@ describe("loop contract", () => {
       description: "Lint one file.",
       args: z.strictObject({ file: z.string(), fix: z.boolean().optional() }),
     };
-    const text = renderLoopContract({ tools: [...TOOL_SPECS, extra], checks: ["pnpm test"] });
+    const text = renderToolList({ tools: [...TOOL_SPECS, extra], checks: ["pnpm test"] }).join(
+      "\n",
+    );
     expect(text).toContain("- lint: Lint one file.");
     expect(text).toContain("file: string.");
     expect(text).toContain("fix?: boolean.");
     expect(text).toContain("run_check accepts only these exact commands:\n    pnpm test");
-    expect(renderLoopContract({ tools: TOOL_SPECS })).not.toContain("lint");
+    expect(renderToolList(tools).join("\n")).not.toContain("lint");
   });
 
-  it("ships a valid example the parser accepts and an invalid one it refuses", () => {
-    expect(LoopStepSchema.safeParse(VALID_STEP_EXAMPLE).success).toBe(true);
-    expect(LoopStepSchema.safeParse(JSON.parse(INVALID_STEP_EXAMPLE)).success).toBe(false);
+  it("ships a valid example for every step and an invalid one the parser refuses", () => {
+    const shown = LOOP_STEP_EXAMPLES.valid.map((value) => (value as { step: string }).step);
+    expect(shown).toEqual(stepNames);
+    for (const value of LOOP_STEP_EXAMPLES.valid) {
+      expect(LoopStepSchema.safeParse(value).success).toBe(true);
+    }
+    expect(LoopStepSchema.safeParse(LOOP_STEP_EXAMPLES.invalid.value).success).toBe(false);
+    expect(LOOP_STEP_EXAMPLES.invalid.why.length).toBeGreaterThan(0);
   });
 
   it("dispatches every tool it lists", async () => {
@@ -107,7 +117,11 @@ describe("loop contract", () => {
   });
 
   it("keeps the contract section stable", async () => {
-    const text = renderLoopContract({ tools: TOOL_SPECS, checks: ["pnpm test", "pnpm lint"] });
+    const text = [
+      renderToolList({ tools: TOOL_SPECS, checks: ["pnpm test", "pnpm lint"] }).join("\n"),
+      "",
+      renderLoopContract(),
+    ].join("\n");
     await expect(`${text}\n`).toMatchFileSnapshot("./__snapshots__/loop-contract.txt");
   });
 });
@@ -120,11 +134,14 @@ describe("loop contract in the prompt", () => {
     if (!("team" in loaded)) throw new Error(loaded.error);
     const brain = await loadBrain(root, loaded.team, "builder", { text: "add a todo" }, 8000);
     if ("error" in brain) throw new Error(brain.error);
-    const contract = renderLoopContract({ tools: TOOL_SPECS, checks: ["pnpm test:unit"] });
-    expect(brain.prompt).toContain(contract);
-    expect(brain.prompt.indexOf("Item:\nadd a todo")).toBeLessThan(
-      brain.prompt.indexOf("Reply format:"),
+    expect(brain.prompt).toContain(renderLoopContract());
+    expect(brain.prompt).toContain(
+      renderToolList({ tools: TOOL_SPECS, checks: ["pnpm test:unit"] }).join("\n"),
     );
+    const item = brain.prompt.indexOf("### Work item");
+    expect(item).toBeGreaterThan(-1);
+    expect(item).toBeLessThan(brain.prompt.indexOf("# Output contract"));
+    expect(brain.prompt.indexOf("# Style")).toBeLessThan(brain.prompt.indexOf("# Output contract"));
   });
 
   it("keeps the contract when the budget is tiny", async () => {
@@ -133,8 +150,8 @@ describe("loop contract in the prompt", () => {
     if (!("team" in loaded)) throw new Error(loaded.error);
     const brain = await loadBrain(root, loaded.team, "builder", { text: "x" }, 1);
     if ("error" in brain) throw new Error(brain.error);
-    expect(brain.prompt).toContain("Reply format:");
-    expect(brain.prompt).toContain("Tool list:");
+    expect(brain.prompt).toContain("# Output contract");
+    expect(brain.prompt).toContain("Tools you may call");
   });
 
   it("sends the contract to the model on the first loop turn", async () => {
@@ -162,7 +179,7 @@ describe("loop contract in the prompt", () => {
       logName: "builder",
     });
     expect(prompts).toHaveLength(1);
-    expect(prompts[0]).toContain("Reply format:");
+    expect(prompts[0]).toContain("# Output contract");
     for (const tool of TOOL_SPECS) expect(prompts[0]).toContain(`- ${tool.name}:`);
   });
 });
