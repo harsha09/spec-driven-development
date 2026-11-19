@@ -41,7 +41,7 @@ type EvidenceFile = z.infer<typeof EvidenceSchema>;
 export const TOOL_SPECS = [
   {
     name: "read_file",
-    description: "Read one project file.",
+    description: "Read one file inside the project.",
     args: z.strictObject({
       path: z.string().describe("Path relative to the project root."),
     }),
@@ -56,7 +56,7 @@ export const TOOL_SPECS = [
   },
   {
     name: "context",
-    description: "Get code context for a path, a query, or a symbol.",
+    description: "Get a code outline for a path, a query, or a symbol.",
     args: z.strictObject({
       path: z.string().optional(),
       query: z.string().optional(),
@@ -65,14 +65,15 @@ export const TOOL_SPECS = [
   },
   {
     name: "run_check",
-    description: "Run one allowlisted check at HEAD. The result is saved as evidence.",
+    description: "Run one allowed check at the current commit. The result shows an evidence path.",
     args: z.strictObject({
       run: z.string().describe("The exact command string from the allowlist."),
     }),
   },
   {
     name: "write_file",
-    description: "Write one project file.",
+    description:
+      "Write one file inside the project. You cannot write the accepted-decisions file or anything under .sdd.",
     args: z.strictObject({
       path: z.string().describe("Path relative to the project root."),
       contents: z.string().describe("The full new contents of the file."),
@@ -80,7 +81,7 @@ export const TOOL_SPECS = [
   },
   {
     name: "commit",
-    description: "Commit the listed paths on your own branch.",
+    description: "Commit paths on your own branch. The message is one line.",
     args: z.strictObject({
       message: z.string().describe("A one-line commit message."),
       paths: z.array(z.string()).describe("Files to commit, relative to the project root."),

@@ -2,6 +2,7 @@ import { appendFile } from "node:fs/promises";
 import { basename, join } from "pathe";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
 import { buildPrompt } from "../prompt.js";
+import { cleanReply } from "../reply-text.js";
 import { conversationDir } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
@@ -42,8 +43,8 @@ export async function runLoop(input: {
   const promptFor = (): string => {
     const parts = input.brain.parts;
     const inputs = [...(parts.inputs ?? [])];
-    if (room) inputs.push({ label: "Room", text: room });
-    if (results) inputs.push({ label: "Tool results", text: results });
+    if (room) inputs.push({ label: "Room", source: "the stage room", text: room });
+    if (results) inputs.push({ label: "Tool results", source: "tools you called", text: results });
     return buildPrompt({ ...parts, inputs });
   };
   const remember = (text: string): void => {
@@ -149,7 +150,7 @@ type Parsed = { kind: "understand" } | { kind: "reflect" } | { kind: "schema"; s
 function parseStep(raw: string): Parsed | null {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     return null;
   }

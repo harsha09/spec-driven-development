@@ -1,6 +1,7 @@
 import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { pathExists, readText, writeText } from "../fs.js";
+import { cleanReply } from "../reply-text.js";
 import { canonicalRoleName, conversationDir, readRole } from "./profile.js";
 import { leadPrompt, ownerRunPrompt, receiverPrompt } from "./prompts.js";
 import { matchRoute, writeHandoffInboxes } from "./routing.js";
@@ -380,7 +381,7 @@ async function parsePlan(
 ): Promise<PlanNode[] | "invalid" | "deep"> {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     return "invalid";
   }

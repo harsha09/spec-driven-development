@@ -1,5 +1,6 @@
 import "./zod-v3-messages.js";
 import { z } from "zod";
+import type { ReplyExamples } from "./prompt.js";
 
 /*
  * One schema per reply format a prompt asks for. The prompt text is generated from these, and
@@ -30,9 +31,16 @@ export const ModelReplySchema = z.object({
     .describe("A file write you want a person to approve. Only write_file is applied."),
 });
 
-export const MODEL_REPLY_EXAMPLE = {
-  text: "The draft covers the add-item flow. One gap: no rule for empty titles.",
-  gaps: [{ cite: "CHK-002", text: "An empty todo title has no stated outcome." }],
+export const MODEL_REPLY_EXAMPLES: ReplyExamples = {
+  valid: [
+    {
+      text: "The draft covers the add-item flow. One gap: no rule for empty titles.",
+      gaps: [
+        { cite: "CHK-002", text: "The text 'a todo has a title' has no rule for an empty title." },
+      ],
+    },
+  ],
+  invalid: { value: { gaps: "none" }, why: "text is missing, and gaps must be a list." },
 };
 
 /** One room entry (`entryFromReply` in team/room.ts). */
@@ -42,10 +50,18 @@ export const RoomPostSchema = z.object({
   cite: z.string().optional().describe("What you point at. An objection needs one."),
 });
 
-export const ROOM_POST_EXAMPLE = {
-  type: "objection",
-  text: "The retry limit for a failed payment is missing.",
-  cite: "CHK-004",
+export const ROOM_POST_EXAMPLES: ReplyExamples = {
+  valid: [
+    {
+      type: "objection",
+      text: "CHK-004: the retry limit for a failed payment is missing.",
+      cite: "CHK-004",
+    },
+  ],
+  invalid: {
+    value: { type: "shrug", text: "Not sure." },
+    why: "type must be post, objection, agree, block or decision.",
+  },
 };
 
 /** The reply of a guided stage draft (`parseGuideReply` in role/guide.ts). */
@@ -57,9 +73,17 @@ export const GuideReplySchema = z.object({
     .describe("The draft split under the listed headings."),
 });
 
-export const GUIDE_REPLY_EXAMPLE = {
-  text: "Draft for the todo list.",
-  parts: [{ heading: "Goals", text: "People add, finish, and remove todo items." }],
+export const GUIDE_REPLY_EXAMPLES: ReplyExamples = {
+  valid: [
+    {
+      text: "Draft for the todo list.",
+      parts: [{ heading: "Goals", text: "People add, finish, and remove todo items." }],
+    },
+  ],
+  invalid: {
+    value: { text: "Draft for the todo list.", parts: "Goals" },
+    why: "parts must be a list of {heading, text} objects.",
+  },
 };
 
 const PlanLeafSchema = z.object({
@@ -77,16 +101,24 @@ export const PlanReplySchema = z.object({
   plan: z.array(PlanLeafSchema.extend({ children: z.array(PlanLeafSchema).optional() })),
 });
 
-export const PLAN_REPLY_EXAMPLE = {
-  text: "The API change goes first, then the client.",
-  plan: [
+export const PLAN_REPLY_EXAMPLES: ReplyExamples = {
+  valid: [
     {
-      scope: "payments-api",
-      owner: "developer",
-      decision: "D1",
-      after: [],
-      artifact: "src/payments/refund.ts",
-      boundary: "ask",
+      text: "The API change goes first, then the docs.",
+      plan: [
+        {
+          scope: "orders-api",
+          owner: "developer",
+          decision: "add-limit",
+          after: [],
+          artifact: "changes/add-limit/api-notes.md",
+          boundary: "ask",
+        },
+      ],
     },
   ],
+  invalid: {
+    value: { text: "Plan ready.", plan: [{ scope: "orders-api", boundary: "maybe" }] },
+    why: "boundary must be ask or stop, and owner, decision, after and artifact are missing.",
+  },
 };

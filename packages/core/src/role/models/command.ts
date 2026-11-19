@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { cleanReply } from "../../reply-text.js";
 import type { RoleModel } from "../types.js";
 
 export function decideStdin(input: {
@@ -40,9 +41,11 @@ export function modelFromEnv(
   if (!command) return undefined;
   return {
     async complete(input) {
-      const text = await spawnModelCommand(
-        command,
-        `${JSON.stringify({ roleId: input.roleId, prompt: input.prompt })}\n`,
+      const text = cleanReply(
+        await spawnModelCommand(
+          command,
+          `${JSON.stringify({ roleId: input.roleId, prompt: input.prompt })}\n`,
+        ),
       );
       let parsed: unknown;
       try {

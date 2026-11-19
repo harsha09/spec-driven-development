@@ -1,5 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "pathe";
+import { cleanReply } from "../reply-text.js";
 import "../zod-v3-messages.js";
 import { z } from "zod";
 import { buildContext, getActiveChangeId } from "../change-context.js";
@@ -414,7 +415,7 @@ async function entryFromReply(
 ): Promise<{ type: RoomType; text: string; cite?: string } | RoleCommandResult> {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     value = null;
   }
@@ -424,7 +425,7 @@ async function entryFromReply(
       return checked(rec.type, rec.text, typeof rec.cite === "string" ? rec.cite : "");
     }
   }
-  const text = raw.trim();
+  const text = cleanReply(raw);
   if (!text || text.includes("\n") || text.includes("\r"))
     return fail("A room entry is not valid.");
   const typed = await classifyReply(root, text, env, runCommand);

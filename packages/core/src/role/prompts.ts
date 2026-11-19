@@ -1,12 +1,20 @@
-import { type PromptInputBlock, buildPrompt, renderReplyContract } from "../prompt.js";
 import {
-  GUIDE_REPLY_EXAMPLE,
+  type PromptInputBlock,
+  type RoleCard,
+  buildPrompt,
+  renderReplyContract,
+  roleCard,
+  roleLines,
+  scopeLines,
+} from "../prompt.js";
+import {
+  GUIDE_REPLY_EXAMPLES,
   GuideReplySchema,
-  MODEL_REPLY_EXAMPLE,
+  MODEL_REPLY_EXAMPLES,
   ModelReplySchema,
-  PLAN_REPLY_EXAMPLE,
+  PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
-  ROOM_POST_EXAMPLE,
+  ROOM_POST_EXAMPLES,
   RoomPostSchema,
 } from "../reply-schemas.js";
 import type { RoleProfile } from "./types.js";
@@ -24,25 +32,9 @@ export interface AcceptedSection {
  * guardrails and style live in prompt.ts.
  */
 
-function roleLines(role: RoleProfile): string[] {
-  const rows = [`Job: ${role.job}`];
-  if (role.description.trim()) rows.push(`Description: ${role.description.trim()}`);
-  if (role.skills.length > 0) rows.push(`Skills: ${role.skills.join(", ")}`);
-  return rows;
-}
-
-function scopeLines(role: RoleProfile): string[] {
-  const rows: string[] = [];
-  if (role.stages.length > 0) rows.push(`Stages: ${role.stages.join(", ")}`);
-  if (role.owns.length > 0) rows.push(`Owns: ${role.owns.join(", ")}`);
-  if (role.never.length > 0) rows.push(`Never: ${role.never.join(", ")}`);
-  if (role.askHumanWhen.length > 0)
-    rows.push(`Ask a person first when: ${role.askHumanWhen.join(", ")}`);
-  return rows;
-}
-
-function stayInRole(role: RoleProfile): string[] {
-  return scopeLines(role).length > 0 ? ["Stay inside this role."] : [];
+function who(role: RoleProfile): { role: string[]; scope: string[]; card: RoleCard } {
+  const card = roleCard(role);
+  return { role: roleLines(card), scope: scopeLines(card), card };
 }
 
 function checkLines(section: AcceptedSection): string[] {
@@ -54,22 +46,27 @@ function checkLines(section: AcceptedSection): string[] {
 }
 
 const REPLY = (rules: string[] = []): string =>
-  renderReplyContract(ModelReplySchema, { rules, example: MODEL_REPLY_EXAMPLE });
+  renderReplyContract(ModelReplySchema, { rules, examples: MODEL_REPLY_EXAMPLES });
 
 export function critiquePrompt(role: RoleProfile, section: AcceptedSection, draft: string): string {
+  const me = who(role);
   return buildPrompt({
-    role: roleLines(role),
-    scope: scopeLines(role),
+    role: me.role,
+    scope: me.scope,
     task: [
       "Review the draft against the check ids. Report each gap with the check id it breaks.",
       ...checkLines(section),
     ],
-    inputs: [{ label: "Draft", text: draft }],
+    inputs: [{ label: "Draft", source: "the author role", text: draft }],
+    guardrails: [
+      "Every gap needs a cite from Task.",
+      "Quote the exact text each gap is about.",
+      "Report only real gaps. If the draft meets every check, reply with an empty list.",
+    ],
     output: REPLY([
-      "List every gap in gaps. Leave gaps out when the draft has none.",
-      "Do not set changed.",
+      "List every gap in gaps. Leave changed out.",
+      "An empty list means the draft meets every check.",
     ]),
-    guardrails: ["Every gap needs a cite from Task.", ...stayInRole(role)],
   });
 }
 
@@ -78,16 +75,24 @@ export function revisionPrompt(
   draft: string,
   gaps: { cite: string; text: string }[],
 ): string {
+  const me = who(role);
   return buildPrompt({
-    role: roleLines(role),
-    scope: scopeLines(role),
+    role: me.role,
+    scope: me.scope,
     task: ["Revise the draft so every gap is fixed. Change nothing else."],
     inputs: [
-      { label: "Draft", text: draft },
-      { label: "Gaps", text: gaps.map((gap) => `${gap.cite}: ${gap.text}`).join("\n") },
+      { label: "Draft", source: "you, earlier in this run", text: draft },
+      {
+        label: "Gaps",
+        source: "the critic role",
+        text: gaps.map((gap) => `${gap.cite}: ${gap.text}`).join("\n"),
+      },
+    ],
+    guardrails: [
+      "changed must list every gap cite.",
+      "Keep the draft's wording wherever no gap applies.",
     ],
     output: REPLY(["Put the revised draft in text. List the cite of every fixed gap in changed."]),
-    guardrails: ["changed must list every gap cite.", ...stayInRole(role)],
   });
 }
 
@@ -99,16 +104,23 @@ export function authorPrompt(input: {
   context?: string;
   guide?: boolean;
 }): string {
+  const me = who(input.role);
   const task = [input.task, `Kind: ${input.kind}`];
-  const inputs: PromptInputBlock[] = [{ label: "Context", text: input.context ?? "" }];
+  const inputs: PromptInputBlock[] = [
+    { label: "Context", source: "the role context file", text: input.context ?? "" },
+  ];
   if (input.section) {
     task.push(`Section: ${input.section.id}`, `Decision: ${input.section.decision}`);
     task.push("Check ids:", ...input.section.checks);
-    inputs.push({ label: "Section text", text: input.section.body });
+    inputs.push({
+      label: "Section text",
+      source: "the accepted-decisions file",
+      text: input.section.body,
+    });
   }
   return buildPrompt({
-    role: roleLines(input.role),
-    scope: scopeLines(input.role),
+    role: me.role,
+    scope: me.scope,
     task,
     inputs,
     output: REPLY(
@@ -119,7 +131,6 @@ export function authorPrompt(input: {
           ]
         : [],
     ),
-    guardrails: stayInRole(input.role),
   });
 }
 
@@ -131,20 +142,22 @@ export function roomPrompt(input: {
   /** Set when this role owns the draft and objections are still open. */
   open?: { cite: string; text: string }[];
 }): string {
+  const me = who(input.role);
   const owner = input.open !== undefined && input.open.length > 0;
   const inputs: PromptInputBlock[] = [
-    { label: "Draft", text: input.draft },
-    { label: "Room", text: input.entries.join("\n") },
+    { label: "Draft", source: "the stage artifact", text: input.draft },
+    { label: "Room so far", source: "the room log", text: input.entries.join("\n") },
   ];
   if (owner) {
     inputs.push({
       label: "Open objections",
+      source: "the room log",
       text: (input.open ?? []).map((gap) => `${gap.cite}: ${gap.text}`).join("\n"),
     });
   }
   return buildPrompt({
-    role: roleLines(input.role),
-    scope: scopeLines(input.role),
+    role: me.role,
+    scope: me.scope,
     task: [
       owner
         ? "Post one entry to the room. You own this draft: answer the open objections."
@@ -152,11 +165,15 @@ export function roomPrompt(input: {
       ...checkLines(input.section),
     ],
     inputs,
+    guardrails: [
+      "Write one line. Do not repeat an earlier room entry.",
+      "Name the check id or section your point is about.",
+      "Agree only with a point you checked.",
+    ],
     output: renderReplyContract(RoomPostSchema, {
       rules: ["An objection needs a cite."],
-      example: ROOM_POST_EXAMPLE,
+      examples: ROOM_POST_EXAMPLES,
     }),
-    guardrails: ["Write one line. Do not repeat an earlier room entry.", ...stayInRole(input.role)],
   });
 }
 
@@ -171,7 +188,8 @@ export function guideDraftPrompt(input: {
   headings: string[];
   earlier: { path: string; body: string }[];
 }): string {
-  const task = [`Request: ${input.request}`, `Stage: ${input.stageId}`];
+  const me = who(input.role);
+  const task = [`Stage: ${input.stageId}`];
   if (input.summary.trim()) task.push(`Summary: ${input.summary.trim()}`);
   if (input.instructions.trim()) task.push(`Instructions:\n${input.instructions.trim()}`);
   task.push(`Artifact: ${input.artifactPath}`);
@@ -183,24 +201,29 @@ export function guideDraftPrompt(input: {
     rules.push("Use only these headings, spelled exactly:", ...input.headings.map((h) => `- ${h}`));
   }
   const inputs: PromptInputBlock[] = [
+    { label: "Request", source: "the person", text: input.request },
     {
       label: "Answers",
+      source: "the person",
       text: input.answers.map((item) => `- ${item.question}: ${item.answer}`).join("\n"),
     },
-    ...input.earlier.map((file) => ({ label: `Earlier artifact ${file.path}`, text: file.body })),
+    ...input.earlier.map((file) => ({
+      label: `Earlier artifact ${file.path}`,
+      source: "the change folder",
+      text: file.body,
+    })),
   ];
   return buildPrompt({
-    role: roleLines(input.role),
-    scope: scopeLines(input.role),
+    role: me.role,
+    scope: me.scope,
     task,
     inputs,
-    output: renderReplyContract(GuideReplySchema, { rules, example: GUIDE_REPLY_EXAMPLE }),
     guardrails: [
       "Put this artifact's words under those headings. Do not rename a heading.",
       "Do not paste an earlier artifact.",
       "Do not name a module, a path, or a command result that is not in this prompt.",
-      ...stayInRole(input.role),
     ],
+    output: renderReplyContract(GuideReplySchema, { rules, examples: GUIDE_REPLY_EXAMPLES }),
   });
 }
 
@@ -209,13 +232,14 @@ export function receiverPrompt(
   task: string,
   section: { id: string; decision: string; body: string },
 ): string {
+  const me = who(role);
   return buildPrompt({
-    role: roleLines(role),
-    scope: scopeLines(role),
+    role: me.role,
+    scope: me.scope,
     task: [task, "Kind: handoff", `Section: ${section.id}`, `Decision: ${section.decision}`],
-    inputs: [{ label: "Section text", text: section.body }],
+    inputs: [{ label: "Section text", source: "the accepted-decisions file", text: section.body }],
+    guardrails: ["Answer only for this section."],
     output: REPLY(["Put what you will do for this section in text."]),
-    guardrails: ["Answer only for this section.", ...stayInRole(role)],
   });
 }
 
@@ -224,32 +248,33 @@ export function leadPrompt(input: {
   task: string;
   services: { service: string; module: string; owner: string; decision: string }[];
 }): string {
+  const me = who(input.lead);
   return buildPrompt({
-    role: roleLines(input.lead),
-    scope: scopeLines(input.lead),
-    task: [
-      input.task,
-      "Split the task into a plan. Name who writes which artifact, and in what order.",
-    ],
+    role: me.role,
+    scope: me.scope,
+    task: ["Split the task into a plan. Name who writes which artifact, and in what order."],
     inputs: [
+      { label: "Task", source: "the person", text: input.task },
       {
         label: "Services",
+        source: "the accepted-decisions file",
         text: input.services
           .map((s) => `${s.service} module ${s.module} owner ${s.owner} decision ${s.decision}`)
           .join("\n"),
       },
+    ],
+    guardrails: [
+      "Use only services, modules, owners, and decisions listed in Inputs.",
+      "Each artifact has exactly one owner.",
+      "List an artifact before anything that depends on it.",
     ],
     output: renderReplyContract(PlanReplySchema, {
       rules: [
         "A plan is at most two levels deep: a node may have children, a child may not.",
         "Every artifact path is relative and inside the project.",
       ],
-      example: PLAN_REPLY_EXAMPLE,
+      examples: PLAN_REPLY_EXAMPLES,
     }),
-    guardrails: [
-      "Use only services, modules, owners, and decisions listed in Inputs.",
-      ...stayInRole(input.lead),
-    ],
   });
 }
 
@@ -259,14 +284,17 @@ export function ownerRunPrompt(input: {
   artifact: string;
   boundary: string;
 }): string {
+  const me = who(input.owner);
   return buildPrompt({
-    role: roleLines(input.owner),
-    scope: scopeLines(input.owner),
+    role: me.role,
+    scope: me.scope,
     task: [input.task, `Artifact: ${input.artifact}`, `Boundary: ${input.boundary}`],
-    output: REPLY(["Put what you did for the artifact in text."]),
     guardrails: [
-      "Work on this artifact only. Boundary says what to do at its edge: ask or stop.",
-      ...stayInRole(input.owner),
+      "Work only on this artifact. If the work needs a change outside it, follow boundary.",
+      "If boundary is ask, ask the owner named in the plan and wait.",
+      "If boundary is stop, stop and say what change is needed and where.",
+      "You are done when every check for this artifact passes.",
     ],
+    output: REPLY(["Put what you did for the artifact in text."]),
   });
 }

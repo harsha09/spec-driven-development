@@ -5,6 +5,7 @@ import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
+import { cleanReply } from "../reply-text.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
 import { runLoop } from "../team/loop.js";
@@ -190,7 +191,7 @@ export function parseSection(markdown: string, sectionId: string): AcceptedSecti
 export function parseReply(raw: string): ModelReply | null {
   let value: unknown;
   try {
-    value = JSON.parse(raw);
+    value = JSON.parse(cleanReply(raw));
   } catch {
     return null;
   }
