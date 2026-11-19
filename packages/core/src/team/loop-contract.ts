@@ -87,7 +87,7 @@ export function renderLoopContract(input: LoopContractInput): string {
     `Invalid: ${INVALID_STEP_EXAMPLE} (no such step)`,
     "",
     "Tool list:",
-    'Call a tool with {"step":"tool","name":<name>,"args":{...}}. Results appear under "Tools:" on the next turn.',
+    'Call a tool with {"step":"tool","name":<name>,"args":{...}}. Results appear under "Tool results" in Inputs on the next turn.',
   );
   for (const tool of input.tools) {
     lines.push(`- ${tool.name}: ${tool.description}`);

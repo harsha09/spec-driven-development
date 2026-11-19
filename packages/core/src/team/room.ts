@@ -6,10 +6,11 @@ import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, pathExists, readText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
+import { ROOM_TYPES } from "../reply-schemas.js";
 import { decide } from "../role/models/decide.js";
 import { loadModels } from "../role/models/schema.js";
 import { readRole, rolesListingStage } from "../role/profile.js";
-import { critiquePrompt, revisionPrompt } from "../role/prompts.js";
+import { roomPrompt } from "../role/prompts.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
 import { gitUserName, readTeamConfig } from "../role/team.js";
@@ -18,8 +19,6 @@ import type { ChangeMeta, Stage, Workflow } from "../schemas.js";
 import { nowIso } from "../slug.js";
 import { getStage } from "../workflow.js";
 import { claimsPass, evidenceSupports, reviewNeedsEvidence } from "./tools.js";
-
-const ROOM_TYPES = ["post", "objection", "agree", "block", "decision"] as const;
 
 export type RoomType = (typeof ROOM_TYPES)[number];
 
@@ -353,24 +352,21 @@ export async function reviewRoom(
       body: draft,
     };
     if (section.checks.length === 0) section.checks = ["room"];
-    const rows = [critiquePrompt(role, section, draft || "(none)"), "Room:"];
-    for (const entry of prior) rows.push(formatEntry(entry));
     const listedOwner = stage.owner ?? (listed.length === 1 ? listed[0] : undefined);
     const owner = listedOwner === bot.role || listedOwner === bot.name;
-    if (owner && before.open.length > 0) {
-      rows.push(
-        revisionPrompt(
-          role,
-          draft || "(none)",
-          before.open.map((entry) => ({ cite: entry.cite || "room", text: entry.text })),
-        ),
-      );
-    }
-    rows.push('Reply with JSON {"type":"post","text":"...","cite":"..."}');
-    rows.push("An objection needs a cite.");
+    const prompt = roomPrompt({
+      role,
+      section,
+      draft: draft || "(none)",
+      entries: prior.map(formatEntry),
+      open:
+        owner && before.open.length > 0
+          ? before.open.map((entry) => ({ cite: entry.cite || "room", text: entry.text }))
+          : undefined,
+    });
     let raw = "";
     try {
-      raw = await input.model.complete({ roleId: role.name, prompt: rows.join("\n") });
+      raw = await input.model.complete({ roleId: role.name, prompt });
     } catch {
       return fail("A room entry is not valid.");
     }

@@ -10,7 +10,7 @@ Valid: {"step":"tool","name":"read_file","args":{"path":"src/index.ts"}}
 Invalid: {"step":"think","text":"I will look at the file."} (no such step)
 
 Tool list:
-Call a tool with {"step":"tool","name":<name>,"args":{...}}. Results appear under "Tools:" on the next turn.
+Call a tool with {"step":"tool","name":<name>,"args":{...}}. Results appear under "Tool results" in Inputs on the next turn.
 - read_file: Read one project file.
     path: string. Path relative to the project root.
 - search: Search the project.

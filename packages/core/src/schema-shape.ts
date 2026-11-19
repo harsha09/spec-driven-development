@@ -9,6 +9,7 @@ type JsonSchema = {
   items?: JsonSchema;
   properties?: Record<string, JsonSchema>;
   required?: string[];
+  additionalProperties?: boolean | JsonSchema;
   anyOf?: JsonSchema[];
   oneOf?: JsonSchema[];
 };
@@ -21,6 +22,9 @@ export function shapeOf(node: JsonSchema): string {
   if (variants) return variants.map(shapeOf).join(" | ");
   const type = Array.isArray(node.type) ? node.type.join(" | ") : node.type;
   if (type === "array") return `${wrap(node.items ? shapeOf(node.items) : "any")}[]`;
+  if (type === "object" && !node.properties && typeof node.additionalProperties === "object") {
+    return `{"<key>": ${shapeOf(node.additionalProperties)}}`;
+  }
   if (type === "object" || node.properties) {
     const required = new Set(node.required ?? []);
     const entries = Object.entries(node.properties ?? {}).map(
@@ -52,16 +56,33 @@ export function describeVariants(schema: z.ZodType): Array<{ shape: string; note
   return variants.map((variant) => ({ shape: shapeOf(variant), note: variant.description ?? "" }));
 }
 
-/** Per-field notes of an object schema: name, shape, optional, and description. */
+/**
+ * Per-field notes of an object schema: name, shape, optional, and description. Fields of objects
+ * inside arrays or objects are listed too, with a path such as `plan[].scope`.
+ */
 export function describeFields(
   schema: z.ZodType,
 ): Array<{ name: string; shape: string; optional: boolean; note: string }> {
-  const node = jsonSchemaOf(schema);
+  const out: Array<{ name: string; shape: string; optional: boolean; note: string }> = [];
+  collect(jsonSchemaOf(schema), "", out);
+  return out;
+}
+
+function collect(
+  node: JsonSchema,
+  prefix: string,
+  out: Array<{ name: string; shape: string; optional: boolean; note: string }>,
+): void {
   const required = new Set(node.required ?? []);
-  return Object.entries(node.properties ?? {}).map(([name, child]) => ({
-    name,
-    shape: shapeOf(child),
-    optional: !required.has(name),
-    note: child.description ?? "",
-  }));
+  for (const [key, child] of Object.entries(node.properties ?? {})) {
+    const name = `${prefix}${key}`;
+    out.push({
+      name,
+      shape: shapeOf(child),
+      optional: !required.has(key),
+      note: child.description ?? "",
+    });
+    if (child.type === "array" && child.items?.properties) collect(child.items, `${name}[].`, out);
+    else if (child.properties) collect(child, `${name}.`, out);
+  }
 }

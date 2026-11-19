@@ -122,9 +122,9 @@ describe("loop contract in the prompt", () => {
     if ("error" in brain) throw new Error(brain.error);
     const contract = renderLoopContract({ tools: TOOL_SPECS, checks: ["pnpm test:unit"] });
     expect(brain.prompt).toContain(contract);
-    expect(brain.prompt.indexOf("Item:\nadd a todo")).toBeLessThan(
-      brain.prompt.indexOf("Reply format:"),
-    );
+    const task = brain.prompt.indexOf("## Task\nadd a todo");
+    expect(task).toBeGreaterThan(-1);
+    expect(task).toBeLessThan(brain.prompt.indexOf("## Output contract\nReply format:"));
   });
 
   it("keeps the contract when the budget is tiny", async () => {

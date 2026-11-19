@@ -1,6 +1,7 @@
 import { pathExists, readText } from "../fs.js";
+import { type PromptSpec, buildPrompt } from "../prompt.js";
 import { roleContextBody } from "../role/context.js";
-import { readRole, roleFilePath } from "../role/profile.js";
+import { readRole, roleFilePath, roleTextForModel } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { ROLE_TEXT, type RoleProfile } from "../role/types.js";
 import { countTokens } from "../search/tokenize.js";
@@ -26,10 +27,18 @@ export interface Brain {
   facts: Fact[];
   inputs: PackedFile[];
   prompt: string;
+  /** The prompt as sections, so the loop can add room lines and tool results and rebuild it. */
+  parts: PromptSpec;
   warning: string;
 }
 
 const WARNING = "Memory is longer than the budget.";
+
+const LOOP_GUARDRAILS = [
+  "Take one step per turn.",
+  "Do not say the work passes unless run_check shows it passing at the current commit.",
+  "Ask a person when you are blocked or unsure.",
+];
 
 export async function loadBrain(
   root: string,
@@ -44,7 +53,7 @@ export async function loadBrain(
   if (!role) return { error: ROLE_TEXT.notFound };
   const file = roleFilePath(root, spec.role);
   if (!(await pathExists(file))) return { error: ROLE_TEXT.notFound };
-  const roleText = await readText(file);
+  const roleText = roleTextForModel(await readText(file));
   const context = await roleContextBody(root, spec.role);
   const memoryAll = await readMemory(root, spec.name);
   const lessonsNewest = (await readLessons(root, spec.name)).slice().reverse();
@@ -68,6 +77,7 @@ export async function loadBrain(
     facts: packed.facts,
     inputs: [],
     prompt: packed.prompt,
+    parts: packed.parts,
     warning: packed.warning,
   };
 }
@@ -81,29 +91,46 @@ function pack(input: {
   item: string;
   contract: string;
   budget: number;
-}): { memory: string; lessons: Lesson[]; facts: Fact[]; prompt: string; warning: string } {
+}): {
+  memory: string;
+  lessons: Lesson[];
+  facts: Fact[];
+  prompt: string;
+  parts: PromptSpec;
+  warning: string;
+} {
   let memory = input.memoryAll;
   let lessons = input.lessons.slice();
   let facts = input.facts.slice();
   let context = input.context;
   let warning = "";
-  const itemBlock = `Item:\n${input.item}`;
 
-  const render = (): string => {
-    const parts = [input.roleText.trimEnd()];
-    if (warning) parts.push(warning);
-    if (context.trim()) parts.push(`Context:\n${context.trimEnd()}`);
-    if (memory.trim()) parts.push(`Memory:\n${memory.trimEnd()}`);
+  const partsNow = (): PromptSpec => {
+    const inputs: PromptSpec["inputs"] = [];
+    if (context.trim()) inputs.push({ label: "Context", text: context });
+    if (memory.trim()) inputs.push({ label: "Memory", text: memory });
     if (lessons.length > 0) {
-      parts.push(`Lessons:\n${lessons.map((lesson) => `- ${lesson.text}`).join("\n")}`);
+      inputs.push({
+        label: "Lessons",
+        text: lessons.map((lesson) => `- ${lesson.text}`).join("\n"),
+      });
     }
     if (facts.length > 0) {
-      parts.push(`Facts:\n${facts.map((fact) => `${fact.key}: ${fact.value}`).join("\n")}`);
+      inputs.push({
+        label: "Facts",
+        text: facts.map((fact) => `${fact.key}: ${fact.value}`).join("\n"),
+      });
     }
-    parts.push(itemBlock);
-    parts.push(input.contract);
-    return parts.join("\n");
+    return {
+      role: [input.roleText.trimEnd()],
+      scope: warning ? [warning] : undefined,
+      task: [input.item],
+      inputs,
+      output: input.contract,
+      guardrails: LOOP_GUARDRAILS,
+    };
   };
+  const render = (): string => buildPrompt(partsNow());
 
   const roleOnly = countTokens(input.roleText) > input.budget;
   if (roleOnly) {
@@ -112,7 +139,7 @@ function pack(input: {
     facts = [];
     context = "";
     warning = input.memoryAll.trim() ? WARNING : "";
-    return { memory, lessons, facts, prompt: render(), warning };
+    return { memory, lessons, facts, prompt: render(), parts: partsNow(), warning };
   }
 
   if (countTokens(render()) > input.budget && context.trim()) context = "";
@@ -132,5 +159,5 @@ function pack(input: {
     while (countTokens(render()) > input.budget && lessons.length > 0) lessons.pop();
     if (countTokens(render()) > input.budget) memory = "";
   }
-  return { memory, lessons, facts, prompt: render(), warning };
+  return { memory, lessons, facts, prompt: render(), parts: partsNow(), warning };
 }

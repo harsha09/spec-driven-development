@@ -1,6 +1,7 @@
 import { appendFile } from "node:fs/promises";
 import { basename, join } from "pathe";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
+import { buildPrompt } from "../prompt.js";
 import { conversationDir } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
@@ -37,12 +38,17 @@ export async function runLoop(input: {
 }): Promise<RoleCommandResult> {
   const max = input.cfg.limits?.loop_max_steps ?? 8;
   const room = await roomForPrompt(input.root);
-  const base = room ? `${input.brain.prompt}\nRoom:\n${room}` : input.brain.prompt;
-  let tools = "";
-  const promptFor = (): string => (tools ? `${base}\nTools:\n${tools}` : base);
+  let results = "";
+  const promptFor = (): string => {
+    const parts = input.brain.parts;
+    const inputs = [...(parts.inputs ?? [])];
+    if (room) inputs.push({ label: "Room", text: room });
+    if (results) inputs.push({ label: "Tool results", text: results });
+    return buildPrompt({ ...parts, inputs });
+  };
   const remember = (text: string): void => {
     const piece = text.trim().slice(-4000);
-    tools = `${tools}\n${piece}`.trim().slice(-8000);
+    results = `${results}\n${piece}`.trim().slice(-8000);
   };
   let taken = 0;
   let copied = false;

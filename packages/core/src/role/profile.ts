@@ -383,3 +383,33 @@ export async function readAllowFile(root: string): Promise<Record<string, unknow
     return null;
   }
 }
+
+/** Frontmatter keys that only change how a role shows in a screen. The model never sees them. */
+export const UI_ONLY_ROLE_KEYS = ["pinned", "hidden", "ask_first"] as const;
+
+/**
+ * The role file as the model should read it: the same text, without the screen-only keys.
+ * Only top-level keys inside the frontmatter block are removed; other lines are kept as they are.
+ */
+export function roleTextForModel(raw: string): string {
+  const lines = raw.split("\n");
+  if (lines[0]?.replace(/^\uFEFF/, "").trim() !== "---") return raw;
+  let end = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if ((lines[i] ?? "").trim() === "---") {
+      end = i;
+      break;
+    }
+  }
+  if (end < 0) return raw;
+  const keep: string[] = [lines[0] ?? ""];
+  let dropping = false;
+  for (let i = 1; i < end; i++) {
+    const line = lines[i] ?? "";
+    const top = /^([A-Za-z_][\w-]*)\s*:/.exec(line);
+    if (top) dropping = (UI_ONLY_ROLE_KEYS as readonly string[]).includes(top[1] ?? "");
+    else if (!/^\s|^-/.test(line)) dropping = false;
+    if (!dropping) keep.push(line);
+  }
+  return [...keep, ...lines.slice(end)].join("\n");
+}

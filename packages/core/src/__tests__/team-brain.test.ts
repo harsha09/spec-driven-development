@@ -10,6 +10,7 @@ import {
   readTeamConfig,
   setFact,
 } from "../index.js";
+import { roleTextForModel } from "../role/profile.js";
 import { countTokens } from "../search/tokenize.js";
 
 const temps: string[] = [];
@@ -68,15 +69,17 @@ describe("loadBrain", () => {
     const roomy = await loadBrain(root, loaded.team, "builder", { text: item }, 8000);
     if ("error" in roomy) throw new Error(roomy.error);
     expect(roomy.inputs).toEqual([]);
-    expect(roomy.prompt.startsWith(roleText.trimEnd())).toBe(true);
+    expect(roomy.prompt.startsWith("## Role\n")).toBe(true);
+    expect(roomy.prompt).toContain(roleTextForModel(roleText).trimEnd());
+    expect(roomy.prompt).not.toMatch(/^(ask_first|pinned|hidden):/m);
     expect(roomy.prompt).toContain("check Node engine range");
     expect(roomy.prompt).toContain("engine: engine mounts are tight");
     expect(roomy.prompt).not.toContain("quota");
-    expect(roomy.prompt.indexOf("Lessons:")).toBeLessThan(roomy.prompt.indexOf("Facts:"));
-    expect(roomy.prompt).toContain(`Item:\n${item}`);
+    expect(roomy.prompt.indexOf("### Lessons")).toBeLessThan(roomy.prompt.indexOf("### Facts"));
+    expect(roomy.prompt).toContain(`## Task\n${item}`);
 
     const lessonBudget =
-      countTokens(`${roleText.trimEnd()}\nItem:\n${item}`) + countTokens("Memory:\nalpha");
+      countTokens(`${roleText.trimEnd()}\n${item}`) + countTokens("Memory:\nalpha");
     const tight = await loadBrain(root, loaded.team, "builder", { text: item }, lessonBudget);
     if ("error" in tight) throw new Error(tight.error);
     expect(tight.prompt).toContain("name: builder");

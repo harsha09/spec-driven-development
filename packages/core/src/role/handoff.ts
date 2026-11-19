@@ -2,6 +2,7 @@ import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { pathExists, readText, writeText } from "../fs.js";
 import { canonicalRoleName, conversationDir, readRole } from "./profile.js";
+import { leadPrompt, ownerRunPrompt, receiverPrompt } from "./prompts.js";
 import { matchRoute, writeHandoffInboxes } from "./routing.js";
 import {
   acceptedFile,
@@ -217,19 +218,6 @@ function handoffRecord(
     section: section.id,
     decision: section.decision,
   };
-}
-
-function receiverPrompt(role: RoleProfile, task: string, section: SectionFacts): string {
-  return [
-    `Job: ${role.job}`,
-    `Description: ${role.description}`,
-    `Task: ${task}`,
-    "Kind: handoff",
-    `Section: ${section.id}`,
-    `Decision: ${section.decision}`,
-    "Section text:",
-    section.body,
-  ].join("\n");
 }
 
 export async function handoffRole(
@@ -463,14 +451,15 @@ async function parseNode(
   };
 }
 
-function leadPrompt(task: string, services: Map<string, SectionFacts>): string {
-  const rows = [`Task: ${task}`];
-  for (const [service, section] of services) {
-    const moduleId = section.modules[0] ?? "none";
-    const owner = section.owners[0] ?? "none";
-    rows.push(`${service} module ${moduleId} owner ${owner} decision ${section.decision}`);
-  }
-  return rows.join("\n");
+function leadServices(
+  services: Map<string, SectionFacts>,
+): { service: string; module: string; owner: string; decision: string }[] {
+  return [...services].map(([service, section]) => ({
+    service,
+    module: section.modules[0] ?? "none",
+    owner: section.owners[0] ?? "none",
+    decision: section.decision,
+  }));
 }
 
 async function connectionResult(
@@ -563,7 +552,10 @@ async function storeLeadPlan(
 ): Promise<RoleCommandResult> {
   let raw: string;
   try {
-    raw = await model.complete({ roleId: lead.name, prompt: leadPrompt(task, services) });
+    raw = await model.complete({
+      roleId: lead.name,
+      prompt: leadPrompt({ lead, task, services: leadServices(services) }),
+    });
   } catch {
     return fail("");
   }
@@ -674,13 +666,12 @@ export async function runNetwork(
       try {
         raw = await input.model.complete({
           roleId: owner.name,
-          prompt: [
-            `Job: ${owner.job}`,
-            `Description: ${owner.description}`,
-            `Task: ${plan.task}`,
-            `Artifact: ${node.artifact}`,
-            `Boundary: ${node.boundary}`,
-          ].join("\n"),
+          prompt: ownerRunPrompt({
+            owner,
+            task: plan.task,
+            artifact: node.artifact,
+            boundary: node.boundary,
+          }),
         });
       } catch {
         continue;
