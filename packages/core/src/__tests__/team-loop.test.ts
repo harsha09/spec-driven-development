@@ -233,3 +233,131 @@ describe("team loop", () => {
     expect(fake.prompts).toHaveLength(0);
   });
 });
+
+describe("team loop repair", () => {
+  const PLAN = { step: "plan", items: ["one"] };
+  const DONE = { step: "done", summary: "finished", outputs: [] };
+  const run = async (root: string, model: RoleModel) =>
+    runRole(root, {
+      name: "builder",
+      task: "inspect",
+      model,
+      now: () => new Date("2026-10-29T00:00:04.000Z"),
+    });
+  const types = (lines: Array<Record<string, unknown>>) => lines.map((line) => line.type);
+
+  it("repairs a bad step once and the run goes on", async () => {
+    const root = await project();
+    await team(root, 2);
+    const fake = script(["I will start by reading the spec.", PLAN, DONE]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    expect(fake.prompts).toHaveLength(3);
+    expect(fake.prompts[0]).not.toContain("# Repair");
+    expect(fake.prompts[1]).toContain("# Repair");
+    expect(fake.prompts[1]).toContain("- (reply): not one JSON object");
+    expect(fake.prompts[1]).toContain("I will start by reading the spec.");
+    expect(fake.prompts[2]).not.toContain("# Repair");
+    const lines = await log(root);
+    expect(lines.filter((line) => line.type === "repair")).toEqual([
+      { type: "repair", roleId: "builder", issues: ["(reply): not one JSON object"] },
+    ]);
+    expect(types(lines)).not.toContain("bad_call");
+    expect(lines.filter((line) => line.type === "step").map((line) => line.step)).toEqual([
+      "plan",
+      "done",
+    ]);
+  });
+
+  it("names an unknown step and a missing field in the repair", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([{ step: "think", text: "hm" }, { step: "ask" }, DONE]);
+    const result = await run(root, fake.model);
+    expect(result.exitCode).toBe(1);
+    expect(fake.prompts[1]).toContain("- step: must be plan, tool, check, ask or done");
+    const repaired = await log(root);
+    expect(types(repaired).filter((type) => type === "repair")).toHaveLength(1);
+  });
+
+  it("fails with the same text when the repair is also bad", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script(["no", "still no", DONE]);
+    const result = await run(root, fake.model);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("A loop step is not valid.");
+    expect(fake.prompts).toHaveLength(2);
+    const lines = await log(root);
+    expect(types(lines)).toEqual(["repair", "bad_call"]);
+  });
+
+  it("allows three repairs in a run, then fails the next bad step", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script(["no", PLAN, "no", PLAN, "no", PLAN, "no", DONE]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("A loop step is not valid.");
+    expect(fake.prompts).toHaveLength(7);
+    const lines = await log(root);
+    expect(lines.filter((line) => line.type === "repair")).toHaveLength(3);
+    expect(types(lines).at(-1)).toBe("bad_call");
+  });
+
+  it("does not count a repair as a step", async () => {
+    const root = await project();
+    await team(root, 2);
+    const fake = script(["no", PLAN, "no", DONE]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    expect(fake.prompts).toHaveLength(4);
+  });
+
+  it("does not repair a model that throws", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("A loop step is not valid.");
+    expect(fake.prompts).toHaveLength(1);
+    expect(types(await log(root))).toEqual(["bad_call"]);
+  });
+
+  it("still refuses a pass claim without evidence", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([{ step: "done", summary: "All tests pass.", outputs: [] }, DONE]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    const lines = await log(root);
+    expect(lines.filter((line) => line.step === "refused")).toHaveLength(1);
+    expect(types(lines)).not.toContain("repair");
+  });
+
+  it("repairs a step with a key it does not list (loop steps were already strict)", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([{ ...PLAN, confidence: 0.9 }, PLAN, DONE]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    expect(fake.prompts[1]).toContain("confidence");
+    expect(types(await log(root)).filter((type) => type === "repair")).toHaveLength(1);
+  });
+
+  it("logs an old step shape once per use and keeps reading it", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([
+      { step: "act", name: "read_file", args: { path: "missing.txt" } },
+      { step: "stop", summary: "finished" },
+    ]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    const lines = await log(root);
+    expect(lines.filter((line) => line.type === "legacy_shape")).toEqual([
+      { type: "legacy_shape", roleId: "builder", shape: "act" },
+      { type: "legacy_shape", roleId: "builder", shape: "stop" },
+    ]);
+    expect(types(lines)).not.toContain("repair");
+  });
+});
