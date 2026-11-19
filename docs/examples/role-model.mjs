@@ -36,9 +36,13 @@ process.stdin.on("end", () => {
   const gapLines = () => fencedBlock("Gaps") ?? block("Gaps:");
   const isCritique =
     (prompt.includes("Draft:") && prompt.includes("Cite:")) ||
+    (fencedBlock("Draft") !== null && fencedBlock("Cite ids") !== null) ||
     (fencedBlock("Draft") !== null && prompt.includes("Check ids:"));
   let result;
-  if (prompt.includes("changed must list every gap cite.")) {
+  if (
+    prompt.includes("changed and open together must list every gap cite") ||
+    prompt.includes("changed must list every gap cite.")
+  ) {
     const changed = gapLines()
       .filter((line) => line.includes(":"))
       .map((line) => line.slice(0, line.indexOf(":")));
@@ -53,7 +57,7 @@ process.stdin.on("end", () => {
       },
     };
   } else if (isCritique) {
-    const cite = block("Check ids:")[0] ?? "";
+    const cite = (fencedBlock("Cite ids") ?? block("Check ids:"))[0] ?? "";
     result = {
       text: "Checked the draft.",
       gaps: [{ cite, text: "The draft misses this check." }],

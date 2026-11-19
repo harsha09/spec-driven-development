@@ -10,6 +10,12 @@ import type { ReplyExamples } from "./prompt.js";
 
 export const ROOM_TYPES = ["post", "objection", "agree", "block", "decision"] as const;
 
+const ModelActionSchema = z.object({
+  name: z.string().min(1),
+  words: z.string().optional(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
+});
+
 /** The reply of a draft, critique, revision, or hand-off run (`parseReply` in role/run.ts). */
 export const ModelReplySchema = z.object({
   text: z.string().describe("Your answer in plain words."),
@@ -21,14 +27,9 @@ export const ModelReplySchema = z.object({
     .array(z.string())
     .optional()
     .describe("In a revision: the cite of every gap you fixed."),
-  action: z
-    .object({
-      name: z.string().min(1),
-      words: z.string().optional(),
-      inputs: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional()
-    .describe("A file write you want a person to approve. Only write_file is applied."),
+  action: ModelActionSchema.optional().describe(
+    "A file write you want a person to approve. Only write_file is applied.",
+  ),
 });
 
 export const MODEL_REPLY_EXAMPLES: ReplyExamples = {
@@ -42,6 +43,80 @@ export const MODEL_REPLY_EXAMPLES: ReplyExamples = {
   ],
   invalid: { value: { gaps: "none" }, why: "text is missing, and gaps must be a list." },
 };
+
+type CiteIds = [string, ...string[]];
+
+/** The reply of a critique (`critiquePrompt`). A gap may cite only an id the section allows. */
+export function critiqueReplySchema(cites: CiteIds) {
+  return z.object({
+    text: z.string().describe('One short line: the verdict, such as "Two checks are not met."'),
+    gaps: z
+      .array(
+        z.object({
+          cite: z
+            .enum(cites, { error: "must be one of the ids in Cite ids" })
+            .describe("One id from Cite ids."),
+          text: z.string().describe("What is missing, in one short sentence."),
+        }),
+      )
+      .optional()
+      .describe("Every gap, one entry each. An empty list means every check is met."),
+  });
+}
+
+export function critiqueExamples(cites: CiteIds): ReplyExamples {
+  const first = cites[0];
+  return {
+    valid: [
+      {
+        text: "One check is not met.",
+        gaps: [{ cite: first, text: "The draft does not say what this check needs." }],
+      },
+      { text: "All checks are met.", gaps: [] },
+    ],
+    invalid: {
+      value: {
+        text: "Looks good, but add logging.",
+        gaps: [{ cite: "logging", text: "Add logging." }],
+      },
+      why: "logging is not one of the ids in Cite ids, and a style tip is not a gap.",
+    },
+  };
+}
+
+/**
+ * The reply of a revision (`revisionPrompt`). `changed` and `open` together must list every gap
+ * cite, each once; `runRole` checks that after the shape is read.
+ */
+export const RevisionReplySchema = z.object({
+  text: z.string().describe("The full revised draft, not only the changed parts."),
+  changed: z.array(z.string()).describe("The cite of every gap you fixed."),
+  open: z
+    .array(z.string())
+    .optional()
+    .describe("The cite of every gap you could not fix. Leave it out if you fixed them all."),
+  action: ModelActionSchema.optional().describe(
+    "A file write you want a person to approve. Only write_file is applied.",
+  ),
+});
+
+export function revisionExamples(cites: string[]): ReplyExamples {
+  const all = cites.length > 0 ? cites : ["CHK-001"];
+  const [first, ...rest] = all;
+  const valid: unknown[] = [{ text: "The full revised draft goes here.", changed: all }];
+  valid.push(
+    rest.length > 0
+      ? { text: "The full revised draft goes here.", changed: [first], open: rest }
+      : { text: "The draft, with the gap still open.", changed: [], open: [first] },
+  );
+  return {
+    valid,
+    invalid: {
+      value: { text: "The full revised draft goes here.", changed: [] },
+      why: `changed and open together must list every gap cite (${all.join(", ")}). This reply lists none.`,
+    },
+  };
+}
 
 /**
  * What a model may send as a room entry. `decision` is left out: only a person records a decision.

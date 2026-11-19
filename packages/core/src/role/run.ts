@@ -1,10 +1,13 @@
 import { appendFile } from "node:fs/promises";
 import { isAbsolute, join } from "pathe";
+import type { z } from "zod";
+import { askModel, readWith } from "../ask.js";
 import { isSecretPath } from "../code-context/secrets.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
+import { RevisionReplySchema, critiqueReplySchema } from "../reply-schemas.js";
 import { cleanReply } from "../reply-text.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
@@ -18,7 +21,7 @@ import {
   readAllowFile,
   readRole,
 } from "./profile.js";
-import { authorPrompt, critiquePrompt, revisionPrompt } from "./prompts.js";
+import { authorPrompt, citeIds, critiquePrompt, revisionPrompt } from "./prompts.js";
 import type { AcceptedSection } from "./prompts.js";
 import type { TeamConfig } from "./schema.js";
 import { readTeamConfig, resolveBot } from "./team.js";
@@ -47,6 +50,8 @@ interface ModelReply {
   text: string;
   gaps: { cite: string; text: string }[];
   changed: string[] | null;
+  /** Gap cites a revision says it could not fix. */
+  open: string[];
   action: ModelAction | null;
 }
 
@@ -146,10 +151,28 @@ function sameInputs(left: unknown, right: unknown): boolean {
   return canonicalJson(left) === canonicalJson(right);
 }
 
-function sameCiteSet(changed: string[], cites: string[]): boolean {
-  const left = [...new Set(changed)].sort();
-  const right = [...new Set(cites)].sort();
-  return left.length === right.length && left.every((cite, index) => cite === right[index]);
+/**
+ * The rule a revision must meet: `changed` and `open` together list every gap cite, each once.
+ * Each problem is one line, so a repair can name it.
+ */
+export function citeSetIssues(changed: string[], open: string[], cites: string[]): string[] {
+  const want = new Set(cites);
+  const issues: string[] = [];
+  for (const cite of new Set(changed)) {
+    if (!want.has(cite)) issues.push(`changed: "${cite}" is not a gap cite`);
+  }
+  for (const cite of new Set(open)) {
+    if (!want.has(cite)) issues.push(`open: "${cite}" is not a gap cite`);
+    else if (changed.includes(cite)) issues.push(`open: "${cite}" is also in changed`);
+  }
+  for (const cite of want) {
+    if (!changed.includes(cite) && !open.includes(cite)) {
+      issues.push(
+        `changed: "${cite}" is missing. List it in changed if you fixed it, or in open if you could not.`,
+      );
+    }
+  }
+  return issues;
 }
 
 export function parseSection(markdown: string, sectionId: string): AcceptedSection | null {
@@ -214,6 +237,11 @@ export function parseReply(raw: string): ModelReply | null {
       return null;
     changed = rec.changed as string[];
   }
+  let open: string[] = [];
+  if (rec.open !== undefined) {
+    if (!Array.isArray(rec.open) || rec.open.some((cite) => typeof cite !== "string")) return null;
+    open = rec.open as string[];
+  }
   let action: ModelAction | null = null;
   if (rec.action !== undefined) {
     if (!rec.action || typeof rec.action !== "object" || Array.isArray(rec.action)) return null;
@@ -235,7 +263,7 @@ export function parseReply(raw: string): ModelReply | null {
           : {},
     };
   }
-  return { text: rec.text, gaps, changed, action };
+  return { text: rec.text, gaps, changed, open, action };
 }
 
 export async function appendJson(file: string, value: unknown): Promise<void> {
@@ -273,10 +301,6 @@ export async function timeoutMinutes(root: string): Promise<number | "invalid"> 
   const minutes = rec.approval_timeout_minutes;
   if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes < 0) return "invalid";
   return minutes;
-}
-
-function citeOk(cite: string, section: AcceptedSection): boolean {
-  return section.checks.includes(cite) || cite === `${section.id}:${section.decision}`;
 }
 
 function neverBlocks(role: RoleProfile, action: ModelAction): boolean {
@@ -325,6 +349,63 @@ async function callModel(
   }
   await appendJson(file, { type: "model", pass, roleId, text: parsed.text });
   return parsed;
+}
+
+/** What a schema read gives back, in the shape the rest of this file uses. */
+function replyFrom(value: Record<string, unknown>): ModelReply {
+  const gaps = (value.gaps as { cite: string; text: string }[] | undefined) ?? [];
+  const action = value.action as
+    | { name: string; words?: string; inputs?: Record<string, unknown> }
+    | undefined;
+  return {
+    text: value.text as string,
+    gaps: gaps.map((gap) => ({ cite: gap.cite, text: gap.text })),
+    changed: (value.changed as string[] | undefined) ?? null,
+    open: (value.open as string[] | undefined) ?? [],
+    action: action
+      ? { name: action.name, words: action.words ?? "", inputs: action.inputs ?? {} }
+      : null,
+  };
+}
+
+/**
+ * Ask for a critique or revision. A reply that does not fit the schema, or fails `check`, gets one
+ * repair try. A `repair` line goes to the run log for each try, and `bad_call` if it still fails.
+ */
+async function askRole(input: {
+  model: RoleModel;
+  file: string;
+  roleId: string;
+  prompt: string;
+  pass: number;
+  schema: z.ZodType;
+  check?: (reply: ModelReply) => string[];
+}): Promise<ModelReply | null> {
+  const read = readWith(input.schema);
+  const asked = await askModel<ModelReply>({
+    model: input.model,
+    roleId: input.roleId,
+    prompt: input.prompt,
+    parse: (raw) => {
+      const parsed = read(raw);
+      return parsed.ok
+        ? { ok: true, value: replyFrom(parsed.value as Record<string, unknown>) }
+        : parsed;
+    },
+    check: input.check,
+    onRepair: (issues) => appendJson(input.file, { type: "repair", roleId: input.roleId, issues }),
+  });
+  if (!asked.ok) {
+    await appendJson(input.file, { type: "bad_call", roleId: input.roleId });
+    return null;
+  }
+  await appendJson(input.file, {
+    type: "model",
+    pass: input.pass,
+    roleId: input.roleId,
+    text: asked.value.text,
+  });
+  return asked.value;
 }
 
 interface StoredRule {
@@ -479,7 +560,7 @@ export async function settleRoleReply(
     root,
     file,
     role,
-    { text: reply.text, gaps: [], changed: null, action: reply.action },
+    { text: reply.text, gaps: [], changed: null, open: [], action: reply.action },
     minutes,
     now,
     runId,
@@ -605,33 +686,32 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
   let final = draft;
   if (critic && section) {
     const accepted = section;
-    const critique = await callModel(
-      input.model,
+    const critique = await askRole({
+      model: input.model,
       file,
-      critic.name,
-      critiquePrompt(critic, accepted, draft.text),
-      2,
-    );
+      roleId: critic.name,
+      prompt: critiquePrompt(critic, accepted, draft.text),
+      pass: 2,
+      schema: critiqueReplySchema(citeIds(accepted)),
+    });
     if (!critique) return fail(draft.text, runId);
-    if (critique.gaps.some((gap) => !citeOk(gap.cite, accepted))) {
-      await appendJson(file, { type: "bad_call", roleId: critic.name });
-      return fail(draft.text, runId);
-    }
     if (critique.gaps.length > 0) {
-      const revision = await callModel(
-        input.model,
-        file,
-        role.name,
-        revisionPrompt(role, draft.text, critique.gaps),
-        3,
-      );
-      if (!revision) return fail(draft.text, runId);
       const cites = critique.gaps.map((gap) => gap.cite);
-      if (revision.changed === null || !sameCiteSet(revision.changed, cites)) {
-        await appendJson(file, { type: "bad_call", roleId: role.name });
-        return fail(draft.text, runId);
-      }
+      const revision = await askRole({
+        model: input.model,
+        file,
+        roleId: role.name,
+        prompt: revisionPrompt(role, draft.text, critique.gaps),
+        pass: 3,
+        schema: RevisionReplySchema,
+        check: (reply) => citeSetIssues(reply.changed ?? [], reply.open, cites),
+      });
+      if (!revision) return fail(draft.text, runId);
       final = revision;
+      if (revision.open.length > 0) {
+        await appendJson(file, { type: "open_gaps", roleId: role.name, cites: revision.open });
+        final = { ...revision, text: `${revision.text}\nOpen: ${revision.open.join(", ")}` };
+      }
     }
   }
   return finishRun(root, file, role, final, minutes, now, runId, input.guide);
