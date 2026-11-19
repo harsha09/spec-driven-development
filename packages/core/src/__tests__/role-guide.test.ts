@@ -255,6 +255,106 @@ describe("runGuide", () => {
     expect(drafted).not.toContain(DRAFT);
   });
 
+  describe("guide reply headings", () => {
+    /** Runs the feature stage up to its draft call, with these model replies. */
+    async function draftWith(replies: unknown[]) {
+      const root = await emptyDir();
+      const fake = model(replies);
+      await runGuide(root, {
+        title: "Build an empty state",
+        workflow: "feature",
+        agents: false,
+        model: fake.model,
+      });
+      await runGuide(root, { answer: "people tracking expenses", model: fake.model });
+      const result = await runGuide(root, {
+        answer: "an empty list shows a message",
+        model: fake.model,
+      });
+      const changeId = (await readFile(join(root, "changes/.active"), "utf8")).trim();
+      const file = join(root, "changes", changeId, "feature.md");
+      return { root, fake, result, file };
+    }
+
+    const unknown = {
+      text: DRAFT,
+      parts: [
+        ...FEATURE.map((heading) => ({ heading, text: DRAFT })),
+        { heading: "Overview", text: DRAFT },
+      ],
+    };
+
+    it("lists the headings in the reply contract", async () => {
+      const { fake } = await draftWith([headed(FEATURE, DRAFT)]);
+      expect(fake.prompts[0]).toContain(
+        '"heading": "Problem / opportunity" | "Users & value" | "Scope" | "Non-goals"',
+      );
+      expect(fake.prompts[0]).toContain("Use only the headings listed.");
+    });
+
+    it("repairs a part with an unknown heading once, then writes the draft", async () => {
+      const { fake, result, file } = await draftWith([unknown, headed(FEATURE, DRAFT)]);
+      expect(fake.prompts).toHaveLength(2);
+      expect(fake.prompts[0]).not.toContain("# Repair");
+      expect(fake.prompts[1]).toContain("# Repair");
+      expect(fake.prompts[1]).toContain("parts.6.heading: must be one of the headings in Headings");
+      expect(fake.prompts[1]).toContain("Overview");
+      expect(result.stdout).not.toContain("A draft is not valid.");
+      expect(await readFile(file, "utf8")).toContain(DRAFT);
+    });
+
+    it("fails with A draft is not valid after one repair, and writes nothing", async () => {
+      const { fake, result, file } = await draftWith([unknown, unknown, headed(FEATURE, DRAFT)]);
+      expect(fake.prompts).toHaveLength(2);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("A draft is not valid.");
+      expect(await readFile(file, "utf8")).not.toContain(DRAFT);
+    });
+
+    it("does not repair a model that fails to answer", async () => {
+      const root = await emptyDir();
+      let calls = 0;
+      const broken: RoleModel = {
+        async complete() {
+          calls += 1;
+          throw new Error("offline");
+        },
+      };
+      await runGuide(root, {
+        title: "Build an empty state",
+        workflow: "feature",
+        agents: false,
+        model: broken,
+      });
+      await runGuide(root, { answer: "people tracking expenses", model: broken });
+      const result = await runGuide(root, {
+        answer: "an empty list shows a message",
+        model: broken,
+      });
+      expect(calls).toBe(1);
+      expect(result.stdout).toBe("A draft is not valid.");
+    });
+
+    it("trims spaces around a heading and does not repair it", async () => {
+      const spaced = {
+        text: DRAFT,
+        parts: FEATURE.map((heading) => ({ heading: ` ${heading} `, text: DRAFT })),
+      };
+      const { fake, file } = await draftWith([spaced]);
+      expect(fake.prompts).toHaveLength(1);
+      expect(await readFile(file, "utf8")).toContain(DRAFT);
+    });
+
+    it("keeps a question as a Question: prefix and ignores its parts", async () => {
+      const { fake, result } = await draftWith([
+        { text: "Question: Which list is empty?", parts: [{ heading: "Overview", text: "x" }] },
+      ]);
+      expect(fake.prompts).toHaveLength(1);
+      expect(result.stdout).toContain("planner asks:\nWhich list is empty?");
+      expect(fake.prompts[0]).toContain('Set text to "Question: <your question>"');
+    });
+  });
+
   it("does not treat Task N or an empty traceability row as filled", () => {
     const stub = [
       "# Tasks",

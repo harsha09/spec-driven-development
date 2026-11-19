@@ -13,13 +13,13 @@ import {
   runLoop,
 } from "../index.js";
 import {
-  GUIDE_REPLY_EXAMPLES,
   MODEL_REPLY_EXAMPLES,
   PLAN_REPLY_EXAMPLES,
   ROOM_POST_EXAMPLES,
+  guideExamples,
 } from "../reply-schemas.js";
 import { cleanReply } from "../reply-text.js";
-import { parseGuideReply } from "../role/guide.js";
+import { readGuideReply } from "../role/guide.js";
 import { planNetwork } from "../role/index.js";
 import { modelFromEnv } from "../role/models/command.js";
 import { parseReply } from "../role/run.js";
@@ -95,8 +95,10 @@ describe("author, critique, revision, hand-off receiver, and owner replies", () 
 describe("guide replies", () => {
   for (const [wrap, apply] of WRAPS) {
     it(`reads a ${wrap} guide reply`, () => {
-      const reply = GUIDE_REPLY_EXAMPLES.valid[0];
-      expect(parseGuideReply(apply(JSON.stringify(reply)))).toEqual(reply);
+      const headings = ["Goals", "Non-goals"];
+      const reply = guideExamples(headings).valid[0] as Record<string, unknown>;
+      const read = readGuideReply(headings)(apply(JSON.stringify(reply)));
+      expect(read).toEqual({ ok: true, value: reply });
     });
   }
 });
