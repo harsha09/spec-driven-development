@@ -209,27 +209,71 @@ export const ROOM_POST_EXAMPLES: ReplyExamples = {
   },
 };
 
-/** The reply of a guided stage draft (`parseGuideReply` in role/guide.ts). */
-export const GuideReplySchema = z.object({
-  text: z.string().describe('The whole draft, or "Question: ..." when one fact is missing.'),
-  parts: z
-    .array(z.object({ heading: z.string(), text: z.string() }))
-    .optional()
-    .describe("The draft split under the listed headings."),
-});
+/** `text` starts with this when a guide role asks one question instead of drafting. */
+export const GUIDE_QUESTION_PREFIX = "Question:";
 
-export const GUIDE_REPLY_EXAMPLES: ReplyExamples = {
-  valid: [
-    {
-      text: "Draft for the todo list.",
-      parts: [{ heading: "Goals", text: "People add, finish, and remove todo items." }],
+/**
+ * The reply of a guided stage draft (`readGuideReply` in role/guide.ts). When the artifact's
+ * template has headings, a part may use only those headings. With none, the reply is `{text}`.
+ * A question stays a `text` that starts with `Question:`.
+ */
+export function guideReplySchema(headings: string[]) {
+  const [first, ...rest] = headings;
+  if (first === undefined) {
+    return z.object({
+      text: z
+        .string()
+        .describe(`The whole draft, or "${GUIDE_QUESTION_PREFIX} ..." when one fact is missing.`),
+    });
+  }
+  return z.object({
+    text: z
+      .string()
+      .describe(`A one-line summary, or "${GUIDE_QUESTION_PREFIX} ..." when one fact is missing.`),
+    parts: z
+      .array(
+        z.object({
+          heading: z
+            .enum([first, ...rest], { error: "must be one of the headings in Headings" })
+            .describe("One heading from Headings, spelled exactly."),
+          text: z.string().describe("The words for this heading."),
+        }),
+      )
+      .optional()
+      .describe("The draft, one entry per heading. Leave it out when you ask a question."),
+  });
+}
+
+export function guideExamples(headings: string[]): ReplyExamples {
+  const question = { text: `${GUIDE_QUESTION_PREFIX} Should the link expire?` };
+  if (headings.length === 0) {
+    return {
+      valid: [{ text: "Share a todo list with a link. View only. No comments." }, question],
+      invalid: {
+        value: { text: ["Share a todo list with a link."] },
+        why: "text must be one string, not a list.",
+      },
+    };
+  }
+  const unknown =
+    ["Overview", "Notes", "Extra"].find((name) => !headings.includes(name)) ?? "Other";
+  return {
+    valid: [
+      {
+        text: "Share a todo list with a link.",
+        parts: headings.map((heading) => ({ heading, text: "The words for this heading." })),
+      },
+      question,
+    ],
+    invalid: {
+      value: {
+        text: "Share a todo list with a link.",
+        parts: [{ heading: unknown, text: "The words for this heading." }],
+      },
+      why: `${unknown} is not one of the headings. Use only ${headings.join(", ")}.`,
     },
-  ],
-  invalid: {
-    value: { text: "Draft for the todo list.", parts: "Goals" },
-    why: "parts must be a list of {heading, text} objects.",
-  },
-};
+  };
+}
 
 const PlanLeafSchema = z.object({
   scope: z.string().describe("A service or module named in Inputs."),

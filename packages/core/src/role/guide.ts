@@ -1,6 +1,7 @@
 import { join } from "pathe";
 import type { AgentTarget } from "../agents.js";
 import { h2Title, headingsFilled, isSubstantiveArtifactContent } from "../artifacts.js";
+import { type ParseReply, askModel, parseJsonObject, readWith } from "../ask.js";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { advanceStage, createChange, skipStage } from "../change.js";
 import { isInitialized, loadConfig } from "../config.js";
@@ -15,7 +16,7 @@ import {
 } from "../fs.js";
 import { initProject } from "../init.js";
 import { templatesDir } from "../paths.js";
-import { cleanReply } from "../reply-text.js";
+import { GUIDE_QUESTION_PREFIX, guideReplySchema } from "../reply-schemas.js";
 import type { Stage } from "../schemas.js";
 import { getStage, loadWorkflow } from "../workflow.js";
 import { createRole, readRole } from "./profile.js";
@@ -326,28 +327,36 @@ function resultsBody(stage: Stage, role: string, request: string, headings: stri
   );
 }
 
-export function parseGuideReply(
-  raw: string,
-): { text: string; parts: { heading: string; text: string }[] } | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(cleanReply(raw));
-  } catch {
-    return null;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const rec = value as Record<string, unknown>;
-  if (typeof rec.text !== "string") return null;
-  if (rec.parts === undefined) return { text: rec.text, parts: [] };
-  if (!Array.isArray(rec.parts)) return null;
-  const parts: { heading: string; text: string }[] = [];
-  for (const part of rec.parts) {
-    if (!part || typeof part !== "object" || Array.isArray(part)) return null;
-    const item = part as Record<string, unknown>;
-    if (typeof item.heading !== "string" || typeof item.text !== "string") return null;
-    parts.push({ heading: item.heading, text: item.text });
-  }
-  return { text: rec.text, parts };
+export interface GuideReply {
+  text: string;
+  parts: { heading: string; text: string }[];
+}
+
+/**
+ * Reads a guide reply for an artifact with these headings. A part may use only a listed heading,
+ * after its spaces are trimmed. A reply that asks a question is read without its parts.
+ */
+export function readGuideReply(headings: string[]): ParseReply<GuideReply> {
+  const read = readWith(guideReplySchema(headings));
+  return (raw) => {
+    const object = parseJsonObject(raw);
+    if (!object.ok) return object;
+    const value = { ...object.value };
+    if (typeof value.text === "string" && value.text.trim().startsWith(GUIDE_QUESTION_PREFIX)) {
+      value.parts = undefined;
+    } else if (Array.isArray(value.parts)) {
+      value.parts = value.parts.map((part) => {
+        const item = part as Record<string, unknown> | null;
+        return item && typeof item === "object" && typeof item.heading === "string"
+          ? { ...item, heading: item.heading.trim() }
+          : part;
+      });
+    }
+    const parsed = read(JSON.stringify(value));
+    if (!parsed.ok) return parsed;
+    const reply = parsed.value as { text: string; parts?: GuideReply["parts"] };
+    return { ok: true, value: { text: reply.text, parts: reply.parts ?? [] } };
+  };
 }
 
 function missingHeading(content: string, headings: string[]): string | null {
@@ -467,33 +476,30 @@ async function draftStage(
       continue;
     }
     if (!input.model) return fail(ROLE_TEXT.noModel);
-    let raw = "";
-    try {
-      raw = await input.model.complete({
-        roleId: role.name,
-        prompt: guideDraftPrompt({
-          role,
-          request: state.request,
-          answers,
-          stageId: stage.id,
-          summary: stage.summary ?? "",
-          instructions: stage.agent_context?.instructions ?? "",
-          artifactPath: artifact.path,
-          headings,
-          earlier: await readyArtifacts(ctx.path, ctx.workflow.stages, artifact.path),
-        }),
-      });
-    } catch {
-      return fail("A draft is not valid.");
-    }
-    const parsed = parseGuideReply(raw);
-    if (!parsed) return fail("A draft is not valid.");
-    const asked = parsed.text.trim();
-    if (asked.startsWith("Question:")) {
+    const asked = await askModel({
+      model: input.model,
+      roleId: role.name,
+      prompt: guideDraftPrompt({
+        role,
+        request: state.request,
+        answers,
+        stageId: stage.id,
+        summary: stage.summary ?? "",
+        instructions: stage.agent_context?.instructions ?? "",
+        artifactPath: artifact.path,
+        headings,
+        earlier: await readyArtifacts(ctx.path, ctx.workflow.stages, artifact.path),
+      }),
+      parse: readGuideReply(headings),
+    });
+    if (!asked.ok) return fail("A draft is not valid.");
+    const parsed = asked.value;
+    const said = parsed.text.trim();
+    if (said.startsWith(GUIDE_QUESTION_PREFIX)) {
       state.pending = {
         role: role.name,
         kind: "model",
-        question: asked.replace(/^Question:\s*/, "").trim() || asked,
+        question: said.slice(GUIDE_QUESTION_PREFIX.length).trim() || said,
       };
       await writeState(root, state);
       return ok(

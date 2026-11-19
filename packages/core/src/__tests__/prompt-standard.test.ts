@@ -19,8 +19,6 @@ import {
   DRAFT_REPLY_EXAMPLES,
   DraftContractSchema,
   DraftReplySchema,
-  GUIDE_REPLY_EXAMPLES,
-  GuideReplySchema,
   MODEL_REPLY_EXAMPLES,
   MODEL_ROOM_TYPES,
   ModelReplySchema,
@@ -29,6 +27,8 @@ import {
   ROOM_POST_EXAMPLES,
   ROOM_TYPES,
   RoomPostSchema,
+  guideExamples,
+  guideReplySchema,
 } from "../reply-schemas.js";
 import { parseRoleDocument } from "../role/profile.js";
 import {
@@ -217,7 +217,12 @@ describe("reply schemas", () => {
   const cases: Array<[string, z.ZodType, ReplyExamples]> = [
     ["model reply", ModelReplySchema, MODEL_REPLY_EXAMPLES],
     ["room post", RoomPostSchema, ROOM_POST_EXAMPLES],
-    ["guide reply", GuideReplySchema, GUIDE_REPLY_EXAMPLES],
+    [
+      "guide reply with headings",
+      guideReplySchema(["Goals", "Non-goals"]),
+      guideExamples(["Goals", "Non-goals"]),
+    ],
+    ["guide reply with no headings", guideReplySchema([]), guideExamples([])],
     ["plan reply", PlanReplySchema, PLAN_REPLY_EXAMPLES],
     ["draft reply, as the prompt shows it", DraftContractSchema, DRAFT_REPLY_EXAMPLES],
   ];
@@ -395,7 +400,7 @@ describe("prompt snapshots", () => {
   });
   it("guide draft", () =>
     snap(
-      "guide-draft",
+      "guide",
       guideDraftPrompt({
         role,
         request: "a todo list app",
@@ -406,6 +411,21 @@ describe("prompt snapshots", () => {
         artifactPath: "requirements.md",
         headings: ["Goals", "Non-goals"],
         earlier: [{ path: "idea.md", body: "A small todo list." }],
+      }),
+    ));
+  it("guide draft, no headings", () =>
+    snap(
+      "guide-no-headings",
+      guideDraftPrompt({
+        role,
+        request: "a todo list app",
+        answers: [],
+        stageId: "idea",
+        summary: "",
+        instructions: "",
+        artifactPath: "idea.md",
+        headings: [],
+        earlier: [],
       }),
     ));
   it("hand-off receiver", () =>

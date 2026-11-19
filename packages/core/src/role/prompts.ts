@@ -11,8 +11,7 @@ import {
 import {
   DRAFT_REPLY_EXAMPLES,
   DraftContractSchema,
-  GUIDE_REPLY_EXAMPLES,
-  GuideReplySchema,
+  GUIDE_QUESTION_PREFIX,
   PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
   ROOM_POST_EXAMPLES,
@@ -20,6 +19,8 @@ import {
   RoomPostSchema,
   critiqueExamples,
   critiqueReplySchema,
+  guideExamples,
+  guideReplySchema,
   revisionExamples,
 } from "../reply-schemas.js";
 import type { RoleProfile } from "./types.js";
@@ -267,17 +268,24 @@ export function guideDraftPrompt(input: {
   earlier: { path: string; body: string }[];
 }): string {
   const me = who(input.role);
+  const headed = input.headings.length > 0;
   const task = [`Stage: ${input.stageId}`];
   if (input.summary.trim()) task.push(`Summary: ${input.summary.trim()}`);
   if (input.instructions.trim()) task.push(`Instructions:\n${input.instructions.trim()}`);
-  task.push(`Artifact: ${input.artifactPath}`);
-  const rules = [
-    'If one fact is missing, set text to "Question: ..." and leave parts out.',
-    "Otherwise put the whole draft in text and split it into parts, one entry per heading.",
-  ];
-  if (input.headings.length > 0) {
-    rules.push("Use only these headings, spelled exactly:", ...input.headings.map((h) => `- ${h}`));
-  }
+  task.push(
+    `Artifact: ${input.artifactPath}`,
+    "1. Read the request, the answers, and the earlier artifacts.",
+    headed
+      ? "2. Fill each heading in Headings, in that order. Put only this artifact's words under each heading."
+      : "2. Write the whole artifact in text.",
+    `3. If one fact is missing, ask one question. Set text to "${GUIDE_QUESTION_PREFIX} <your question>" and send no parts.`,
+    headed
+      ? "4. Otherwise set text to a one-line summary and send one part for each heading."
+      : "4. Otherwise send the draft in text.",
+    headed
+      ? "Done when: every heading has words, or you asked one question."
+      : "Done when: the artifact is written, or you asked one question.",
+  );
   const inputs: PromptInputBlock[] = [
     { label: "Request", source: "the person", text: input.request },
     {
@@ -285,6 +293,7 @@ export function guideDraftPrompt(input: {
       source: "the person",
       text: input.answers.map((item) => `- ${item.question}: ${item.answer}`).join("\n"),
     },
+    { label: "Headings", source: "the artifact template", text: input.headings.join("\n") },
     ...input.earlier.map((file) => ({
       label: `Earlier artifact ${file.path}`,
       source: "the change folder",
@@ -293,15 +302,17 @@ export function guideDraftPrompt(input: {
   ];
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
+    scope: scopeLines(me.card, ["You write one artifact for one stage."]),
     task,
     inputs,
     guardrails: [
-      "Put this artifact's words under those headings. Do not rename a heading.",
-      "Do not paste an earlier artifact.",
+      ...(headed ? ["Use only the headings listed. Do not rename a heading. Do not add one."] : []),
+      "Do not paste an earlier artifact. Say what is new for this artifact.",
       "Do not name a module, a path, or a command result that is not in this prompt.",
     ],
-    output: renderReplyContract(GuideReplySchema, { rules, examples: GUIDE_REPLY_EXAMPLES }),
+    output: renderReplyContract(guideReplySchema(input.headings), {
+      examples: guideExamples(input.headings),
+    }),
   });
 }
 
