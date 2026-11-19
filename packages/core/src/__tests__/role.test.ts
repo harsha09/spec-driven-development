@@ -353,7 +353,7 @@ describe("role run", () => {
     expect(await readFile(join(root, "changes/.active"), "utf8")).toBe("missing-change\n");
   });
 
-  it("rejects a bad cite, skips revision when there are no gaps, and does not start pass 4", async () => {
+  it("fails a bad cite only after one repair, skips revision when there are no gaps, and does not start pass 4", async () => {
     const root = await project();
     await builder(root);
     await createRole(root, { name: "critic", label: "Critic", job: "Find gaps" });
@@ -364,6 +364,7 @@ describe("role run", () => {
         action: { name: "write_file", words: "Save", inputs: { path: "src/a.ts", contents: "x" } },
       }),
       json({ text: "no", gaps: [{ cite: "NOPE", text: "missing" }] }),
+      json({ text: "still no", gaps: [{ cite: "NOPE", text: "missing" }] }),
       json({ text: "should not run" }),
     ]);
     const badResult = await runRole(root, {
@@ -376,11 +377,14 @@ describe("role run", () => {
       model: bad.model,
       now: clock(0),
     });
-    expect(bad.calls).toHaveLength(2);
+    expect(bad.calls).toHaveLength(3);
+    expect(bad.calls[2]?.prompt).toContain("# Repair");
+    expect(bad.calls[2]?.prompt).toContain("NOPE");
     expect(badResult.exitCode).toBe(1);
     expect(badResult.stdout).toBe("draft one");
     expect(badResult.stdout).not.toContain(CHOICE);
     expect(recordTypes(await log(root))).not.toContain("pending");
+    expect(recordTypes(await log(root))).toEqual(["checks", "model", "repair", "bad_call"]);
 
     const empty = fake([
       json({
@@ -419,7 +423,8 @@ describe("role run", () => {
       model: mismatch.model,
       now: clock(2),
     });
-    expect(mismatch.calls).toHaveLength(3);
+    expect(mismatch.calls).toHaveLength(4);
+    expect(mismatch.calls[3]?.prompt).toContain("# Repair");
     expect(mismatchResult.exitCode).toBe(1);
     expect(mismatchResult.stdout).toBe("draft one");
     expect(recordTypes(await log(root, 2))).not.toContain("pending");
@@ -443,6 +448,121 @@ describe("role run", () => {
     expect(cited.calls).toHaveLength(3);
     expect(citedResult.exitCode).toBe(0);
     expect(citedResult.stdout).toBe("draft two");
+  });
+
+  it("repairs a critique with a bad cite and a revision that misses a gap cite", async () => {
+    const root = await project();
+    await builder(root);
+    await createRole(root, { name: "critic", label: "Critic", job: "Find gaps" });
+    await writeAccepted(root);
+    const run = fake([
+      json({ text: "draft one" }),
+      json({ text: "gap", gaps: [{ cite: "NOPE", text: "missing" }] }),
+      json({
+        text: "gaps",
+        gaps: [
+          { cite: "CHK-001", text: "one" },
+          { cite: "CHK-002", text: "two" },
+        ],
+      }),
+      json({ text: "draft two", changed: ["CHK-001"] }),
+      json({ text: "draft three", changed: ["CHK-001", "CHK-002"] }),
+    ]);
+    const result = await runRole(root, {
+      name: "builder",
+      task: "check",
+      withRole: "critic",
+      kind: "code",
+      section: "billing",
+      change: "issue-37",
+      model: run.model,
+      now: clock(0),
+    });
+    expect(run.calls).toHaveLength(5);
+    expect(run.calls[2]?.prompt).toContain("# Repair");
+    expect(run.calls[4]?.prompt).toContain('changed: "CHK-002" is missing');
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("draft three");
+    expect(recordTypes(await log(root))).toEqual([
+      "checks",
+      "model",
+      "repair",
+      "model",
+      "repair",
+      "model",
+    ]);
+  });
+
+  it("accepts an open list in a revision, shows it, and logs it", async () => {
+    const root = await project();
+    await builder(root);
+    await createRole(root, { name: "critic", label: "Critic", job: "Find gaps" });
+    await writeAccepted(root);
+    const run = fake([
+      json({ text: "draft one" }),
+      json({
+        text: "gaps",
+        gaps: [
+          { cite: "CHK-001", text: "one" },
+          { cite: "CHK-002", text: "two" },
+        ],
+      }),
+      json({ text: "draft two", changed: ["CHK-001"], open: ["CHK-002"] }),
+    ]);
+    const result = await runRole(root, {
+      name: "builder",
+      task: "check",
+      withRole: "critic",
+      kind: "code",
+      section: "billing",
+      change: "issue-37",
+      model: run.model,
+      now: clock(0),
+    });
+    expect(run.calls).toHaveLength(3);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("draft two\nOpen: CHK-002");
+    const lines = (await log(root))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(lines.map((line) => line.type)).toEqual([
+      "checks",
+      "model",
+      "model",
+      "model",
+      "open_gaps",
+    ]);
+    expect(lines[4]).toMatchObject({ roleId: "builder", cites: ["CHK-002"] });
+  });
+
+  it("refuses a revision that lists one cite in both changed and open", async () => {
+    const root = await project();
+    await builder(root);
+    await createRole(root, { name: "critic", label: "Critic", job: "Find gaps" });
+    await writeAccepted(root);
+    const both = json({ text: "draft two", changed: ["CHK-001"], open: ["CHK-001"] });
+    const run = fake([
+      json({ text: "draft one" }),
+      json({ text: "gap", gaps: [{ cite: "CHK-001", text: "one" }] }),
+      both,
+      both,
+    ]);
+    const result = await runRole(root, {
+      name: "builder",
+      task: "check",
+      withRole: "critic",
+      kind: "code",
+      section: "billing",
+      change: "issue-37",
+      model: run.model,
+      now: clock(0),
+    });
+    expect(run.calls).toHaveLength(4);
+    expect(run.calls[3]?.prompt).toContain('open: "CHK-001" is also in changed');
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("draft one");
+    expect(recordTypes(await log(root))).not.toContain("open_gaps");
   });
 
   it("reads accepted.md from changes_path and ignores a repo-root copy", async () => {

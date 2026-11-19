@@ -16,7 +16,11 @@ import {
   PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
   ROOM_POST_EXAMPLES,
+  RevisionReplySchema,
   RoomPostSchema,
+  critiqueExamples,
+  critiqueReplySchema,
+  revisionExamples,
 } from "../reply-schemas.js";
 import type { RoleProfile } from "./types.js";
 
@@ -38,36 +42,51 @@ function who(role: RoleProfile): { role: string[]; scope: string[]; card: RoleCa
   return { role: roleLines(card), scope: scopeLines(card), card };
 }
 
-function checkLines(section: AcceptedSection): string[] {
-  return [
-    "Check ids:",
-    ...section.checks,
-    `Cite for a gap that fits no check id: ${section.id}:${section.decision}`,
-  ];
-}
-
 const REPLY = (rules: string[] = []): string =>
   renderReplyContract(ModelReplySchema, { rules, examples: MODEL_REPLY_EXAMPLES });
 
+/** The ids a critic may cite: the section's check ids, then `<section id>:<decision>`. */
+export function citeIds(section: AcceptedSection): [string, ...string[]] {
+  const own = `${section.id}:${section.decision}`;
+  const ids = [...section.checks, own];
+  return [ids[0] ?? own, ...ids.slice(1)];
+}
+
 export function critiquePrompt(role: RoleProfile, section: AcceptedSection, draft: string): string {
   const me = who(role);
+  const cites = citeIds(section);
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
+    scope: [...me.scope, "You review. You do not rewrite the draft."],
     task: [
-      "Review the draft against the check ids. Report each gap with the check id it breaks.",
-      ...checkLines(section),
+      "Review the draft against the checks.",
+      "1. For each check id in Cite ids, decide if the draft meets it.",
+      "2. Report a gap only when the draft misses a check or breaks a rule.",
+      "3. Cite exactly one id for each gap. Use an id from Cite ids.",
+      "4. Say each gap in one short sentence. Say what is missing, not how to fix it.",
+      "5. If the draft meets every check, return an empty gaps list.",
+      "Done when: every check id was considered, and each gap has a valid cite.",
     ],
-    inputs: [{ label: "Draft", source: "the author role", text: draft }],
+    inputs: [
+      {
+        label: "Section",
+        source: "the accepted spec",
+        text: `${section.id} / ${section.decision}`,
+      },
+      { label: "Cite ids", source: "the accepted spec", text: cites.join("\n") },
+      { label: "Draft", source: "the author role", text: draft },
+    ],
     guardrails: [
-      "Every gap needs a cite from Task.",
+      "Do not invent an id. A cite outside Cite ids is refused.",
+      "Use the last id, the section and decision, only for a gap that fits no check id.",
       "Quote the exact text each gap is about.",
       "Report only real gaps. If the draft meets every check, reply with an empty list.",
+      "Do not praise the draft. Do not list style tips. Do not report a gap twice.",
     ],
-    output: REPLY([
-      "List every gap in gaps. Leave changed out.",
-      "An empty list means the draft meets every check.",
-    ]),
+    output: renderReplyContract(critiqueReplySchema(cites), {
+      rules: ["List every gap in gaps. An empty list means the draft meets every check."],
+      examples: critiqueExamples(cites),
+    }),
   });
 }
 
@@ -77,10 +96,19 @@ export function revisionPrompt(
   gaps: { cite: string; text: string }[],
 ): string {
   const me = who(role);
+  const cites = [...new Set(gaps.map((gap) => gap.cite))];
   return buildPrompt({
     role: me.role,
-    scope: me.scope,
-    task: ["Revise the draft so every gap is fixed. Change nothing else."],
+    scope: [...me.scope, "You fix gaps. You change nothing else."],
+    task: [
+      "Revise the draft so that every gap is fixed.",
+      "1. Fix each gap with the smallest change.",
+      "2. Keep every part of the draft that has no gap.",
+      "3. In changed, list the cite of every gap you fixed.",
+      "4. If you cannot fix a gap, list its cite in open. Do not claim a fix you did not make.",
+      "5. In text, write the full revised draft, not only the changed parts.",
+      "Done when: changed and open together list every gap cite once, and text is the full draft.",
+    ],
     inputs: [
       { label: "Draft", source: "you, earlier in this run", text: draft },
       {
@@ -90,10 +118,14 @@ export function revisionPrompt(
       },
     ],
     guardrails: [
-      "changed must list every gap cite.",
+      "changed and open together must list every gap cite, each once.",
       "Keep the draft's wording wherever no gap applies.",
+      "Do not add content that no gap asked for.",
     ],
-    output: REPLY(["Put the revised draft in text. List the cite of every fixed gap in changed."]),
+    output: renderReplyContract(RevisionReplySchema, {
+      rules: ["Put the full revised draft in text."],
+      examples: revisionExamples(cites),
+    }),
   });
 }
 
