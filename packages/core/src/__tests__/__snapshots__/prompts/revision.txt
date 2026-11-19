@@ -53,14 +53,14 @@ CHK-002: An empty todo title has no stated outcome.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "changed": string[], "open"?: string[], "action"?: {"name": string, "words"?: string, "inputs"?: {"<key>": any}}}
+- {"kind": "revision", "text": string, "changed": string[], "open"?: string[], "action"?: {"name": string, "words"?: string, "inputs"?: {"<key>": any}}}
     text: The full revised draft, not only the changed parts.
     changed: The cite of every gap you fixed.
     open?: The cite of every gap you could not fix. Leave it out if you fixed them all.
     action?: A file write you want a person to approve. Only write_file is applied.
 Keys ending in ? are optional. A reply that does not match is refused.
 Put the full revised draft in text.
-Valid: {"text":"The full revised draft goes here.","changed":["CHK-002"]}
-Valid: {"text":"The draft, with the gap still open.","changed":[],"open":["CHK-002"]}
-Invalid: {"text":"The full revised draft goes here.","changed":[]}
+Valid: {"kind":"revision","text":"The full revised draft goes here.","changed":["CHK-002"]}
+Valid: {"kind":"revision","text":"The draft, with the gap still open.","changed":[],"open":["CHK-002"]}
+Invalid: {"kind":"revision","text":"The full revised draft goes here.","changed":[]}
 Why it is invalid: changed and open together must list every gap cite (CHK-002). This reply lists none.

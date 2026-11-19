@@ -16,8 +16,6 @@ import {
   scopeLines,
 } from "../prompt.js";
 import {
-  DRAFT_REPLY_EXAMPLES,
-  DraftContractSchema,
   DraftReplySchema,
   MODEL_REPLY_EXAMPLES,
   MODEL_ROOM_TYPES,
@@ -27,6 +25,8 @@ import {
   ROOM_POST_EXAMPLES,
   ROOM_TYPES,
   RoomPostSchema,
+  draftContractSchema,
+  draftExamples,
   guideExamples,
   guideReplySchema,
 } from "../reply-schemas.js";
@@ -224,7 +224,8 @@ describe("reply schemas", () => {
     ],
     ["guide reply with no headings", guideReplySchema([]), guideExamples([])],
     ["plan reply", PlanReplySchema, PLAN_REPLY_EXAMPLES],
-    ["draft reply, as the prompt shows it", DraftContractSchema, DRAFT_REPLY_EXAMPLES],
+    ["draft reply, as the prompt shows it", draftContractSchema(false), draftExamples(false)],
+    ["draft reply that may be a question", draftContractSchema(true), draftExamples(true)],
   ];
 
   it.each(cases)("%s: valid examples pass and the invalid one fails", (_name, schema, examples) => {
@@ -244,13 +245,13 @@ describe("reply schemas", () => {
   });
 
   it("a draft prompt offers only write_file, but the parser still takes any action name", () => {
-    const merge = DRAFT_REPLY_EXAMPLES.invalid.value;
-    expect(DraftContractSchema.safeParse(merge).success).toBe(false);
+    const merge = draftExamples(false).invalid.value;
+    expect(draftContractSchema(false).safeParse(merge).success).toBe(false);
     expect(DraftReplySchema.safeParse(merge).success).toBe(true);
     expect(parseReply(JSON.stringify(merge))?.action?.name).toBe("merge");
-    expect(renderReplyContract(DraftContractSchema, { examples: DRAFT_REPLY_EXAMPLES })).toContain(
-      '"name": "write_file"',
-    );
+    expect(
+      renderReplyContract(draftContractSchema(false), { examples: draftExamples(false) }),
+    ).toContain('"name": "write_file"');
   });
 
   it("agrees with parseReply on what a model reply is", () => {
@@ -279,9 +280,9 @@ describe("reply schemas", () => {
   });
 
   it("a model may use four room types, never decision", () => {
-    expect(RoomPostSchema.safeParse({ type: "agree", text: "fine" }).success).toBe(true);
-    expect(RoomPostSchema.safeParse({ type: "shrug", text: "fine" }).success).toBe(false);
-    const decision = RoomPostSchema.safeParse({ type: "decision", text: "fine" });
+    expect(RoomPostSchema.safeParse({ kind: "agree", text: "fine" }).success).toBe(true);
+    expect(RoomPostSchema.safeParse({ kind: "shrug", text: "fine" }).success).toBe(false);
+    const decision = RoomPostSchema.safeParse({ kind: "decision", text: "fine" });
     expect(decision.success).toBe(false);
     expect(ROOM_TYPES).toContain("decision");
     expect(MODEL_ROOM_TYPES).not.toContain("decision");
@@ -384,7 +385,7 @@ describe("prompt snapshots", () => {
       "# Task\nPost one entry in the room.\n1. Read the draft and the room so far.\n2. Answer",
     );
   });
-  it("room never offers the type decision to a model", () => {
+  it("room never offers the kind decision to a model", () => {
     const text = roomPrompt({
       role,
       stageId: "x",
@@ -394,9 +395,9 @@ describe("prompt snapshots", () => {
       draft,
       entries: [],
     });
-    expect(text).toContain('"type": "post" | "objection" | "agree" | "block"');
-    expect(text).not.toMatch(/"type":[^\n]*"decision"/);
-    expect(text).toContain("Do not use the type decision. Only the person records a decision.");
+    expect(text).toContain('"kind": "post" | "objection" | "agree" | "block"');
+    expect(text).not.toMatch(/"kind":[^\n]*"decision"/);
+    expect(text).toContain("Do not use the kind decision. Only the person records a decision.");
   });
   it("guide draft", () =>
     snap(

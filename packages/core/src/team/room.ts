@@ -8,7 +8,8 @@ import { buildContext, getActiveChangeId } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, pathExists, readText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
-import { ROOM_TYPES, RoomPostSchema } from "../reply-schemas.js";
+import { type LegacyHit, legacyLogger, projectLegacyLog, withKind } from "../reply-kind.js";
+import { ROOM_FAMILY, ROOM_TYPES, RoomPostSchema } from "../reply-schemas.js";
 import { decide } from "../role/models/decide.js";
 import { loadModels } from "../role/models/schema.js";
 import { readRole, rolesListingStage } from "../role/profile.js";
@@ -351,6 +352,7 @@ export async function reviewRoom(
     if (await evidenceSupports(root, opened.id, rel)) evidence = rel;
   }
   const written: RoomEntry[] = [];
+  const legacy = legacyLogger(projectLegacyLog(root), { stamp: nowIso });
   for (const bot of bots) {
     const role = await readRole(root, bot.role);
     if (!role) return fail(ROLE_TEXT.notFound);
@@ -380,6 +382,9 @@ export async function reviewRoom(
       },
     });
     if (!asked.ok) return fail(refusal ?? "A room entry is not valid.");
+    if (asked.value.kind === "typed" && asked.value.legacy) {
+      await legacy(role.name, asked.value.legacy);
+    }
     const stored = await storedEntry(root, asked.value, input.env, input.runCommand);
     if (isFailure(stored)) return stored;
     const needed = await reviewNeedsEvidence(
@@ -419,7 +424,9 @@ export async function reviewRoom(
 type StoredEntry = { type: RoomType; text: string; cite?: string };
 
 /** A model reply read for the room: a typed entry that passed every check, or one line of text. */
-type RoomRead = { kind: "typed"; entry: StoredEntry } | { kind: "text"; text: string };
+type RoomRead =
+  | { kind: "typed"; entry: StoredEntry; legacy?: LegacyHit }
+  | { kind: "text"; text: string };
 
 /**
  * Read one room reply from a model. A reply that fails gets a repair try, so each problem is one
@@ -429,17 +436,19 @@ function readRoomReply(raw: string): ParseOutcome<RoomRead> & { refusal?: string
   const object = parseJsonObject(raw);
   if (
     object.ok &&
-    (typeof object.value.type === "string" || typeof object.value.text === "string")
+    (typeof object.value.kind === "string" ||
+      typeof object.value.type === "string" ||
+      typeof object.value.text === "string")
   ) {
-    const rec = object.value;
+    const { reply: rec, legacy } = withKind(object.value, ROOM_FAMILY);
     const parsed = RoomPostSchema.safeParse({
-      type: rec.type,
+      kind: rec.kind,
       text: rec.text,
       cite: typeof rec.cite === "string" ? rec.cite : undefined,
     });
     if (!parsed.success) {
       const noCite =
-        rec.type === "objection" &&
+        rec.kind === "objection" &&
         parsed.error.issues.every((issue) => issue.path.join(".") === "cite");
       return {
         ok: false,
@@ -447,14 +456,14 @@ function readRoomReply(raw: string): ParseOutcome<RoomRead> & { refusal?: string
         refusal: noCite ? "An objection needs a cite." : "A room entry is not valid.",
       };
     }
-    const entry = checked(parsed.data.type, parsed.data.text, parsed.data.cite ?? "");
+    const entry = checked(parsed.data.kind, parsed.data.text, parsed.data.cite ?? "");
     if (isFailure(entry)) return { ok: false, issues: [entry.stdout], refusal: entry.stdout };
-    return { ok: true, value: { kind: "typed", entry } };
+    return { ok: true, value: { kind: "typed", entry, legacy } };
   }
   if (object.ok) {
     return {
       ok: false,
-      issues: ["type: required", "text: required"],
+      issues: ["kind: required", "text: required"],
       refusal: "A room entry is not valid.",
     };
   }

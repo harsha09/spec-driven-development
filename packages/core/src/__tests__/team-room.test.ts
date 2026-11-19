@@ -193,9 +193,9 @@ describe("rooms", () => {
       "Round 1.",
     );
     expect(repaired.prompts[1]).toContain(
-      'type: must be post, objection, agree or block. "decision" is for the person.',
+      'kind: must be post, objection, agree or block. "decision" is for the person.',
     );
-    expect(repaired.prompts[0]).not.toMatch(/"type": "post"[^\n]*"decision"/);
+    expect(repaired.prompts[0]).not.toMatch(/"kind": "post"[^\n]*"decision"/);
     const shown = (await showRoom(root, { stage: "requirements" })).stdout;
     expect(shown).toContain("1 product-manager post Keep the ignore switch.");
     expect(shown).not.toContain(" decision ");
@@ -209,6 +209,57 @@ describe("rooms", () => {
     expect(refused.stdout).toBe("A room entry is not valid.");
     expect(stubborn.prompts).toHaveLength(2);
     expect((await showRoom(root, { stage: "requirements" })).stdout).not.toContain(" decision ");
+  });
+
+  it("reads a kind, and an old type with a legacy_shape line once per round", async () => {
+    const legacyLog = (root: string) => join(root, ".sdd/role-runs/legacy-shapes.jsonl");
+    const setup = async () => {
+      const root = await project();
+      await role(root, "product-manager", "Write the reading");
+      await role(root, "architect", "Name the seams");
+      await writeTeam(root, ["product-manager", "architect"]);
+      await workflow(root);
+      const config = await loadConfig(root);
+      await createChange({ projectRoot: root, config, title: "Kinds", workflowName: "rooms" });
+      return root;
+    };
+
+    const fresh = await setup();
+    const withKind = script([
+      { kind: "post", text: "Keep the ignore switch." },
+      { kind: "agree", text: "Noted." },
+    ]);
+    expect((await reviewRoom(fresh, { stage: "requirements", model: withKind.model })).stdout).toBe(
+      "Round 1.",
+    );
+    expect((await showRoom(fresh, { stage: "requirements" })).stdout).toContain(
+      "1 product-manager post Keep the ignore switch.",
+    );
+    await expect(readFile(legacyLog(fresh), "utf8")).rejects.toThrow();
+
+    const old = await setup();
+    const withType = script([
+      { type: "post", text: "Keep the ignore switch." },
+      { type: "agree", text: "Noted." },
+    ]);
+    expect((await reviewRoom(old, { stage: "requirements", model: withType.model })).stdout).toBe(
+      "Round 1.",
+    );
+    expect((await showRoom(old, { stage: "requirements" })).stdout).toContain(
+      "1 product-manager post Keep the ignore switch.",
+    );
+    const lines = (await readFile(legacyLog(old), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      type: "legacy_shape",
+      roleId: "product-manager",
+      shape: "type",
+      kind: "post",
+    });
+    expect(typeof lines[0]?.ts).toBe("string");
   });
 
   it("repairs a reply that is not one line or one JSON object", async () => {
@@ -229,7 +280,7 @@ describe("rooms", () => {
       "Round 1.",
     );
     expect(fake.prompts[1]).toContain("- (reply): one JSON object, or one line of text");
-    expect(fake.prompts[3]).toContain("- type: required");
+    expect(fake.prompts[3]).toContain("- kind: required");
   });
 
   it("keeps decision for people and the classifier options, and makes a model's pick a post", async () => {

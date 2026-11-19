@@ -1,13 +1,28 @@
 import { appendFile } from "node:fs/promises";
 import { isAbsolute, join } from "pathe";
 import type { z } from "zod";
-import { askModel, readWith } from "../ask.js";
+import { askModel } from "../ask.js";
 import { isSecretPath } from "../code-context/secrets.js";
 import { loadConfig } from "../config.js";
 import { ensureDir, listFiles, pathExists, readText, readYaml, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
 import { changesDir, configPath } from "../paths.js";
-import { DraftReplySchema, RevisionReplySchema, critiqueReplySchema } from "../reply-schemas.js";
+import {
+  type KindFamily,
+  type KindRead,
+  type NoteLegacy,
+  asQuestion,
+  legacyLogger,
+  readKinded,
+} from "../reply-kind.js";
+import {
+  CRITIQUE_FAMILY,
+  DRAFT_FAMILY,
+  DraftReplySchema,
+  REVISION_FAMILY,
+  RevisionReplySchema,
+  critiqueReplySchema,
+} from "../reply-schemas.js";
 import { cleanReply } from "../reply-text.js";
 import { SearchConfigError, budgetForStage, loadSearchConfig } from "../search/config.js";
 import { loadBrain } from "../team/brain.js";
@@ -330,12 +345,14 @@ export async function acceptedFile(root: string, changeId: string): Promise<stri
 
 /** What a schema read gives back, in the shape the rest of this file uses. */
 export function replyFrom(value: Record<string, unknown>): ModelReply {
+  const text =
+    value.kind === "question" ? asQuestion(value.text as string) : (value.text as string);
   const gaps = (value.gaps as { cite: string; text: string }[] | undefined) ?? [];
   const action = value.action as
     | { name: string; words?: string; inputs?: Record<string, unknown> }
     | undefined;
   return {
-    text: value.text as string,
+    text,
     gaps: gaps.map((gap) => ({ cite: gap.cite, text: gap.text })),
     changed: (value.changed as string[] | undefined) ?? null,
     open: (value.open as string[] | undefined) ?? [],
@@ -356,33 +373,44 @@ export async function askRole(input: {
   prompt: string;
   pass: number;
   schema: z.ZodType;
+  /** The kinds the prompt offers, and how an old reply without a kind is read. */
+  family: KindFamily;
+  /** Logs an old reply shape once per run. Make one with `legacyLogger(file)`. */
+  legacy: NoteLegacy;
   check?: (reply: ModelReply) => string[];
 }): Promise<ModelReply | null> {
-  const read = readWith(input.schema);
-  const asked = await askModel<ModelReply>({
+  const read = readKinded(input.schema, input.family);
+  const asked = await askModel<KindRead<ModelReply>>({
     model: input.model,
     roleId: input.roleId,
     prompt: input.prompt,
     parse: (raw) => {
       const parsed = read(raw);
       return parsed.ok
-        ? { ok: true, value: replyFrom(parsed.value as Record<string, unknown>) }
+        ? {
+            ok: true,
+            value: {
+              value: replyFrom(parsed.value.value as Record<string, unknown>),
+              legacy: parsed.value.legacy,
+            },
+          }
         : parsed;
     },
-    check: input.check,
+    check: input.check ? (read) => input.check?.(read.value) ?? [] : undefined,
     onRepair: (issues) => appendJson(input.file, { type: "repair", roleId: input.roleId, issues }),
   });
   if (!asked.ok) {
     await appendJson(input.file, { type: "bad_call", roleId: input.roleId });
     return null;
   }
+  if (asked.value.legacy) await input.legacy(input.roleId, asked.value.legacy);
   await appendJson(input.file, {
     type: "model",
     pass: input.pass,
     roleId: input.roleId,
-    text: asked.value.text,
+    text: asked.value.value.text,
   });
-  return asked.value;
+  return asked.value.value;
 }
 
 interface StoredRule {
@@ -644,6 +672,7 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     });
   }
 
+  const legacy = legacyLogger(file);
   const draft = await askRole({
     model: input.model,
     file,
@@ -658,6 +687,8 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
     }),
     pass: 1,
     schema: DraftReplySchema,
+    family: DRAFT_FAMILY,
+    legacy,
   });
   if (!draft) return fail("", runId);
 
@@ -671,6 +702,8 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
       prompt: critiquePrompt(critic, accepted, draft.text),
       pass: 2,
       schema: critiqueReplySchema(citeIds(accepted)),
+      family: CRITIQUE_FAMILY,
+      legacy,
     });
     if (!critique) return fail(draft.text, runId);
     if (critique.gaps.length > 0) {
@@ -682,6 +715,8 @@ export async function runRole(root: string, input: RunRoleInput): Promise<RoleCo
         prompt: revisionPrompt(role, draft.text, critique.gaps),
         pass: 3,
         schema: RevisionReplySchema,
+        family: REVISION_FAMILY,
+        legacy,
         check: (reply) => citeSetIssues(reply.changed ?? [], reply.open, cites),
       });
       if (!revision) return fail(draft.text, runId);

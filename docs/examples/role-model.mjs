@@ -48,6 +48,7 @@ process.stdin.on("end", () => {
       .map((line) => line.slice(0, line.indexOf(":")));
     const text = "Revised draft.";
     result = {
+      kind: "revision",
       text,
       changed,
       action: {
@@ -59,11 +60,12 @@ process.stdin.on("end", () => {
   } else if (isCritique) {
     const cite = (fencedBlock("Cite ids") ?? block("Check ids:"))[0] ?? "";
     result = {
+      kind: "critique",
       text: "Checked the draft.",
       gaps: [{ cite, text: "The draft misses this check." }],
     };
   } else {
-    result = { text: "Draft from the local example." };
+    result = { kind: "draft", text: "Draft from the local example." };
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
 });

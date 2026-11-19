@@ -62,7 +62,7 @@ qa
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "plan": ({"scope": string, "owner": string, "decision": string, "after": string[], "artifact": string, "boundary": "ask" | "stop", "children"?: ({"scope": string, "owner": string, "decision": string, "after": string[], "artifact": string, "boundary": "ask" | "stop"})[]})[]}
+- {"kind": "plan_tree", "text": string, "plan": ({"scope": string, "owner": string, "decision": string, "after": string[], "artifact": string, "boundary": "ask" | "stop", "children"?: ({"scope": string, "owner": string, "decision": string, "after": string[], "artifact": string, "boundary": "ask" | "stop"})[]})[]}
     text: One sentence about the plan.
     plan[].scope: A service or module named in Inputs.
     plan[].owner: A role named in Inputs.
@@ -73,6 +73,6 @@ Reply with exactly one JSON object. No prose, no code fences. Start with { and e
 Keys ending in ? are optional. A reply that does not match is refused.
 A plan is at most two levels deep: a node may have children, a child may not.
 Every artifact path is relative and inside the project.
-Valid: {"text":"The API change goes first, then the docs.","plan":[{"scope":"orders-api","owner":"developer","decision":"add-limit","after":[],"artifact":"changes/add-limit/api-notes.md","boundary":"ask"}]}
-Invalid: {"text":"Plan ready.","plan":[{"scope":"orders-api","boundary":"maybe"}]}
+Valid: {"kind":"plan_tree","text":"The API change goes first, then the docs.","plan":[{"scope":"orders-api","owner":"developer","decision":"add-limit","after":[],"artifact":"changes/add-limit/api-notes.md","boundary":"ask"}]}
+Invalid: {"kind":"plan_tree","text":"Plan ready.","plan":[{"scope":"orders-api","boundary":"maybe"}]}
 Why it is invalid: boundary must be ask or stop, and owner, decision, after and artifact are missing.

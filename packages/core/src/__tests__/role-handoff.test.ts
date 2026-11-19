@@ -177,7 +177,12 @@ describe("role handoff", () => {
       .split("\n")
       .map((line) => JSON.parse(line) as { type: string });
     expect(senderLines.map((line) => line.type)).toEqual(["handoff", "handoff_reply"]);
-    expect(receiverLines.map((line) => line.type)).toEqual(["handoff", "model", "pending"]);
+    expect(receiverLines.map((line) => line.type)).toEqual([
+      "handoff",
+      "legacy_shape",
+      "model",
+      "pending",
+    ]);
     expect(senderLines[0]).toEqual(receiverLines[0]);
     const senderInbox = await readFile(join(root, ".sdd/agents/builder/inbox.jsonl"), "utf8");
     const receiverInbox = await readFile(
@@ -1231,6 +1236,53 @@ async function storedPlan(root: string): Promise<Record<string, unknown>> {
 }
 
 describe("hand-off replies are repaired once", () => {
+  it("reads a plan_tree kind, and an old plan with no kind logs one legacy_shape line", async () => {
+    const legacyLog = (root: string) => join(root, ".sdd/role-runs/legacy-shapes.jsonl");
+    const store = async (root: string, reply: Record<string, unknown>) =>
+      planNetwork(root, {
+        change: "pay",
+        section: "expenses",
+        task: "both",
+        model: fake([JSON.stringify(reply)]).model,
+        now: clock(),
+      });
+
+    const fresh = await planProject();
+    const stored = await store(fresh, { kind: "plan_tree", text: "Plan it.", plan: [node()] });
+    expect(stored.stdout.startsWith("Accept this plan before anyone writes.")).toBe(true);
+    await expect(readFile(legacyLog(fresh), "utf8")).rejects.toThrow();
+
+    const old = await planProject();
+    const oldStored = await store(old, { text: "Plan it.", plan: [node()] });
+    expect(oldStored.stdout.startsWith("Accept this plan before anyone writes.")).toBe(true);
+    const lines = (await readFile(legacyLog(old), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      type: "legacy_shape",
+      roleId: "product-lead",
+      shape: "no_kind",
+      kind: "plan_tree",
+    });
+
+    const wrong = await planProject();
+    const model = fake([
+      JSON.stringify({ kind: "draft", text: "Plan it.", plan: [node()] }),
+      JSON.stringify({ kind: "plan_tree", text: "Plan it.", plan: [node()] }),
+    ]);
+    await planNetwork(wrong, {
+      change: "pay",
+      section: "expenses",
+      task: "both",
+      model: model.model,
+      now: clock(),
+    });
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[1]?.prompt).toContain("kind:");
+  });
+
   it("repairs a plan that names an owner who does not exist, then stores it", async () => {
     const root = await planProject();
     const model = fake([
@@ -1434,6 +1486,32 @@ describe("a node with boundary ask waits for an answer", () => {
     );
     expect(log).toContain('"type":"question"');
     expect(log).not.toContain('"type":"pending"');
+  });
+
+  it("reads kind question as a question, the same as the Question: prefix", async () => {
+    const root = await accepted("ask");
+    const model = fake([
+      JSON.stringify({ kind: "question", text: "Which currency do refunds use?" }),
+    ]);
+    const result = await runNetwork(root, { ...args, model: model.model });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("expenses-builder asks:\nWhich currency do refunds use?");
+    expect(model.calls).toHaveLength(1);
+    expect(model.calls[0]?.prompt).toContain('"kind": "draft" | "question"');
+    const plan = await storedPlan(root);
+    expect(plan.pending).toEqual({
+      decision: "D-exp",
+      owner: "expenses-builder",
+      question: "Which currency do refunds use?",
+    });
+  });
+
+  it("offers the kind question only at an ask boundary", async () => {
+    const root = await accepted("stop");
+    const model = fake([JSON.stringify({ kind: "draft", text: "Done." })]);
+    await runNetwork(root, { ...args, model: model.model });
+    expect(model.calls[0]?.prompt).toContain('"kind": "draft"');
+    expect(model.calls[0]?.prompt).not.toContain('"draft" | "question"');
   });
 
   it("shows the same question again without a model call, and refuses a stray answer", async () => {

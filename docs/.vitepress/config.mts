@@ -245,6 +245,7 @@ export default defineConfig({
         items: [
           { text: "Scenario evaluation", link: "/scenarios/evaluation" },
           { text: "CI / CD", link: "/maintainers/ci-cd" },
+          { text: "Prompts and reply kinds", link: "/maintainers/prompts" },
         ],
       },
     ],

@@ -39,17 +39,18 @@ Done when: the task is answered, or you named the one fact you need.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
-    text: Your answer in plain words.
+- {"kind": "draft" | "question", "text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
+    kind: "draft" for your answer, "question" when one fact is missing.
+    text: Your answer, or your one question.
     action?: A file write you want a person to approve. At most one.
     action.name: Only write_file is applied.
     action.words?: One line that says why you write the file.
     action.inputs.path: A relative file path inside the project.
     action.inputs.contents: The whole file.
 Keys ending in ? are optional. A reply that does not match is refused.
-If one fact is missing, set text to one line that starts with "Question: ".
-Otherwise put the draft for this stage in text.
-Valid: {"text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
-Valid: {"text":"The section does not say how long to wait. Please say."}
-Invalid: {"text":"Merged it.","action":{"name":"merge"}}
+If one fact is missing, set kind to "question" and text to your one question. Add no action.
+Otherwise set kind to "draft" and put the draft for this stage in text.
+Valid: {"kind":"draft","text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
+Valid: {"kind":"question","text":"How long should the client wait between retries?"}
+Invalid: {"kind":"draft","text":"Merged it.","action":{"name":"merge"}}
 Why it is invalid: merge is not an allowed action. Only write_file is, and a bot cannot merge.

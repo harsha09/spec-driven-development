@@ -102,11 +102,13 @@ async function log(root: string, seconds = 0, name = "builder"): Promise<string>
   );
 }
 
+/** The record types in a run log, without `legacy_shape` lines (the reply-kind tests cover those). */
 function recordTypes(body: string): string[] {
   return body
     .trim()
     .split("\n")
-    .map((line) => (JSON.parse(line) as { type: string }).type);
+    .map((line) => (JSON.parse(line) as { type: string }).type)
+    .filter((type) => type !== "legacy_shape");
 }
 
 const ACCEPTED = `# Spec
@@ -525,7 +527,8 @@ describe("role run", () => {
     const lines = (await log(root))
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => JSON.parse(line))
+      .filter((line) => line.type !== "legacy_shape");
     expect(lines.map((line) => line.type)).toEqual([
       "checks",
       "model",
@@ -534,6 +537,92 @@ describe("role run", () => {
       "open_gaps",
     ]);
     expect(lines[4]).toMatchObject({ roleId: "builder", cites: ["CHK-002"] });
+  });
+
+  describe("reply kind", () => {
+    const GAPS = [{ cite: "CHK-001", text: "one" }];
+    async function threePasses(replies: unknown[]) {
+      const root = await project();
+      await builder(root);
+      await createRole(root, { name: "critic", label: "Critic", job: "Find gaps" });
+      await writeAccepted(root);
+      const run = fake(replies.map((reply) => json(reply)));
+      const result = await runRole(root, {
+        name: "builder",
+        task: "check",
+        withRole: "critic",
+        kind: "code",
+        section: "billing",
+        change: "issue-37",
+        model: run.model,
+        now: clock(0),
+      });
+      const lines = (await log(root))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as { type: string; shape?: string; kind?: string });
+      return { run, result, legacy: lines.filter((line) => line.type === "legacy_shape") };
+    }
+
+    it("reads the new shape and logs no legacy_shape", async () => {
+      const { run, result, legacy } = await threePasses([
+        { kind: "draft", text: "draft one" },
+        { kind: "critique", text: "gaps", gaps: GAPS },
+        { kind: "revision", text: "draft two", changed: ["CHK-001"] },
+      ]);
+      expect(run.calls).toHaveLength(3);
+      expect(result.stdout).toBe("draft two");
+      expect(legacy).toEqual([]);
+    });
+
+    it("reads the old shape and logs it once for the whole run", async () => {
+      const { run, result, legacy } = await threePasses([
+        { text: "draft one" },
+        { text: "gaps", gaps: GAPS },
+        { text: "draft two", changed: ["CHK-001"] },
+      ]);
+      expect(run.calls).toHaveLength(3);
+      expect(result.stdout).toBe("draft two");
+      expect(legacy).toEqual([
+        { type: "legacy_shape", roleId: "builder", shape: "no_kind", kind: "draft" },
+      ]);
+    });
+
+    it("repairs a reply whose kind is not the one the prompt offers", async () => {
+      const { run, result } = await threePasses([
+        { kind: "draft", text: "draft one" },
+        { kind: "revision", text: "gaps", gaps: GAPS },
+        { kind: "critique", text: "gaps", gaps: GAPS },
+        { kind: "revision", text: "draft two", changed: ["CHK-001"] },
+      ]);
+      expect(run.calls).toHaveLength(4);
+      expect(run.calls[2]?.prompt).toContain("# Repair");
+      expect(run.calls[2]?.prompt).toContain("kind:");
+      expect(result.stdout).toBe("draft two");
+    });
+
+    it("reads a question as a question, with or without the prefix", async () => {
+      for (const reply of [
+        { kind: "question", text: "Which ledger?" },
+        { text: "Question: Which ledger?" },
+      ]) {
+        const root = await project();
+        await builder(root);
+        await writeAccepted(root);
+        const run = fake([json(reply)]);
+        const result = await runRole(root, {
+          name: "builder",
+          task: "draft",
+          kind: "code",
+          section: "billing",
+          change: "issue-37",
+          guide: { changeDir: root },
+          model: run.model,
+          now: clock(0),
+        });
+        expect(result.stdout).toBe("Question: Which ledger?");
+      }
+    });
   });
 
   it("refuses a revision that lists one cite in both changed and open", async () => {

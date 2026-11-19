@@ -237,6 +237,7 @@ describe("team loop", () => {
 describe("team loop repair", () => {
   const PLAN = { step: "plan", items: ["one"] };
   const DONE = { step: "done", summary: "finished", outputs: [] };
+  const DONE_KIND = { kind: "done", summary: "finished", outputs: [] };
   const run = async (root: string, model: RoleModel) =>
     runRole(root, {
       name: "builder",
@@ -275,7 +276,7 @@ describe("team loop repair", () => {
     const fake = script([{ step: "think", text: "hm" }, { step: "ask" }, DONE]);
     const result = await run(root, fake.model);
     expect(result.exitCode).toBe(1);
-    expect(fake.prompts[1]).toContain("- step: must be plan, tool, check, ask or done");
+    expect(fake.prompts[1]).toContain("- kind: must be plan, tool, check, ask or done");
     const repaired = await log(root);
     expect(types(repaired).filter((type) => type === "repair")).toHaveLength(1);
   });
@@ -355,9 +356,55 @@ describe("team loop repair", () => {
     expect(result.stdout).toBe("finished");
     const lines = await log(root);
     expect(lines.filter((line) => line.type === "legacy_shape")).toEqual([
-      { type: "legacy_shape", roleId: "builder", shape: "act" },
-      { type: "legacy_shape", roleId: "builder", shape: "stop" },
+      { type: "legacy_shape", roleId: "builder", shape: "act", kind: "tool" },
+      { type: "legacy_shape", roleId: "builder", shape: "stop", kind: "done" },
     ]);
     expect(types(lines)).not.toContain("repair");
+  });
+
+  it("reads the kind field and logs no legacy_shape", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([
+      { kind: "plan", items: ["Look"] },
+      { kind: "tool", name: "read_file", args: { path: "missing.txt" } },
+      { kind: "done", summary: "finished", outputs: [] },
+    ]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    const lines = await log(root);
+    expect(lines.filter((line) => line.type === "legacy_shape")).toEqual([]);
+    expect(lines.filter((line) => line.type === "step").map((line) => line.step)).toEqual([
+      "plan",
+      "tool",
+      "done",
+    ]);
+  });
+
+  it("reads the old step key and logs it once for the run", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([
+      { step: "plan", items: ["Look"] },
+      { step: "tool", name: "read_file", args: { path: "missing.txt" } },
+      { step: "done", summary: "finished", outputs: [] },
+    ]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    const lines = await log(root);
+    expect(lines.filter((line) => line.type === "legacy_shape")).toEqual([
+      { type: "legacy_shape", roleId: "builder", shape: "step", kind: "plan" },
+    ]);
+    expect(types(lines)).not.toContain("repair");
+  });
+
+  it("repairs a kind the prompt does not offer", async () => {
+    const root = await project();
+    await team(root);
+    const fake = script([{ kind: "think", text: "hm" }, DONE_KIND]);
+    const result = await run(root, fake.model);
+    expect(result.stdout).toBe("finished");
+    expect(fake.prompts[1]).toContain("# Repair");
+    expect(fake.prompts[1]).toContain("kind:");
   });
 });

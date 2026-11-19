@@ -345,13 +345,58 @@ describe("runGuide", () => {
       expect(await readFile(file, "utf8")).toContain(DRAFT);
     });
 
+    const legacyLog = (root: string) => join(root, ".sdd/role-runs/legacy-shapes.jsonl");
+
+    it("reads kind draft and logs no legacy_shape", async () => {
+      const { root, fake, file } = await draftWith([{ kind: "draft", ...headed(FEATURE, DRAFT) }]);
+      expect(fake.prompts).toHaveLength(1);
+      expect(await readFile(file, "utf8")).toContain(DRAFT);
+      await expect(readFile(legacyLog(root), "utf8")).rejects.toThrow();
+    });
+
+    it("reads an old reply with no kind and logs one legacy_shape line", async () => {
+      const { root, fake, file } = await draftWith([headed(FEATURE, DRAFT)]);
+      expect(fake.prompts).toHaveLength(1);
+      expect(await readFile(file, "utf8")).toContain(DRAFT);
+      const lines = (await readFile(legacyLog(root), "utf8")).trim().split("\n");
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+        type: "legacy_shape",
+        roleId: "planner",
+        shape: "no_kind",
+        kind: "draft",
+      });
+    });
+
+    it("reads kind question and stores the question without a doubled prefix", async () => {
+      const { root, fake, result } = await draftWith([
+        { kind: "question", text: "Which list is empty?" },
+      ]);
+      expect(fake.prompts).toHaveLength(1);
+      expect(result.stdout).toContain("planner asks:\nWhich list is empty?");
+      expect(await readFile(join(root, ".sdd/role-runs/guide.yaml"), "utf8")).not.toContain(
+        "Question: Which",
+      );
+      await expect(readFile(legacyLog(root), "utf8")).rejects.toThrow();
+    });
+
+    it("repairs a kind the prompt does not offer", async () => {
+      const { fake, file } = await draftWith([
+        { kind: "plan_tree", ...headed(FEATURE, DRAFT) },
+        { kind: "draft", ...headed(FEATURE, DRAFT) },
+      ]);
+      expect(fake.prompts).toHaveLength(2);
+      expect(fake.prompts[1]).toContain("kind: must be draft or question");
+      expect(await readFile(file, "utf8")).toContain(DRAFT);
+    });
+
     it("keeps a question as a Question: prefix and ignores its parts", async () => {
       const { fake, result } = await draftWith([
         { text: "Question: Which list is empty?", parts: [{ heading: "Overview", text: "x" }] },
       ]);
       expect(fake.prompts).toHaveLength(1);
       expect(result.stdout).toContain("planner asks:\nWhich list is empty?");
-      expect(fake.prompts[0]).toContain('Set text to "Question: <your question>"');
+      expect(fake.prompts[0]).toContain('Set kind to "question" and text to your question');
     });
   });
 
