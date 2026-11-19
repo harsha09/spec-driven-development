@@ -3,7 +3,7 @@
  * `.sdd/sandboxes`. A dead holder pid is reclaimed. This slice does not
  * run a command in the worktree.
  */
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { constants, type Stats } from "node:fs";
 import { lstat, mkdir, open, readFile, realpath, rename, unlink } from "node:fs/promises";
 import { isAbsolute, join, relative } from "pathe";
@@ -20,6 +20,11 @@ const LEAVE = "A sandbox path cannot leave the repository.\n";
 const TABLE_FILE = "leases.json";
 const LOCK_FILE = ".lock-leases";
 const BUILD_DIR = "build";
+
+/** Appears in the holder's command line, so a holder can be told from any other process. */
+const HOLDER_MARK = 'server.listen({ port, host: "127.0.0.1", exclusive: true }';
+const PS_DEADLINE_MS = 5_000;
+const BUSY_NAMED_MAX = 20;
 
 const LISTEN_SCRIPT = [
   'const net = require("net");',
@@ -135,18 +140,90 @@ async function readNoFollow(file: string): Promise<string | null> {
   }
 }
 
-async function isHolder(pid: number, port: number): Promise<boolean> {
-  if (!processAlive(pid)) return false;
-  try {
-    const raw = await readFile(`/proc/${pid}/cmdline`);
-    const args = raw
-      .toString("utf8")
-      .split("\0")
-      .filter((arg) => arg.length > 0);
-    return args.includes(String(port)) && args.some((arg) => arg.includes("127.0.0.1"));
-  } catch {
-    return false;
+function psText(args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("ps", args, { timeout: PS_DEADLINE_MS, maxBuffer: 16 * 1024 * 1024 }, (err, out) => {
+      resolve(err ? null : out.toString());
+    });
+  });
+}
+
+/** The command line of a live process, or null when it cannot be read. */
+async function commandOf(pid: number): Promise<string | null> {
+  if (process.platform === "linux") {
+    try {
+      const raw = await readFile(`/proc/${pid}/cmdline`);
+      const args = raw
+        .toString("utf8")
+        .split("\0")
+        .filter((arg) => arg.length > 0);
+      if (args.length > 0) return args.join(" ");
+    } catch {
+      // Fall back to ps below.
+    }
   }
+  // macOS has no /proc. ps is the same on macOS and Linux for these flags.
+  const text = await psText(["-ww", "-o", "command=", "-p", String(pid)]);
+  const line = text?.trim() ?? "";
+  return line === "" ? null : line;
+}
+
+function looksLikeHolder(command: string, port: number): boolean {
+  return command.includes(HOLDER_MARK) && command.trimEnd().endsWith(` ${port}`);
+}
+
+type HolderState = "holder" | "dead" | "other" | "unknown";
+
+/**
+ * `holder`: the pid is our port holder. `dead`: no such process. `other`: the pid now
+ * belongs to some other process, so it was reused. `unknown`: alive but its command cannot
+ * be read, so it is neither killed nor reclaimed.
+ */
+async function holderState(pid: number, port: number): Promise<HolderState> {
+  if (!processAlive(pid)) return "dead";
+  const command = await commandOf(pid);
+  if (command === null) return processAlive(pid) ? "unknown" : "dead";
+  return looksLikeHolder(command, port) ? "holder" : "other";
+}
+
+async function isHolder(pid: number, port: number): Promise<boolean> {
+  return (await holderState(pid, port)) === "holder";
+}
+
+export interface BusyHolder {
+  pid: number;
+  port: number;
+}
+
+/** Every port holder this tool left running on this machine, in any repository. */
+export async function listPortHolders(): Promise<BusyHolder[]> {
+  const text = await psText(["-ww", "-axo", "pid=,command="]);
+  if (text === null) return [];
+  const found: BusyHolder[] = [];
+  for (const line of text.split("\n")) {
+    const match = /^\s*(\d+)\s+(.*)$/.exec(line);
+    if (!match?.[1] || !match[2]) continue;
+    const command = match[2];
+    if (!command.includes(HOLDER_MARK)) continue;
+    const port = Number(/\s(\d+)\s*$/.exec(command)?.[1]);
+    if (!Number.isInteger(port) || port < PORT_BASE || port > PORT_MAX) continue;
+    found.push({ pid: Number(match[1]), port });
+  }
+  return found;
+}
+
+export async function noFreePortMessage(live: LeaseRow[]): Promise<string> {
+  const byPid = new Map<number, number>();
+  for (const row of live) byPid.set(row.pid, row.port);
+  for (const holder of await listPortHolders()) byPid.set(holder.pid, holder.port);
+  const busy = [...byPid.entries()].sort((a, b) => a[1] - b[1]);
+  if (busy.length === 0) return "No free sandbox port.\n";
+  const named = busy
+    .slice(0, BUSY_NAMED_MAX)
+    .map(([pid, port]) => `${pid} (port ${port})`)
+    .join(", ");
+  const more = busy.length > BUSY_NAMED_MAX ? `, and ${busy.length - BUSY_NAMED_MAX} more` : "";
+  return `No free sandbox port. Busy holder pids: ${named}${more}. Stop a leaked holder with kill <pid>.\n`;
 }
 
 async function stopHolder(pid: number, port: number): Promise<void> {
@@ -399,7 +476,9 @@ function nextPort(leases: LeaseRow[], skipped: Set<number>): number | null {
 async function reclaimDead(leases: LeaseRow[]): Promise<LeaseRow[]> {
   const kept: LeaseRow[] = [];
   for (const row of leases) {
-    if (processAlive(row.pid)) kept.push(row);
+    const state = await holderState(row.pid, row.port);
+    // A dead holder, or a pid that now belongs to another process, frees the lease.
+    if (state === "holder" || state === "unknown") kept.push(row);
   }
   return kept;
 }
@@ -432,7 +511,7 @@ export async function allocateLease(
     const skipped = new Set<number>();
     while (true) {
       const port = nextPort(live, skipped);
-      if (port === null) return { error: "No free sandbox port.\n" };
+      if (port === null) return { error: await noFreePortMessage(live) };
       const pid = await startHolder(port, profileEnv(profile, process.env));
       if (pid === null) {
         skipped.add(port);

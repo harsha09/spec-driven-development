@@ -542,13 +542,17 @@ describe("sdd role connector", () => {
 
   it("kills a hung gh and reports the run unreadable", async () => {
     const started = Date.now();
+    // The deadline starts when gh is spawned. A tiny fake gh script can take a few hundred ms to
+    // start on macOS (first run of a new file is scanned), so 200 ms killed it before it logged
+    // its call. 1.5 s is long enough to start and still far below the fake's 60 s sleep, which
+    // is what proves the hung process is killed.
     const hung = await readThroughGh({
       connector: "github-actions",
       record: "42",
       hang: true,
-      ghDeadlineMs: 200,
+      ghDeadlineMs: 1500,
     });
-    expect(Date.now() - started).toBeLessThan(2000);
+    expect(Date.now() - started).toBeLessThan(10_000);
     expect(hung.exitCode).toBe(1);
     expect(hung.stdout).toBe("GitHub Actions run 42 could not be read.");
     expect(hung.stdout.toLowerCase()).not.toMatch(/success|green/);

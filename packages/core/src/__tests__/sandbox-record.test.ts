@@ -1,10 +1,20 @@
 import { execFile, spawn } from "node:child_process";
-import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { join } from "pathe";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import {
   type SandboxProfile,
   closeSandbox,
@@ -18,16 +28,54 @@ import {
   rejectWrite,
   saveChangeMeta,
 } from "../index.js";
+import { listPortHolders, noFreePortMessage } from "../sandbox/lease.js";
 
 const exec = promisify(execFile);
 const temps: string[] = [];
 
+/** The temp dir with symlinks resolved. macOS reports /private/var for /var, and git prints the real path. */
+async function tempDir(prefix: string): Promise<string> {
+  return mkdtemp(join(await realpath(tmpdir()), prefix));
+}
+
+/** Every holder pid these tests started. Teardown must leave none of them running. */
+const seenHolders = new Set<number>();
+
+async function commandOfPid(pid: number): Promise<string> {
+  try {
+    const { stdout } = await exec("ps", ["-ww", "-o", "command=", "-p", String(pid)]);
+    return stdout.trim();
+  } catch {
+    return "";
+  }
+}
+
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitUntilGone(pid: number): Promise<boolean> {
+  for (let i = 0; i < 200; i++) {
+    if (!isRunning(pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return !isRunning(pid);
+}
+
+/** Kill only a process that is still our port holder, never a pid that was reused. */
 async function stopLeaseHolders(root: string): Promise<void> {
   try {
     const raw = await readFile(join(root, ".sdd", "sandboxes", "leases.json"), "utf8");
     const parsed = JSON.parse(raw) as { leases?: { pid?: number }[] };
     for (const row of parsed.leases ?? []) {
       if (!row.pid) continue;
+      seenHolders.add(row.pid);
+      if (!(await commandOfPid(row.pid)).includes("exclusive: true }")) continue;
       try {
         process.kill(row.pid, "SIGKILL");
       } catch {
@@ -39,6 +87,19 @@ async function stopLeaseHolders(root: string): Promise<void> {
   }
 }
 
+/** The environment of a running process, or null where the platform does not expose it. */
+async function environmentOf(pid: number): Promise<string | null> {
+  if (process.platform === "linux") {
+    return (await readFile(`/proc/${pid}/environ`)).toString("utf8").replaceAll("\0", "\n");
+  }
+  if (process.platform === "darwin") {
+    // macOS has no /proc. ps -E prints the environment after the command.
+    const { stdout } = await exec("ps", ["-ww", "-E", "-o", "command=", "-p", String(pid)]);
+    return stdout;
+  }
+  return null;
+}
+
 function listenResult(port: number): Promise<"ok" | "busy"> {
   return new Promise((resolve) => {
     const server = createServer();
@@ -48,6 +109,15 @@ function listenResult(port: number): Promise<"ok" | "busy"> {
     });
   });
 }
+
+afterAll(async () => {
+  // A run must not leave a port holder behind, so none of the holders started here may be alive.
+  const alive: number[] = [];
+  for (const pid of seenHolders) {
+    if (!(await waitUntilGone(pid))) alive.push(pid);
+  }
+  expect(alive, "port holders left running after the tests").toEqual([]);
+});
 
 afterEach(async () => {
   while (temps.length) {
@@ -73,7 +143,7 @@ async function writeWorkflow(root: string): Promise<void> {
 }
 
 async function gitRepo(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "sdd-sandbox-"));
+  const root = await tempDir("sdd-sandbox-");
   temps.push(root);
   await initProject({ projectRoot: root, agents: false });
   await writeWorkflow(root);
@@ -112,6 +182,8 @@ async function readRecord(
   baseSha: string;
   branch: string;
   status: string;
+  port: number;
+  leasePid: number;
 }> {
   return JSON.parse(await readFile(join(recordDir(root, id), "record.json"), "utf8")) as {
     id: string;
@@ -119,6 +191,8 @@ async function readRecord(
     baseSha: string;
     branch: string;
     status: string;
+    port: number;
+    leasePid: number;
   };
 }
 
@@ -216,7 +290,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
 
   it("rejects path-escape ids and does not follow a sandbox symlink", async () => {
     const root = await gitRepo();
-    const outside = await mkdtemp(join(tmpdir(), "sdd-sandbox-out-"));
+    const outside = await tempDir("sdd-sandbox-out-");
     temps.push(outside);
     await writeFile(join(outside, "sentinel.txt"), "stay\n");
     await writeFile(join(root, "keep.txt"), "keep\n");
@@ -244,7 +318,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     const root = await gitRepo();
     const id = await addChange(root, "Tampered sandbox");
     expect((await openSandbox(root, id)).exitCode).toBe(0);
-    const outside = await mkdtemp(join(tmpdir(), "sdd-sandbox-tamper-"));
+    const outside = await tempDir("sdd-sandbox-tamper-");
     temps.push(outside);
     await writeFile(join(outside, "sentinel.txt"), "stay\n");
     const record = await readRecord(root, id);
@@ -317,7 +391,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(missing.exitCode).toBe(1);
     expect(missing.stdout).toContain("Change not found: missing-change");
 
-    const bare = await mkdtemp(join(tmpdir(), "sdd-sandbox-bare-"));
+    const bare = await tempDir("sdd-sandbox-bare-");
     temps.push(bare);
     await initProject({ projectRoot: bare, agents: false });
     await writeWorkflow(bare);
@@ -406,7 +480,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
   it("refuses a symlinked sandbox id and leaves the link in place", async () => {
     const root = await gitRepo();
     const id = await addChange(root, "Symlinked id");
-    const outside = await mkdtemp(join(tmpdir(), "sdd-sandbox-id-"));
+    const outside = await tempDir("sdd-sandbox-id-");
     temps.push(outside);
     await writeFile(join(outside, "sentinel.txt"), "stay\n");
     await mkdir(join(root, ".sdd", "sandboxes"), { recursive: true });
@@ -525,6 +599,75 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     expect(after.leases.map((row) => row.id)).toEqual([nextId]);
   });
 
+  it("leaves no port holder running after close or teardown", async () => {
+    const root = await gitRepo();
+    const closedId = await addChange(root, "Closed holder");
+    const keptId = await addChange(root, "Kept holder");
+    expect((await openSandbox(root, closedId)).exitCode).toBe(0);
+    expect((await openSandbox(root, keptId)).exitCode).toBe(0);
+    const closed = await readRecord(root, closedId);
+    const kept = await readRecord(root, keptId);
+    const closedPid = closed.leasePid;
+    const keptPid = kept.leasePid;
+    seenHolders.add(closedPid);
+    seenHolders.add(keptPid);
+    expect(isRunning(closedPid)).toBe(true);
+    expect(isRunning(keptPid)).toBe(true);
+    expect((await listPortHolders()).map((holder) => holder.pid)).toEqual(
+      expect.arrayContaining([closedPid, keptPid]),
+    );
+
+    expect((await closeSandbox(root, closedId)).exitCode).toBe(0);
+    expect(await waitUntilGone(closedPid), "closing a sandbox stops its holder").toBe(true);
+    expect(isRunning(keptPid)).toBe(true);
+
+    await stopLeaseHolders(root);
+    expect(await waitUntilGone(keptPid), "teardown stops the holder it left open").toBe(true);
+    expect((await listPortHolders()).map((holder) => holder.pid)).not.toContain(keptPid);
+  });
+
+  it("reclaims a lease whose pid now belongs to another process", async () => {
+    const root = await gitRepo();
+    const firstId = await addChange(root, "Reused pid");
+    const nextId = await addChange(root, "After reuse");
+    expect((await openSandbox(root, firstId)).exitCode).toBe(0);
+    const first = await readRecord(root, firstId);
+    seenHolders.add(first.leasePid);
+    process.kill(first.leasePid, "SIGKILL");
+    expect(await waitUntilGone(first.leasePid)).toBe(true);
+    // Another process now lives at the pid the table remembers.
+    const bystander = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], {
+      stdio: "ignore",
+    });
+    try {
+      const tablePath = join(root, ".sdd", "sandboxes", "leases.json");
+      const table = JSON.parse(await readFile(tablePath, "utf8")) as {
+        leases: { id: string; pid: number }[];
+      };
+      for (const row of table.leases) row.pid = bystander.pid ?? 0;
+      await writeFile(tablePath, `${JSON.stringify(table, null, 2)}\n`);
+
+      expect((await openSandbox(root, nextId)).exitCode).toBe(0);
+      const next = await readRecord(root, nextId);
+      expect(next.port).toBe(first.port);
+      expect(isRunning(bystander.pid ?? 0), "the other process is left alone").toBe(true);
+    } finally {
+      bystander.kill("SIGKILL");
+    }
+  });
+
+  it("names the busy holder pids when no port is free", async () => {
+    const root = await gitRepo();
+    const id = await addChange(root, "Busy range");
+    expect((await openSandbox(root, id)).exitCode).toBe(0);
+    const record = await readRecord(root, id);
+    const message = await noFreePortMessage([]);
+    expect(message.startsWith("No free sandbox port.")).toBe(true);
+    expect(message).toContain(`${record.leasePid} (port ${record.port})`);
+    expect(message).toContain("kill <pid>");
+    expect(message.endsWith("\n")).toBe(true);
+  });
+
   it("records the isolation profile and lists it", async () => {
     const root = await gitRepo();
     const secret = "s3cret-value-profile";
@@ -592,7 +735,7 @@ describe("sandbox record", { timeout: 30_000 }, () => {
     });
   });
 
-  it("does not pass an unlisted env var to the port holder", async () => {
+  it("does not pass an unlisted env var to the port holder", async (ctx) => {
     const root = await gitRepo();
     const id = await addChange(root, "Holder env");
     const sentinel = "SDD_SENTINEL_SECRET";
@@ -605,8 +748,10 @@ describe("sandbox record", { timeout: 30_000 }, () => {
       ) as {
         leasePid: number;
       };
-      const environ = await readFile(`/proc/${record.leasePid}/environ`);
-      const text = environ.toString("utf8");
+      const text = await environmentOf(record.leasePid);
+      if (text === null) return ctx.skip();
+      // The positive control proves the environment was readable, so the checks below mean something.
+      expect(text).toContain("PATH=");
       expect(text).not.toContain(sentinel);
       expect(text).not.toContain("sentinel-secret-value");
       expect(
