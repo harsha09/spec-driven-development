@@ -1,4 +1,4 @@
-Tools you may call, one per "tool" step. Send {"step":"tool","name":<name>,"args":{...}}:
+Tools you may call, one per "tool" step. Send {"kind":"tool","name":<name>,"args":{...}}:
 - read_file: Read one file inside the project.
     path: string. Path relative to the project root.
 - search: Search the project.
@@ -21,17 +21,17 @@ run_check accepts only these exact commands:
     pnpm test
     pnpm lint
 
-Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Send one step per reply. The step is one of:
-- {"step": "plan", "items": string[]}  Write down the steps you will take. Plan before you act.
-- {"step": "tool", "name": string, "args"?: any}  Call one tool from the tool list. Its result comes back on the next turn.
-- {"step": "check", "claim": string, "evidence"?: string[]}  State a claim about the work. A claim that something passes needs evidence.
-- {"step": "ask", "question": string, "options": string[], "suggest"?: string}  Stop and ask the person one question. Use it when you are blocked or unsure.
-- {"step": "done", "summary": string, "outputs": string[], "evidence"?: string[]}  Finish the work. List the files you produced in outputs.
+Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Send one step per reply. The kind of the step is one of:
+- {"kind": "plan", "items": string[]}  Write down the steps you will take. Plan before you act.
+- {"kind": "tool", "name": string, "args"?: any}  Call one tool from the tool list. Its result comes back on the next turn.
+- {"kind": "check", "claim": string, "evidence"?: string[]}  State a claim about the work. A claim that something passes needs evidence.
+- {"kind": "ask", "question": string, "options": string[], "suggest"?: string}  Stop and ask the person one question. Use it when you are blocked or unsure.
+- {"kind": "done", "summary": string, "outputs": string[], "evidence"?: string[]}  Finish the work. List the files you produced in outputs.
 Keys ending in ? are optional. A reply that does not match is refused.
-Valid: {"step":"plan","items":["Read the spec","Add the retry","Run the tests"]}
-Valid: {"step":"tool","name":"read_file","args":{"path":"changes/refund-retry/spec.md"}}
-Valid: {"step":"check","claim":"Refund calls retry 3 times and the tests pass.","evidence":["changes/refund-retry/evidence/0a1b2c3.json"]}
-Valid: {"step":"ask","question":"Should a retry also cover timeouts?","options":["yes","no"],"suggest":"yes"}
-Valid: {"step":"done","summary":"Refund calls retry 3 times, 2 seconds apart. Tests pass.","outputs":["src/refund/client.ts"],"evidence":["changes/refund-retry/evidence/0a1b2c3.json"]}
-Invalid: {"step":"read_file","path":"changes/refund-retry/spec.md"}
-Why it is invalid: step must be plan, tool, check, ask or done. A tool call is {"step":"tool","name":"read_file","args":{...}}.
+Valid: {"kind":"plan","items":["Read the spec","Add the retry","Run the tests"]}
+Valid: {"kind":"tool","name":"read_file","args":{"path":"changes/refund-retry/spec.md"}}
+Valid: {"kind":"check","claim":"Refund calls retry 3 times and the tests pass.","evidence":["changes/refund-retry/evidence/0a1b2c3.json"]}
+Valid: {"kind":"ask","question":"Should a retry also cover timeouts?","options":["yes","no"],"suggest":"yes"}
+Valid: {"kind":"done","summary":"Refund calls retry 3 times, 2 seconds apart. Tests pass.","outputs":["src/refund/client.ts"],"evidence":["changes/refund-retry/evidence/0a1b2c3.json"]}
+Invalid: {"kind":"read_file","path":"changes/refund-retry/spec.md"}
+Why it is invalid: kind must be plan, tool, check, ask or done. A tool call is {"kind":"tool","name":"read_file","args":{...}}.

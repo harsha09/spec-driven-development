@@ -3,12 +3,13 @@ import { basename, join } from "pathe";
 import { type ParseOutcome, askModel, parseJsonObject, zodIssues } from "../ask.js";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
 import { buildPrompt } from "../prompt.js";
+import { type LegacyHit, kindMessage, legacyLogger, withKind } from "../reply-kind.js";
 import { conversationDir } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
 import type { RoleCommandResult, RoleModel } from "../role/types.js";
 import type { Brain } from "./brain.js";
-import { type LoopStep, LoopStepSchema } from "./loop-contract.js";
+import { LOOP_FAMILY, LOOP_KINDS, type LoopStep, LoopStepSchema } from "./loop-contract.js";
 import { addReviewerLesson } from "./memory.js";
 import { postLoopDone, roomForPrompt } from "./room.js";
 import { passClaimRefusal, runTool } from "./tools.js";
@@ -54,6 +55,7 @@ export async function runLoop(input: {
     const piece = text.trim().slice(-4000);
     results = `${results}\n${piece}`.trim().slice(-8000);
   };
+  const legacy = legacyLogger(input.file);
   let taken = 0;
   let repairsLeft = LOOP_MAX_REPAIRS;
   let copied = false;
@@ -83,29 +85,23 @@ export async function runLoop(input: {
     }
     taken += 1;
     const step = asked.value.step;
-    if (asked.value.legacy) {
-      await appendLine(input.file, {
-        type: "legacy_shape",
-        roleId: input.roleName,
-        shape: asked.value.legacy,
-      });
-    }
-    if (step.kind === "understand") {
+    if (asked.value.legacy) await legacy(input.roleName, asked.value.legacy);
+    if (step.tag === "understand") {
       await appendLine(input.file, { type: "step", step: "understand" });
       continue;
     }
-    if (step.kind === "reflect") {
+    if (step.tag === "reflect") {
       await appendLine(input.file, { type: "step", step: "reflect" });
       await copyReviewer();
       continue;
     }
-    if (step.kind === "schema") {
+    if (step.tag === "schema") {
       const body = step.step;
-      if (body.step === "plan") {
+      if (body.kind === "plan") {
         await appendLine(input.file, { type: "step", step: "plan", items: body.items });
         continue;
       }
-      if (body.step === "tool") {
+      if (body.kind === "tool") {
         const ran = await runTool(input.root, input.cfg, input.brain.bot.name, {
           name: body.name,
           args: body.args,
@@ -114,7 +110,7 @@ export async function runLoop(input: {
         await appendLine(input.file, { type: "step", step: "tool", name: body.name, ok: ran.ok });
         continue;
       }
-      if (body.step === "check") {
+      if (body.kind === "check") {
         const refusal = await passClaimRefusal(input.root, body.claim, body.evidence ?? []);
         if (refusal) {
           remember(refusal);
@@ -129,7 +125,7 @@ export async function runLoop(input: {
         });
         continue;
       }
-      if (body.step === "ask") return ask(input.root, input.file, body.question, body.options);
+      if (body.kind === "ask") return ask(input.root, input.file, body.question, body.options);
       const cites = body.evidence ?? [];
       const refusal = await passClaimRefusal(input.root, body.summary, cites);
       if (refusal) {
@@ -160,51 +156,58 @@ async function ask(
   return ok(question);
 }
 
-type Parsed = { kind: "understand" } | { kind: "reflect" } | { kind: "schema"; step: LoopStep };
+/** What a step reply is: one of the five steps, or one of the two that do nothing much. */
+type Parsed = { tag: "understand" } | { tag: "reflect" } | { tag: "schema"; step: LoopStep };
 
-/** An old way of writing a step that is still read. Each use is logged as `legacy_shape`. */
+/**
+ * An old way of writing a step that is still read, for one minor release. `no_kind` and the old
+ * `step` key are reported by `readKinded`; `stop`, `act` and a bare `{"text": ...}` are
+ * older aliases. Each is logged as `legacy_shape`, once per run.
+ */
 type LegacyShape = "stop" | "act" | "text";
-
-const STEP_NAMES = ["plan", "tool", "check", "ask", "done"];
 
 interface StepRead {
   step: Parsed;
-  legacy?: LegacyShape;
+  legacy?: LegacyHit;
 }
 
 function readStep(raw: string): ParseOutcome<StepRead> {
   const object = parseJsonObject(raw);
   if (!object.ok) return object;
-  const rec = { ...object.value };
-  if (rec.step === "understand") return { ok: true, value: { step: { kind: "understand" } } };
-  if (rec.step === "reflect") return { ok: true, value: { step: { kind: "reflect" } } };
-  let legacy: LegacyShape | undefined;
-  if (rec.step === "stop") {
-    legacy = "stop";
-    rec.step = "done";
+  const { reply: rec, legacy: moved } = withKind(object.value, LOOP_FAMILY);
+  let legacy: LegacyHit | undefined = moved;
+  if (rec.kind === "understand")
+    return { ok: true, value: { step: { tag: "understand" }, legacy } };
+  if (rec.kind === "reflect") return { ok: true, value: { step: { tag: "reflect" }, legacy } };
+  const alias = (shape: LegacyShape, kind: string): void => {
+    legacy = { shape, kind };
+  };
+  if (rec.kind === "stop") {
+    alias("stop", "done");
+    rec.kind = "done";
     if (typeof rec.summary !== "string") rec.summary = typeof rec.text === "string" ? rec.text : "";
     if (!Array.isArray(rec.outputs)) rec.outputs = [];
   }
-  if (rec.step === "act") {
-    legacy = "act";
-    rec.step = "tool";
+  if (rec.kind === "act") {
+    alias("act", "tool");
+    rec.kind = "tool";
     if (typeof rec.name !== "string" || !rec.name) rec.name = "act";
     if (rec.args === undefined) rec.args = {};
   }
-  if (rec.step === undefined && typeof rec.text === "string") {
-    legacy = "text";
+  if (rec.kind === undefined && typeof rec.text === "string") {
+    alias("text", "done");
     const summary = rec.text;
     const { text: _ignored, ...rest } = rec;
-    const done = LoopStepSchema.safeParse({ ...rest, step: "done", summary, outputs: [] });
+    const done = LoopStepSchema.safeParse({ ...rest, kind: "done", summary, outputs: [] });
     if (!done.success) return { ok: false, issues: zodIssues(done.error) };
-    return { ok: true, value: { step: { kind: "schema", step: done.data }, legacy } };
+    return { ok: true, value: { step: { tag: "schema", step: done.data }, legacy } };
   }
-  if (typeof rec.step !== "string" || !STEP_NAMES.includes(rec.step)) {
-    return { ok: false, issues: ["step: must be plan, tool, check, ask or done"] };
+  if (typeof rec.kind !== "string" || !(LOOP_KINDS as readonly string[]).includes(rec.kind)) {
+    return { ok: false, issues: [`kind: ${kindMessage(LOOP_KINDS)}`] };
   }
   const parsed = LoopStepSchema.safeParse(rec);
   if (!parsed.success) return { ok: false, issues: zodIssues(parsed.error) };
-  return { ok: true, value: { step: { kind: "schema", step: parsed.data }, legacy } };
+  return { ok: true, value: { step: { tag: "schema", step: parsed.data }, legacy } };
 }
 
 async function priorLesson(

@@ -20,8 +20,8 @@ Stage: idea
 Artifact: idea.md
 1. Read the request, the answers, and the earlier artifacts.
 2. Write the whole artifact in text.
-3. If one fact is missing, ask one question. Set text to "Question: <your question>" and send no parts.
-4. Otherwise send the draft in text.
+3. If one fact is missing, ask one question. Set kind to "question" and text to your question, and send no parts.
+4. Otherwise set kind to "draft" and send the draft in text.
 Done when: the artifact is written, or you asked one question.
 
 # Inputs
@@ -48,10 +48,11 @@ a todo list app
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string}
-    text: The whole draft, or "Question: ..." when one fact is missing.
+- {"kind": "draft" | "question", "text": string}
+    kind: "draft" for your draft, "question" when one fact is missing.
+    text: The whole draft, or your one question.
 Keys ending in ? are optional. A reply that does not match is refused.
-Valid: {"text":"Share a todo list with a link. View only. No comments."}
-Valid: {"text":"Question: Should the link expire?"}
-Invalid: {"text":["Share a todo list with a link."]}
+Valid: {"kind":"draft","text":"Share a todo list with a link. View only. No comments."}
+Valid: {"kind":"question","text":"Should the link expire?"}
+Invalid: {"kind":"draft","text":["Share a todo list with a link."]}
 Why it is invalid: text must be one string, not a list.

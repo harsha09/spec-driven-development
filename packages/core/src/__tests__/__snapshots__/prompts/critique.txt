@@ -61,14 +61,14 @@ A todo item has a title and a done flag.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "gaps"?: ({"cite": "CHK-001" | "CHK-002" | "todo-list:D1", "text": string})[]}
+- {"kind": "critique", "text": string, "gaps"?: ({"cite": "CHK-001" | "CHK-002" | "todo-list:D1", "text": string})[]}
     text: One short line: the verdict, such as "Two checks are not met."
     gaps?: Every gap, one entry each. An empty list means every check is met.
     gaps[].cite: One id from Cite ids.
     gaps[].text: What is missing, in one short sentence.
 Keys ending in ? are optional. A reply that does not match is refused.
 List every gap in gaps. An empty list means the draft meets every check.
-Valid: {"text":"One check is not met.","gaps":[{"cite":"CHK-001","text":"The draft does not say what this check needs."}]}
-Valid: {"text":"All checks are met.","gaps":[]}
-Invalid: {"text":"Looks good, but add logging.","gaps":[{"cite":"logging","text":"Add logging."}]}
+Valid: {"kind":"critique","text":"One check is not met.","gaps":[{"cite":"CHK-001","text":"The draft does not say what this check needs."}]}
+Valid: {"kind":"critique","text":"All checks are met.","gaps":[]}
+Invalid: {"kind":"critique","text":"Looks good, but add logging.","gaps":[{"cite":"logging","text":"Add logging."}]}
 Why it is invalid: logging is not one of the ids in Cite ids, and a style tip is not a gap.

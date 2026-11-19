@@ -45,13 +45,13 @@ async function project(): Promise<string> {
   return root;
 }
 
-const stepNames = LoopStepSchema.options.map((option) => option.shape.step.value);
+const stepNames = LoopStepSchema.options.map((option) => option.shape.kind.value);
 const tools = { tools: TOOL_SPECS };
 
 describe("loop contract", () => {
   it("states every step in the schema and every registered tool", () => {
     const text = renderLoopContract();
-    for (const step of stepNames) expect(text).toContain(`"step": "${step}"`);
+    for (const step of stepNames) expect(text).toContain(`"kind": "${step}"`);
     expect(text).toContain('"items": string[]');
     expect(text).toContain('"claim": string');
     expect(text).toContain('"evidence"?: string[]');
@@ -63,18 +63,18 @@ describe("loop contract", () => {
 
   it("changes when the schema changes", () => {
     const before = renderLoopContract();
-    const extended = z.discriminatedUnion("step", [
+    const extended = z.discriminatedUnion("kind", [
       ...LoopStepSchema.options,
-      z.strictObject({ step: z.literal("pause"), reason: z.string() }),
+      z.strictObject({ kind: z.literal("pause"), reason: z.string() }),
     ]);
     const after = renderLoopContract({ steps: extended });
     expect(before).not.toContain("pause");
-    expect(after).toContain('{"step": "pause", "reason": string}');
-    const fewer = z.discriminatedUnion("step", [
+    expect(after).toContain('{"kind": "pause", "reason": string}');
+    const fewer = z.discriminatedUnion("kind", [
       LoopStepSchema.options[0],
       LoopStepSchema.options[4],
     ]);
-    expect(renderLoopContract({ steps: fewer }).split("Valid:")[0]).not.toContain('"step": "ask"');
+    expect(renderLoopContract({ steps: fewer }).split("Valid:")[0]).not.toContain('"kind": "ask"');
   });
 
   it("changes when a tool is added or its arguments change", () => {
@@ -94,7 +94,7 @@ describe("loop contract", () => {
   });
 
   it("ships a valid example for every step and an invalid one the parser refuses", () => {
-    const shown = LOOP_STEP_EXAMPLES.valid.map((value) => (value as { step: string }).step);
+    const shown = LOOP_STEP_EXAMPLES.valid.map((value) => (value as { kind: string }).kind);
     expect(shown).toEqual(stepNames);
     for (const value of LOOP_STEP_EXAMPLES.valid) {
       expect(LoopStepSchema.safeParse(value).success).toBe(true);

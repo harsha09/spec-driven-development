@@ -20,7 +20,7 @@ You review. You do not own this stage's artifact.
 Post one entry in the room.
 1. Read the draft and the room so far.
 2. Decide what the draft needs.
-3. Choose one type:
+3. Choose one kind:
    - post: a note or an answer.
    - objection: the draft misses a check or breaks a rule. Cite what it breaks.
    - agree: you accept the draft as it is.
@@ -48,7 +48,7 @@ planner post: The empty title rule is missing.
 - An objection needs a cite: the check id, section or file it is about.
 - Use agree only if every check is met.
 - Do not write pass, works or fixed unless you cite the evidence path.
-- Do not use the type decision. Only the person records a decision.
+- Do not use the kind decision. Only the person records a decision.
 - Agree only with a point you checked.
 - Write one line. Do not repeat an earlier room entry.
 
@@ -61,12 +61,12 @@ planner post: The empty title rule is missing.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"type": "post" | "objection" | "agree" | "block", "text": string, "cite"?: string}
-    type: post, objection, agree, or block.
+- {"kind": "post" | "objection" | "agree" | "block", "text": string, "cite"?: string}
+    kind: post, objection, agree, or block.
     text: One line.
     cite?: What you point at. An objection needs one. An agree needs an evidence path.
 Keys ending in ? are optional. A reply that does not match is refused.
-Valid: {"type":"objection","text":"The draft does not say what happens when a card is declined.","cite":"declined-card-path"}
-Valid: {"type":"agree","text":"All checks are met.","cite":"changes/refund-retry/evidence/0a1b2c3.json"}
-Invalid: {"type":"objection","text":"Needs more detail."}
+Valid: {"kind":"objection","text":"The draft does not say what happens when a card is declined.","cite":"declined-card-path"}
+Valid: {"kind":"agree","text":"All checks are met.","cite":"changes/refund-retry/evidence/0a1b2c3.json"}
+Invalid: {"kind":"objection","text":"Needs more detail."}
 Why it is invalid: An objection has no cite. It also does not say what is missing.

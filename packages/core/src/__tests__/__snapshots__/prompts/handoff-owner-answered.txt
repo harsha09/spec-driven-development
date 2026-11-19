@@ -44,7 +44,7 @@ A: Use the order currency.
 - Stay inside your role. Never do anything listed under Never.
 - Never say a check passes unless you cite evidence for it.
 - Work only on this artifact.
-- If Boundary is ask and you need an answer from the person, set text to one line that starts with "Question: ". Add no action. The run waits for the answer.
+- If Boundary is ask and you need an answer from the person, set kind to "question" and text to your one question. Add no action. The run waits for the answer.
 - If Boundary is stop, stop and say in text what change is needed and where. Add no action.
 - Write only through the write_file action. No other action name is allowed.
 
@@ -56,8 +56,9 @@ A: Use the order currency.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
-    text: Your answer in plain words.
+- {"kind": "draft" | "question", "text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
+    kind: "draft" for your answer, "question" when one fact is missing.
+    text: Your answer, or your one question.
     action?: A file write you want a person to approve. At most one.
     action.name: Only write_file is applied.
     action.words?: One line that says why you write the file.
@@ -65,7 +66,7 @@ Reply with exactly one JSON object. No prose, no code fences. Start with { and e
     action.inputs.contents: The whole file.
 Keys ending in ? are optional. A reply that does not match is refused.
 Put what you did for the artifact in text.
-Valid: {"text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
-Valid: {"text":"The section does not say how long to wait. Please say."}
-Invalid: {"text":"Merged it.","action":{"name":"merge"}}
+Valid: {"kind":"draft","text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
+Valid: {"kind":"question","text":"How long should the client wait between retries?"}
+Invalid: {"kind":"draft","text":"Merged it.","action":{"name":"merge"}}
 Why it is invalid: merge is not an allowed action. Only write_file is, and a bot cannot merge.

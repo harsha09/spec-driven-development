@@ -55,7 +55,7 @@ People can add, finish, and remove todo items.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
+- {"kind": "draft", "text": string, "action"?: {"name": "write_file", "words"?: string, "inputs": {"path": string, "contents": string}}}
     text: Your answer in plain words.
     action?: A file write you want a person to approve. At most one.
     action.name: Only write_file is applied.
@@ -63,7 +63,7 @@ Reply with exactly one JSON object. No prose, no code fences. Start with { and e
     action.inputs.path: A relative file path inside the project.
     action.inputs.contents: The whole file.
 Keys ending in ? are optional. A reply that does not match is refused.
-Valid: {"text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
-Valid: {"text":"The section does not say how long to wait. Please say."}
-Invalid: {"text":"Merged it.","action":{"name":"merge"}}
+Valid: {"kind":"draft","text":"I added the retry note to the design.","action":{"name":"write_file","words":"Save the retry note in the design file.","inputs":{"path":"design.md","contents":"Retry up to 3 times, 2 seconds apart."}}}
+Valid: {"kind":"draft","text":"The section does not say how long to wait. Please say."}
+Invalid: {"kind":"draft","text":"Merged it.","action":{"name":"merge"}}
 Why it is invalid: merge is not an allowed action. Only write_file is, and a bot cannot merge.

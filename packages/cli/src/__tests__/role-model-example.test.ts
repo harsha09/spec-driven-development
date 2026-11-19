@@ -25,6 +25,7 @@ describe("local SDD_ROLE_MODEL example", () => {
     expect(source).not.toMatch(/https?:/);
 
     expect(run("Job: Build\nTask: write the page\n")).toEqual({
+      kind: "draft",
       text: "Draft from the local example.",
     });
 
@@ -41,6 +42,7 @@ describe("local SDD_ROLE_MODEL example", () => {
         ].join("\n"),
       ),
     ).toEqual({
+      kind: "critique",
       text: "Checked the draft.",
       gaps: [{ cite: "CHK-001", text: "The draft misses this check." }],
     });
@@ -58,6 +60,7 @@ describe("local SDD_ROLE_MODEL example", () => {
         ].join("\n"),
       ),
     ).toEqual({
+      kind: "revision",
       text: "Revised draft.",
       changed: ["CHK-001", "CHK-002"],
       action: {

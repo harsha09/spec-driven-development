@@ -1,7 +1,7 @@
 import { join } from "pathe";
 import type { AgentTarget } from "../agents.js";
 import { h2Title, headingsFilled, isSubstantiveArtifactContent } from "../artifacts.js";
-import { type ParseReply, askModel, parseJsonObject, readWith } from "../ask.js";
+import { type ParseReply, askModel } from "../ask.js";
 import { buildContext, getActiveChangeId } from "../change-context.js";
 import { advanceStage, createChange, skipStage } from "../change.js";
 import { isInitialized, loadConfig } from "../config.js";
@@ -16,7 +16,16 @@ import {
 } from "../fs.js";
 import { initProject } from "../init.js";
 import { templatesDir } from "../paths.js";
-import { GUIDE_QUESTION_PREFIX, guideReplySchema } from "../reply-schemas.js";
+import {
+  type KindRead,
+  type NoteLegacy,
+  QUESTION_PREFIX,
+  asQuestion,
+  legacyLogger,
+  projectLegacyLog,
+  readKinded,
+} from "../reply-kind.js";
+import { GUIDE_FAMILY, guideReplySchema } from "../reply-schemas.js";
 import type { Stage } from "../schemas.js";
 import { getStage, loadWorkflow } from "../workflow.js";
 import { createRole, readRole } from "./profile.js";
@@ -334,28 +343,37 @@ export interface GuideReply {
 
 /**
  * Reads a guide reply for an artifact with these headings. A part may use only a listed heading,
- * after its spaces are trimmed. A reply that asks a question is read without its parts.
+ * after its spaces are trimmed. A question is read without its parts, and its text gets the
+ * `Question:` prefix the guide stores. A reply in an old shape (no `kind`) is read as the draft
+ * or question it stands for, and says so in `legacy`.
  */
-export function readGuideReply(headings: string[]): ParseReply<GuideReply> {
-  const read = readWith(guideReplySchema(headings));
-  return (raw) => {
-    const object = parseJsonObject(raw);
-    if (!object.ok) return object;
-    const value = { ...object.value };
-    if (typeof value.text === "string" && value.text.trim().startsWith(GUIDE_QUESTION_PREFIX)) {
-      value.parts = undefined;
-    } else if (Array.isArray(value.parts)) {
-      value.parts = value.parts.map((part) => {
+export function readGuideReply(headings: string[]): ParseReply<KindRead<GuideReply>> {
+  const read = readKinded(guideReplySchema(headings), GUIDE_FAMILY, (reply) => {
+    if (reply.kind === "question") return { ...reply, parts: undefined };
+    if (!Array.isArray(reply.parts)) return reply;
+    return {
+      ...reply,
+      parts: reply.parts.map((part) => {
         const item = part as Record<string, unknown> | null;
         return item && typeof item === "object" && typeof item.heading === "string"
           ? { ...item, heading: item.heading.trim() }
           : part;
-      });
-    }
-    const parsed = read(JSON.stringify(value));
+      }),
+    };
+  });
+  return (raw) => {
+    const parsed = read(raw);
     if (!parsed.ok) return parsed;
-    const reply = parsed.value as { text: string; parts?: GuideReply["parts"] };
-    return { ok: true, value: { text: reply.text, parts: reply.parts ?? [] } };
+    const reply = parsed.value.value as {
+      kind: string;
+      text: string;
+      parts?: GuideReply["parts"];
+    };
+    const text = reply.kind === "question" ? asQuestion(reply.text) : reply.text;
+    return {
+      ok: true,
+      value: { value: { text, parts: reply.parts ?? [] }, legacy: parsed.value.legacy },
+    };
   };
 }
 
@@ -462,6 +480,7 @@ async function draftStage(
   required: Stage["artifacts"],
   input: { model?: RoleModel },
   lines: string[],
+  legacy: NoteLegacy,
 ): Promise<RoleCommandResult | "next"> {
   if (required.length === 0) {
     return leaveStage(root, config, ctx.id, stage.id, role.name, false, lines, state);
@@ -493,13 +512,14 @@ async function draftStage(
       parse: readGuideReply(headings),
     });
     if (!asked.ok) return fail("A draft is not valid.");
-    const parsed = asked.value;
+    const parsed = asked.value.value;
+    if (asked.value.legacy) await legacy(role.name, asked.value.legacy);
     const said = parsed.text.trim();
-    if (said.startsWith(GUIDE_QUESTION_PREFIX)) {
+    if (said.startsWith(QUESTION_PREFIX)) {
       state.pending = {
         role: role.name,
         kind: "model",
-        question: said.slice(GUIDE_QUESTION_PREFIX.length).trim() || said,
+        question: said.slice(QUESTION_PREFIX.length).trim() || said,
       };
       await writeState(root, state);
       return ok(
@@ -596,6 +616,7 @@ export async function runGuide(
 
   const lines: string[] = [];
   let lastRole = "";
+  const legacy = legacyLogger(projectLegacyLog(root), { stamp: () => new Date().toISOString() });
   for (let step = 0; step < 16; step++) {
     let ctx: Awaited<ReturnType<typeof buildContext>>;
     try {
@@ -644,7 +665,18 @@ export async function runGuide(
     }
 
     const required = stage.artifacts.filter((artifact) => artifact.required !== false);
-    const moved = await draftStage(root, config, ctx, state, stage, role, required, input, lines);
+    const moved = await draftStage(
+      root,
+      config,
+      ctx,
+      state,
+      stage,
+      role,
+      required,
+      input,
+      lines,
+      legacy,
+    );
     if (moved !== "next") return moved;
     lastRole = role.name;
   }

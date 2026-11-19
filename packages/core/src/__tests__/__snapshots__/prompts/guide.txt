@@ -23,8 +23,8 @@ Keep it to one page.
 Artifact: requirements.md
 1. Read the request, the answers, and the earlier artifacts.
 2. Fill each heading in Headings, in that order. Put only this artifact's words under each heading.
-3. If one fact is missing, ask one question. Set text to "Question: <your question>" and send no parts.
-4. Otherwise set text to a one-line summary and send one part for each heading.
+3. If one fact is missing, ask one question. Set kind to "question" and text to your question, and send no parts.
+4. Otherwise set kind to "draft", set text to a one-line summary, and send one part for each heading.
 Done when: every heading has words, or you asked one question.
 
 # Inputs
@@ -65,13 +65,14 @@ A small todo list.
 
 # Output contract
 Reply with exactly one JSON object. No prose, no code fences. Start with { and end with }. Shape:
-- {"text": string, "parts"?: ({"heading": "Goals" | "Non-goals", "text": string})[]}
-    text: A one-line summary, or "Question: ..." when one fact is missing.
+- {"kind": "draft" | "question", "text": string, "parts"?: ({"heading": "Goals" | "Non-goals", "text": string})[]}
+    kind: "draft" for your draft, "question" when one fact is missing.
+    text: A one-line summary, or your one question.
     parts?: The draft, one entry per heading. Leave it out when you ask a question.
     parts[].heading: One heading from Headings, spelled exactly.
     parts[].text: The words for this heading.
 Keys ending in ? are optional. A reply that does not match is refused.
-Valid: {"text":"Share a todo list with a link.","parts":[{"heading":"Goals","text":"The words for this heading."},{"heading":"Non-goals","text":"The words for this heading."}]}
-Valid: {"text":"Question: Should the link expire?"}
-Invalid: {"text":"Share a todo list with a link.","parts":[{"heading":"Overview","text":"The words for this heading."}]}
+Valid: {"kind":"draft","text":"Share a todo list with a link.","parts":[{"heading":"Goals","text":"The words for this heading."},{"heading":"Non-goals","text":"The words for this heading."}]}
+Valid: {"kind":"question","text":"Should the link expire?"}
+Invalid: {"kind":"draft","text":"Share a todo list with a link.","parts":[{"heading":"Overview","text":"The words for this heading."}]}
 Why it is invalid: Overview is not one of the headings. Use only Goals, Non-goals.

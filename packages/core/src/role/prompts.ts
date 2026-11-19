@@ -9,9 +9,6 @@ import {
   scopeLines,
 } from "../prompt.js";
 import {
-  DRAFT_REPLY_EXAMPLES,
-  DraftContractSchema,
-  GUIDE_QUESTION_PREFIX,
   PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
   ROOM_POST_EXAMPLES,
@@ -19,6 +16,8 @@ import {
   RoomPostSchema,
   critiqueExamples,
   critiqueReplySchema,
+  draftContractSchema,
+  draftExamples,
   guideExamples,
   guideReplySchema,
   revisionExamples,
@@ -43,9 +42,15 @@ function who(role: RoleProfile): { role: string[]; scope: string[]; card: RoleCa
   return { role: roleLines(card), scope: scopeLines(card), card };
 }
 
-/** The contract for `{text, action?}` replies: author, hand-off receiver, and network owner. */
-const DRAFT = (rules: string[] = []): string =>
-  renderReplyContract(DraftContractSchema, { rules, examples: DRAFT_REPLY_EXAMPLES });
+/**
+ * The contract for `{kind, text, action?}` replies: author, hand-off receiver, and network owner.
+ * `question` is true where the run can wait for an answer, so the kind `question` is offered.
+ */
+const DRAFT = (rules: string[] = [], question = false): string =>
+  renderReplyContract(draftContractSchema(question), {
+    rules,
+    examples: draftExamples(question),
+  });
 
 const WRITE_ONLY = "Write only through the write_file action. No other action name is allowed.";
 
@@ -171,10 +176,11 @@ export function authorPrompt(input: {
     output: DRAFT(
       input.guide
         ? [
-            'If one fact is missing, set text to one line that starts with "Question: ".',
-            "Otherwise put the draft for this stage in text.",
+            'If one fact is missing, set kind to "question" and text to your one question. Add no action.',
+            'Otherwise set kind to "draft" and put the draft for this stage in text.',
           ]
         : [],
+      input.guide === true,
     ),
   });
 }
@@ -232,7 +238,7 @@ export function roomPrompt(input: {
       answering
         ? "2. Answer the open objections. Say in one line how you fixed each, or use block if you cannot."
         : "2. Decide what the draft needs.",
-      "3. Choose one type:",
+      "3. Choose one kind:",
       "   - post: a note or an answer.",
       "   - objection: the draft misses a check or breaks a rule. Cite what it breaks.",
       "   - agree: you accept the draft as it is.",
@@ -247,7 +253,7 @@ export function roomPrompt(input: {
         ? "Use agree only with the evidence path from this commit in cite."
         : "Use agree only if every check is met.",
       "Do not write pass, works or fixed unless you cite the evidence path.",
-      "Do not use the type decision. Only the person records a decision.",
+      "Do not use the kind decision. Only the person records a decision.",
       "Agree only with a point you checked.",
       "Write one line. Do not repeat an earlier room entry.",
     ],
@@ -278,10 +284,10 @@ export function guideDraftPrompt(input: {
     headed
       ? "2. Fill each heading in Headings, in that order. Put only this artifact's words under each heading."
       : "2. Write the whole artifact in text.",
-    `3. If one fact is missing, ask one question. Set text to "${GUIDE_QUESTION_PREFIX} <your question>" and send no parts.`,
+    `3. If one fact is missing, ask one question. Set kind to "question" and text to your question, and send no parts.`,
     headed
-      ? "4. Otherwise set text to a one-line summary and send one part for each heading."
-      : "4. Otherwise send the draft in text.",
+      ? '4. Otherwise set kind to "draft", set text to a one-line summary, and send one part for each heading.'
+      : '4. Otherwise set kind to "draft" and send the draft in text.',
     headed
       ? "Done when: every heading has words, or you asked one question."
       : "Done when: the artifact is written, or you asked one question.",
@@ -439,10 +445,10 @@ export function ownerRunPrompt(input: {
     inputs,
     guardrails: [
       "Work only on this artifact.",
-      'If Boundary is ask and you need an answer from the person, set text to one line that starts with "Question: ". Add no action. The run waits for the answer.',
+      'If Boundary is ask and you need an answer from the person, set kind to "question" and text to your one question. Add no action. The run waits for the answer.',
       "If Boundary is stop, stop and say in text what change is needed and where. Add no action.",
       WRITE_ONLY,
     ],
-    output: DRAFT(["Put what you did for the artifact in text."]),
+    output: DRAFT(["Put what you did for the artifact in text."], input.boundary === "ask"),
   });
 }

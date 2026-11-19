@@ -98,7 +98,10 @@ describe("guide replies", () => {
       const headings = ["Goals", "Non-goals"];
       const reply = guideExamples(headings).valid[0] as Record<string, unknown>;
       const read = readGuideReply(headings)(apply(JSON.stringify(reply)));
-      expect(read).toEqual({ ok: true, value: reply });
+      expect(read).toEqual({
+        ok: true,
+        value: { value: { text: reply.text, parts: reply.parts }, legacy: undefined },
+      });
     });
   }
 });

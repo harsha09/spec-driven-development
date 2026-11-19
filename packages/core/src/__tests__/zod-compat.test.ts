@@ -189,9 +189,9 @@ describe("zod 4 validation keeps the previous sentences", () => {
   });
 
   it("parses a tool step that omits args", () => {
-    const parsed = LoopStepSchema.parse({ step: "tool", name: "x" });
-    expect(parsed).toEqual({ step: "tool", name: "x" });
-    expect(Object.keys(parsed)).toEqual(["step", "name"]);
+    const parsed = LoopStepSchema.parse({ kind: "tool", name: "x" });
+    expect(parsed).toEqual({ kind: "tool", name: "x" });
+    expect(Object.keys(parsed)).toEqual(["kind", "name"]);
   });
 
   it("rejects Infinity in config and an integer past Number.MAX_SAFE_INTEGER", () => {

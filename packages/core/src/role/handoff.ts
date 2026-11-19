@@ -1,8 +1,9 @@
 import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { type ParseOutcome, askModel, parseJsonObject, readWith } from "../ask.js";
+import { type ParseOutcome, askModel, parseJsonObject } from "../ask.js";
 import { listFiles, pathExists, readText, writeText } from "../fs.js";
-import { DraftReplySchema, PlanReplySchema } from "../reply-schemas.js";
+import { type LegacyHit, legacyLogger, projectLegacyLog, readKinded } from "../reply-kind.js";
+import { DRAFT_FAMILY, DraftReplySchema, PLAN_FAMILY, PlanReplySchema } from "../reply-schemas.js";
 import { canonicalRoleName, conversationDir, readRole, roleFilePath } from "./profile.js";
 import { leadPrompt, ownerRunPrompt, receiverPrompt } from "./prompts.js";
 import { matchRoute, writeHandoffInboxes } from "./routing.js";
@@ -272,6 +273,8 @@ export async function handoffRole(
     prompt: receiverPrompt(receiver, task, loaded.current),
     pass: 1,
     schema: DraftReplySchema,
+    family: DRAFT_FAMILY,
+    legacy: legacyLogger(receiverFile),
   });
   if (!parsed) return fail("", runId);
   const settled = await settleRoleReply(root, receiverFile, receiver, parsed, now, runId);
@@ -384,7 +387,7 @@ async function roleNames(root: string): Promise<Set<string>> {
   return names;
 }
 
-type PlanRead = { deep: true } | { deep: false; nodes: PlanNode[] };
+type PlanRead = { deep: true } | { deep: false; nodes: PlanNode[]; legacy?: LegacyHit };
 
 function tooDeep(plan: unknown[]): boolean {
   for (const node of plan) {
@@ -445,16 +448,16 @@ function readPlanReply(raw: string, ctx: PlanContext, owners: Set<string>): Pars
   if (Array.isArray(object.value.plan) && tooDeep(object.value.plan)) {
     return { ok: true, value: { deep: true } };
   }
-  const read = readWith(PlanReplySchema)(raw);
+  const read = readKinded(PlanReplySchema, PLAN_FAMILY)(raw);
   if (!read.ok) return read;
-  const plan = read.value.plan as RawNode[];
+  const plan = read.value.value.plan as RawNode[];
   const issues = planIssues(plan, ctx, owners);
   if (issues.length > 0) return { ok: false, issues };
   const nodes: PlanNode[] = plan.map((node) => ({
     ...node,
     children: (node.children ?? []).map((child) => ({ ...child, children: [] })),
   }));
-  return { ok: true, value: { deep: false, nodes } };
+  return { ok: true, value: { deep: false, nodes, legacy: read.value.legacy } };
 }
 
 function leadServices(
@@ -577,6 +580,12 @@ async function storeLeadPlan(
   if (!asked.ok) return fail(planFailure("invalid"));
   if (asked.value.deep) return fail(planFailure("deep"));
   const parsed = asked.value.nodes;
+  if (asked.value.legacy) {
+    await legacyLogger(projectLegacyLog(root), { stamp: () => new Date().toISOString() })(
+      lead.name,
+      asked.value.legacy,
+    );
+  }
   if (previous && sameArtifacts(previous.nodes, parsed)) {
     previous.stalled = true;
     previous.rebuilds += 1;
@@ -732,6 +741,8 @@ export async function runNetwork(
         }),
         pass: 1,
         schema: DraftReplySchema,
+        family: DRAFT_FAMILY,
+        legacy: legacyLogger(file),
       });
       if (!parsed) continue;
       const asked = QUESTION.test(parsed.text) && node.boundary === "ask";
