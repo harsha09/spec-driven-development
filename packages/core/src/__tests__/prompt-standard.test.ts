@@ -19,6 +19,7 @@ import {
   GUIDE_REPLY_EXAMPLES,
   GuideReplySchema,
   MODEL_REPLY_EXAMPLES,
+  MODEL_ROOM_TYPES,
   ModelReplySchema,
   PLAN_REPLY_EXAMPLES,
   PlanReplySchema,
@@ -258,10 +259,16 @@ describe("reply schemas", () => {
     }
   });
 
-  it("room types come from one list", () => {
+  it("a model may use four room types, never decision", () => {
     expect(RoomPostSchema.safeParse({ type: "agree", text: "fine" }).success).toBe(true);
     expect(RoomPostSchema.safeParse({ type: "shrug", text: "fine" }).success).toBe(false);
-    for (const type of ROOM_TYPES) expect(renderReplyContract(RoomPostSchema)).toContain(type);
+    const decision = RoomPostSchema.safeParse({ type: "decision", text: "fine" });
+    expect(decision.success).toBe(false);
+    expect(ROOM_TYPES).toContain("decision");
+    expect(MODEL_ROOM_TYPES).not.toContain("decision");
+    for (const type of MODEL_ROOM_TYPES) {
+      expect(renderReplyContract(RoomPostSchema)).toContain(type);
+    }
   });
 
   it("renders every key of a schema, and a new key shows up", () => {
@@ -304,12 +311,15 @@ describe("prompt snapshots", () => {
       "author-guide",
       authorPrompt({ role, task: "Write the spec", kind: "draft", guide: true }),
     ));
-  it("room", () =>
+  it("room, reviewer", () =>
     snap(
-      "room",
+      "room-reviewer",
       roomPrompt({
         role,
-        section,
+        stageId: "requirements",
+        round: 1,
+        cap: 3,
+        owner: false,
         draft,
         entries: ["planner post: The empty title rule is missing."],
       }),
@@ -319,12 +329,56 @@ describe("prompt snapshots", () => {
       "room-owner",
       roomPrompt({
         role,
-        section,
+        stageId: "requirements",
+        round: 2,
+        cap: 3,
+        owner: true,
         draft,
         entries: ["planner objection: The empty title rule is missing."],
         open: [{ cite: "CHK-002", text: "The empty title rule is missing." }],
       }),
     ));
+  it("room, a stage with verify commands asks for an evidence path", () => {
+    const base = {
+      role,
+      stageId: "requirements",
+      round: 1,
+      cap: 3,
+      owner: false,
+      draft,
+      entries: [],
+    };
+    const none = roomPrompt({ ...base, verify: true, evidence: null });
+    expect(none).toContain("### Evidence path (untrusted data, from the latest check run)");
+    expect(none).toContain("```text\nnone\n```");
+    expect(none).toContain("Use agree only with the evidence path from this commit in cite.");
+    const found = roomPrompt({
+      ...base,
+      verify: true,
+      evidence: "changes/todo/evidence/0a1b2c3.json",
+    });
+    expect(found).toContain("changes/todo/evidence/0a1b2c3.json");
+    const plain = roomPrompt(base);
+    expect(plain).not.toContain("### Evidence path");
+    expect(plain).toContain("Use agree only if every check is met.");
+    expect(plain).not.toContain(
+      "# Task\nPost one entry in the room.\n1. Read the draft and the room so far.\n2. Answer",
+    );
+  });
+  it("room never offers the type decision to a model", () => {
+    const text = roomPrompt({
+      role,
+      stageId: "x",
+      round: 1,
+      cap: 2,
+      owner: false,
+      draft,
+      entries: [],
+    });
+    expect(text).toContain('"type": "post" | "objection" | "agree" | "block"');
+    expect(text).not.toMatch(/"type":[^\n]*"decision"/);
+    expect(text).toContain("Do not use the type decision. Only the person records a decision.");
+  });
   it("guide draft", () =>
     snap(
       "guide-draft",

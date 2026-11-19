@@ -11,6 +11,7 @@ import {
   loadConfig,
   pathExists,
   postRoom,
+  reviewRoom,
   runRole,
   showRoom,
 } from "../index.js";
@@ -334,5 +335,46 @@ describe("team tools", () => {
     expect(after).toBe(prior);
     const tools = (await log(root)).filter((line) => line.step === "tool");
     expect(tools.some((line) => line.stub === true)).toBe(false);
+  });
+
+  it("a model's agree in a room needs this commit's evidence, and the prompt shows the path", async () => {
+    const root = await project();
+    await team(root, 5);
+    await workflow(root, "node mark.js");
+    const change = await openChange(root);
+    const sha = (await git(root, ["rev-parse", "HEAD"])).trim();
+    const cite = `changes/${change.id}/evidence/${sha}.json`;
+
+    const bare = script([{ type: "agree", text: "Looks right." }]);
+    const refused = await reviewRoom(root, {
+      stage: "check",
+      roles: ["builder"],
+      model: bare.model,
+    });
+    expect(refused.stdout).toBe("A review needs evidence at this SHA.");
+    expect(bare.prompts[0]).toContain(
+      "### Evidence path (untrusted data, from the latest check run)",
+    );
+    expect(bare.prompts[0]).toContain("```text\nnone\n```");
+    expect(bare.prompts[0]).toContain(
+      "Use agree only with the evidence path from this commit in cite.",
+    );
+
+    const evidence = join(change.path, "evidence");
+    await mkdir(evidence, { recursive: true });
+    await writeFile(
+      join(evidence, `${sha}.json`),
+      JSON.stringify({ sha, runs: [{ command: "node mark.js", exitCode: 0, output: "CLEAN" }] }),
+      "utf8",
+    );
+    const good = script([{ type: "agree", text: "Checks pass.", cite }]);
+    const agreed = await reviewRoom(root, {
+      stage: "check",
+      roles: ["builder"],
+      model: good.model,
+    });
+    expect(agreed.stdout).toBe("Round 1.");
+    expect(good.prompts[0]).toContain(cite);
+    expect((await showRoom(root, { stage: "check" })).stdout).toContain("builder agree");
   });
 });
