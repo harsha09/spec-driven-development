@@ -1,50 +1,17 @@
 import { appendFile } from "node:fs/promises";
 import { basename, join } from "pathe";
-import "../zod-v3-messages.js";
-import { z } from "zod";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
 import { conversationDir } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
 import type { RoleCommandResult, RoleModel } from "../role/types.js";
 import type { Brain } from "./brain.js";
+import { type LoopStep, LoopStepSchema } from "./loop-contract.js";
 import { addReviewerLesson } from "./memory.js";
 import { postLoopDone, roomForPrompt } from "./room.js";
 import { passClaimRefusal, runTool } from "./tools.js";
 
-const planStep = z.strictObject({ step: z.literal("plan"), items: z.array(z.string()) });
-const toolStep = z.strictObject({
-  step: z.literal("tool"),
-  name: z.string().min(1),
-  args: z.unknown().optional(),
-});
-const checkStep = z.strictObject({
-  step: z.literal("check"),
-  claim: z.string().min(1),
-  evidence: z.array(z.string()).optional(),
-});
-const askStep = z.strictObject({
-  step: z.literal("ask"),
-  question: z.string().min(1),
-  options: z.array(z.string()),
-  suggest: z.string().optional(),
-});
-const doneStep = z.strictObject({
-  step: z.literal("done"),
-  summary: z.string(),
-  outputs: z.array(z.string()),
-  evidence: z.array(z.string()).optional(),
-});
-
-export const LoopStepSchema = z.discriminatedUnion("step", [
-  planStep,
-  toolStep,
-  checkStep,
-  askStep,
-  doneStep,
-]);
-
-export type LoopStep = z.infer<typeof LoopStepSchema>;
+export { LoopStepSchema, type LoopStep } from "./loop-contract.js";
 
 function ok(stdout = ""): RoleCommandResult {
   return { exitCode: 0, stdout };

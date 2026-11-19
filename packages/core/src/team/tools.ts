@@ -15,6 +15,7 @@ import type { TeamConfig } from "../role/schema.js";
 import { searchProject } from "../search/builtin.js";
 import type { SearchScope } from "../search/types.js";
 import { getStage } from "../workflow.js";
+import type { ToolSpec } from "./loop-contract.js";
 
 const OUTPUT_CAP = 4000;
 const SCOPES = new Set<SearchScope>(["code", "specs", "memory"]);
@@ -35,6 +36,69 @@ const EvidenceSchema = z.strictObject({
 });
 
 type EvidenceFile = z.infer<typeof EvidenceSchema>;
+
+/** The tools a role can call. The loop prompt lists exactly these, and runTool dispatches on them. */
+export const TOOL_SPECS = [
+  {
+    name: "read_file",
+    description: "Read one project file.",
+    args: z.strictObject({
+      path: z.string().describe("Path relative to the project root."),
+    }),
+  },
+  {
+    name: "search",
+    description: "Search the project.",
+    args: z.strictObject({
+      query: z.string().describe("Words to look for."),
+      scope: z.enum(["code", "specs", "memory"]).optional().describe("Defaults to code."),
+    }),
+  },
+  {
+    name: "context",
+    description: "Get code context for a path, a query, or a symbol.",
+    args: z.strictObject({
+      path: z.string().optional(),
+      query: z.string().optional(),
+      symbol: z.string().optional(),
+    }),
+  },
+  {
+    name: "run_check",
+    description: "Run one allowlisted check at HEAD. The result is saved as evidence.",
+    args: z.strictObject({
+      run: z.string().describe("The exact command string from the allowlist."),
+    }),
+  },
+  {
+    name: "write_file",
+    description: "Write one project file.",
+    args: z.strictObject({
+      path: z.string().describe("Path relative to the project root."),
+      contents: z.string().describe("The full new contents of the file."),
+    }),
+  },
+  {
+    name: "commit",
+    description: "Commit the listed paths on your own branch.",
+    args: z.strictObject({
+      message: z.string().describe("A one-line commit message."),
+      paths: z.array(z.string()).describe("Files to commit, relative to the project root."),
+    }),
+  },
+] as const satisfies readonly ToolSpec[];
+
+export type ToolName = (typeof TOOL_SPECS)[number]["name"];
+
+/** Exact commands `run_check` accepts now, or an empty list when none can be read. */
+export async function allowedChecks(root: string): Promise<string[]> {
+  try {
+    const allowed = await allowList(root);
+    return Array.isArray(allowed) ? allowed : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface ToolResult {
   ok: boolean;
@@ -377,12 +441,15 @@ export async function runTool(
 ): Promise<ToolResult> {
   const args = asRecord(call.args);
   const name = call.name.trim();
-  if (name === "read_file") return readFileTool(root, args);
-  if (name === "search") return searchTool(root, args);
-  if (name === "context") return contextTool(root, args);
-  if (name === "run_check") return runCheck(root, args);
-  if (name === "write_file") return writeFileTool(root, args);
-  if (name === "commit") return commitTool(root, team, bot, args);
+  const handlers: Record<ToolName, () => Promise<ToolResult>> = {
+    read_file: () => readFileTool(root, args),
+    search: () => searchTool(root, args),
+    context: () => contextTool(root, args),
+    run_check: () => runCheck(root, args),
+    write_file: () => writeFileTool(root, args),
+    commit: () => commitTool(root, team, bot, args),
+  };
+  if (Object.hasOwn(handlers, name)) return handlers[name as ToolName]();
   if (name === "push") return refusedShip(root, name, "Push needs a person at this SHA.");
   if (name === "pull_request")
     return refusedShip(root, name, "A pull request needs a person at this SHA.");
