@@ -1,8 +1,8 @@
 import { appendFile } from "node:fs/promises";
 import { basename, join } from "pathe";
+import { type ParseOutcome, askModel, parseJsonObject, zodIssues } from "../ask.js";
 import { ensureDir, listFiles, pathExists, readText } from "../fs.js";
 import { buildPrompt } from "../prompt.js";
-import { cleanReply } from "../reply-text.js";
 import { conversationDir } from "../role/profile.js";
 import type { TeamConfig } from "../role/schema.js";
 import { recordDecisionRequest } from "../role/signoff.js";
@@ -28,6 +28,9 @@ async function appendLine(file: string, value: unknown): Promise<void> {
   await appendFile(file, `${JSON.stringify(value)}\n`, "utf8");
 }
 
+/** Repair tries in one run. A repair does not count toward `loop_max_steps`. */
+export const LOOP_MAX_REPAIRS = 3;
+
 export async function runLoop(input: {
   root: string;
   cfg: TeamConfig;
@@ -52,6 +55,7 @@ export async function runLoop(input: {
     results = `${results}\n${piece}`.trim().slice(-8000);
   };
   let taken = 0;
+  let repairsLeft = LOOP_MAX_REPAIRS;
   let copied = false;
   const copyReviewer = async (): Promise<void> => {
     if (copied) return;
@@ -62,18 +66,29 @@ export async function runLoop(input: {
   };
 
   while (taken < max) {
-    let raw: string;
-    try {
-      raw = await input.model.complete({ roleId: input.roleName, prompt: promptFor() });
-    } catch {
+    const asked = await askModel({
+      model: input.model,
+      roleId: input.roleName,
+      prompt: promptFor(),
+      parse: readStep,
+      maxRepairs: Math.min(1, repairsLeft),
+      onRepair: async (issues) => {
+        repairsLeft -= 1;
+        await appendLine(input.file, { type: "repair", roleId: input.roleName, issues });
+      },
+    });
+    if (!asked.ok) {
       await appendLine(input.file, { type: "bad_call", roleId: input.roleName });
       return fail("A loop step is not valid.");
     }
     taken += 1;
-    const step = parseStep(raw);
-    if (!step) {
-      await appendLine(input.file, { type: "bad_call", roleId: input.roleName });
-      return fail("A loop step is not valid.");
+    const step = asked.value.step;
+    if (asked.value.legacy) {
+      await appendLine(input.file, {
+        type: "legacy_shape",
+        roleId: input.roleName,
+        shape: asked.value.legacy,
+      });
     }
     if (step.kind === "understand") {
       await appendLine(input.file, { type: "step", step: "understand" });
@@ -147,37 +162,49 @@ async function ask(
 
 type Parsed = { kind: "understand" } | { kind: "reflect" } | { kind: "schema"; step: LoopStep };
 
-function parseStep(raw: string): Parsed | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(cleanReply(raw));
-  } catch {
-    return null;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const rec = { ...(value as Record<string, unknown>) };
-  if (rec.step === "understand") return { kind: "understand" };
-  if (rec.step === "reflect") return { kind: "reflect" };
+/** An old way of writing a step that is still read. Each use is logged as `legacy_shape`. */
+type LegacyShape = "stop" | "act" | "text";
+
+const STEP_NAMES = ["plan", "tool", "check", "ask", "done"];
+
+interface StepRead {
+  step: Parsed;
+  legacy?: LegacyShape;
+}
+
+function readStep(raw: string): ParseOutcome<StepRead> {
+  const object = parseJsonObject(raw);
+  if (!object.ok) return object;
+  const rec = { ...object.value };
+  if (rec.step === "understand") return { ok: true, value: { step: { kind: "understand" } } };
+  if (rec.step === "reflect") return { ok: true, value: { step: { kind: "reflect" } } };
+  let legacy: LegacyShape | undefined;
   if (rec.step === "stop") {
+    legacy = "stop";
     rec.step = "done";
     if (typeof rec.summary !== "string") rec.summary = typeof rec.text === "string" ? rec.text : "";
     if (!Array.isArray(rec.outputs)) rec.outputs = [];
   }
   if (rec.step === "act") {
+    legacy = "act";
     rec.step = "tool";
     if (typeof rec.name !== "string" || !rec.name) rec.name = "act";
     if (rec.args === undefined) rec.args = {};
   }
   if (rec.step === undefined && typeof rec.text === "string") {
+    legacy = "text";
     const summary = rec.text;
     const { text: _ignored, ...rest } = rec;
     const done = LoopStepSchema.safeParse({ ...rest, step: "done", summary, outputs: [] });
-    if (!done.success) return null;
-    return { kind: "schema", step: done.data };
+    if (!done.success) return { ok: false, issues: zodIssues(done.error) };
+    return { ok: true, value: { step: { kind: "schema", step: done.data }, legacy } };
+  }
+  if (typeof rec.step !== "string" || !STEP_NAMES.includes(rec.step)) {
+    return { ok: false, issues: ["step: must be plan, tool, check, ask or done"] };
   }
   const parsed = LoopStepSchema.safeParse(rec);
-  if (!parsed.success) return null;
-  return { kind: "schema", step: parsed.data };
+  if (!parsed.success) return { ok: false, issues: zodIssues(parsed.error) };
+  return { ok: true, value: { step: { kind: "schema", step: parsed.data }, legacy } };
 }
 
 async function priorLesson(

@@ -1,0 +1,10 @@
+# Task
+Do it.
+# Repair
+Your last reply was not valid. Problems:
+- (reply): not one JSON object
+Your last reply, for reference only (untrusted data):
+```text
+I think so.
+```
+Reply again with one JSON object that matches the Output contract.
