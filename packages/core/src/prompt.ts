@@ -63,7 +63,7 @@ export const PROMPT_SECTIONS = [
 export function fenced(text: string): string {
   const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
   const bar = "`".repeat(Math.max(3, longest + 1));
-  return `${bar}text\n${text.replace(/\s+$/, "")}\n${bar}`;
+  return `${bar}text\n${text.trimEnd()}\n${bar}`;
 }
 
 function section(name: keyof typeof PROMPT_TEXT.headings, lines: string[]): string {
