@@ -1,5 +1,7 @@
 # sdd — Spec-Driven Development CLI for AI coding agents
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/harsha09)
+
 sdd keeps a short note in the project, so the reason for a change is a file you can reopen. Copilot, Claude Code, Grok, Ollama, or Kilo Code can follow that folder later. Chat can help along the way.
 
 **sdd** (**Structured Vibe Coding**, npm `@structured-vibe-coding/cli`) is a local Spec-Driven Development CLI. You set up a folder, start a change, write the note, move stage by stage, and finish.
