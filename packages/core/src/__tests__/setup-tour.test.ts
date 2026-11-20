@@ -49,7 +49,7 @@ describe("setup tour", () => {
         "Folder: not set up.",
         "Host: none.",
         "Roles: none.",
-        "Model: No role model is configured.",
+        "Model: No role model is configured. Set SDD_ROLE_MODEL.",
       ].join("\n"),
     );
     expect(parseSetupStep(" model ")).toBe("model");
@@ -165,9 +165,15 @@ describe("setup tour", () => {
   it("reports a missing model without writing models.yaml", async () => {
     const root = await emptyDir();
     const required = await runSetupStep(root, { step: "model", requireModel: true }, quiet);
-    expect(required).toEqual({ exitCode: 1, stdout: "No role model is configured." });
+    expect(required).toEqual({
+      exitCode: 1,
+      stdout: "No role model is configured. Set SDD_ROLE_MODEL.",
+    });
     const printed = await runSetupStep(root, { step: "model", requireModel: false }, quiet);
-    expect(printed).toEqual({ exitCode: 0, stdout: "No role model is configured." });
+    expect(printed).toEqual({
+      exitCode: 0,
+      stdout: "No role model is configured. Set SDD_ROLE_MODEL.",
+    });
     expect(await pathExists(join(root, ".sdd/models.yaml"))).toBe(false);
     expect(await pathExists(join(root, ".sdd/config.yaml"))).toBe(false);
 
@@ -203,7 +209,7 @@ describe("setup tour", () => {
     expect(check.stdout).toContain("Folder: not set up.");
     expect(check.stdout).toContain("Host: none.");
     expect(check.stdout).toContain("Roles: none.");
-    expect(check.stdout).toContain("Model: No role model is configured.");
+    expect(check.stdout).toContain("Model: No role model is configured. Set SDD_ROLE_MODEL.");
     const start = await runSetupStep(root, { step: "start" }, quiet);
     expect(start).toEqual({
       exitCode: 0,

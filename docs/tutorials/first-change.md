@@ -32,8 +32,10 @@ node --version
 Install once. Use the current release:
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 ```
+
+Recent npm skips the install scripts for `better-sqlite3` and `onnxruntime-node` unless you name them. Search and embeddings need those scripts. `sdd doctor` tries to load each one and prints this command when a load fails. To save the allow-list first: `npm config set allow-scripts=better-sqlite3,onnxruntime-node`.
 
 Or, on its own, the release this page was checked against:
 

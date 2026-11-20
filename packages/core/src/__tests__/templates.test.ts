@@ -5,7 +5,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
-import { createChange, initProject, loadConfig, pathExists } from "../index.js";
+import {
+  createChange,
+  defaultTemplatesDir,
+  initProject,
+  loadConfig,
+  pathExists,
+} from "../index.js";
 
 const temps: string[] = [];
 
@@ -14,6 +20,18 @@ afterEach(async () => {
     const d = temps.pop();
     if (d) await rm(d, { recursive: true, force: true });
   }
+});
+
+describe("shipped review and sign-off templates", () => {
+  it("carries verdict, severity, and SHA so they match the sign-off record", async () => {
+    const dir = defaultTemplatesDir();
+    for (const name of ["review.md", "signoff.md"]) {
+      const body = await readFile(join(dir, name), "utf8");
+      expect(body).toContain("## Verdict");
+      expect(body).toContain("## Severity");
+      expect(body).toContain("## SHA");
+    }
+  });
 });
 
 describe("templates are overridable", () => {

@@ -1,11 +1,13 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
+  NATIVE_INSTALL_FIX,
   SETUP_WHY,
   advanceStage,
   approveGate,
   buildContext,
   buildRefinePlan,
   changePath,
+  checkNativeModules,
   completeChange,
   createChange,
   describeKept,
@@ -502,6 +504,7 @@ const gate = defineCommand({
         waive: "waived",
         fail: "failed",
       } as const;
+      const past = { approve: "approved", waive: "waived", fail: "failed" } as const;
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await approveGate(
         root,
@@ -511,7 +514,22 @@ const gate = defineCommand({
         args.note,
         statusMap[action as keyof typeof statusMap],
       );
-      consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
+      const stageId = args.stage ?? ctx.meta.stage;
+      const stage = getStage(ctx.workflow, ctx.meta, stageId);
+      const declared = stage?.gate?.type ?? "soft";
+      const effectiveGate =
+        config.policy.gates === "hard" && declared === "soft" ? "hard" : declared;
+      const humanGate =
+        action === "approve" &&
+        effectiveGate === "hard" &&
+        (stage?.gate?.approvers?.includes("human") ?? false);
+      if (humanGate) {
+        consola.warn(
+          'Recorded, but this stage needs a human sign-off. Run `sdd team signoff --note "…"`.',
+        );
+      } else {
+        consola.success(`Gate ${past[action as keyof typeof past]} on ${stageId}`);
+      }
       consola.log(formatStatus(ctx));
       consola.log("");
       const launch = await launchConfiguredAgent({
@@ -1269,6 +1287,14 @@ const doctor = defineCommand({
 
     const initialized = await isInitialized(root);
     line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd setup");
+
+    for (const native of checkNativeModules()) {
+      line(
+        native.name,
+        native.ok,
+        native.ok ? "native module loaded" : `${native.detail} Fix: ${NATIVE_INSTALL_FIX}`,
+      );
+    }
 
     if (initialized) {
       const config = await loadConfig(root);

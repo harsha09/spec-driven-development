@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { renderProtocolMd } from "@structured-vibe-coding/core";
 import type { ArgsDef, CommandDef } from "citty";
 import { describe, expect, it } from "vitest";
 import { commands } from "../commands.js";
@@ -53,16 +54,30 @@ function tokenize(text: string): string[] {
 const ENV_ASSIGNMENT = /^[A-Z_]+=(?:"[^"]*"|'[^']*'|\S*)\s+/;
 const SDD_INVOCATION = /^(?:pnpm\s+sdd|npx\s+(?:-y\s+)?@structured-vibe-coding\/cli|sdd)\s+(.*)$/;
 
-/** The arguments after `sdd` on a shell line, or null when the line does not run sdd. */
-function sddArguments(line: string): string | null {
-  let rest = line.trim().replace(/^\$\s+/, "");
-  // Strip leading VAR=value words one at a time. A loop keeps the regex free of nested repeats.
-  for (let guard = 0; guard < 10; guard++) {
-    const assignment = ENV_ASSIGNMENT.exec(rest);
-    if (!assignment) break;
-    rest = rest.slice(assignment[0].length);
+/** Every `sdd` invocation on a shell line, including one after `cd x &&`. */
+function sddInvocations(line: string): string[] {
+  const found: string[] = [];
+  const parts = line
+    .trim()
+    .replace(/^\$\s+/, "")
+    .split(/\s*(?:&&|;)\s*/);
+  for (const part of parts) {
+    let rest = part.trim();
+    // Strip leading VAR=value words one at a time. A loop keeps the regex free of nested repeats.
+    for (let guard = 0; guard < 10; guard++) {
+      const assignment = ENV_ASSIGNMENT.exec(rest);
+      if (!assignment) break;
+      rest = rest.slice(assignment[0].length);
+    }
+    const args = SDD_INVOCATION.exec(rest)?.[1];
+    if (args !== undefined) found.push(args);
   }
-  return SDD_INVOCATION.exec(rest)?.[1] ?? null;
+  return found;
+}
+
+/** The arguments after the first `sdd` on a shell line, or null when the line does not run sdd. */
+function sddArguments(line: string): string | null {
+  return sddInvocations(line)[0] ?? null;
 }
 
 interface Shown {
@@ -103,8 +118,9 @@ function shownCommands(file: string, source: string): Shown[] {
       return;
     }
     for (const span of raw.matchAll(/`([^`]+)`/g)) {
-      const match = /^(?:pnpm\s+sdd|sdd)\s+(.*)$/.exec((span[1] ?? "").trim());
-      if (match) found.push({ file, line: index + 1, text: match[1] ?? "" });
+      for (const args of sddInvocations((span[1] ?? "").trim())) {
+        found.push({ file, line: index + 1, text: args });
+      }
     }
   });
   return found;
@@ -120,9 +136,16 @@ async function check(shown: Shown): Promise<string | null> {
   let valueNext = false;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? "";
+    if (valueNext) {
+      valueNext = false;
+      continue;
+    }
     // Placeholders and prose such as "list|start" or "list/add/remove" are not one command.
-    if (/[<[|\\]|\.\.\.|…/.test(token) || (sawSub && trail.length > 0 && token.includes("/")))
-      break;
+    // Keep scanning so a flag after `<id>` is still checked.
+    if (/[<[|\\]|\.\.\.|…/.test(token) || (sawSub && trail.length > 0 && token.includes("/"))) {
+      sawSub = false;
+      continue;
+    }
     const subs = await subCommandsOf(def);
     if (sawSub && subs && !token.startsWith("-")) {
       const next = subs[token];
@@ -141,10 +164,6 @@ async function check(shown: Shown): Promise<string | null> {
       }
     }
     sawSub = false;
-    if (valueNext) {
-      valueNext = false;
-      continue;
-    }
     if (token.startsWith("-")) {
       const name = token.replace(/^--?/, "").split("=")[0] ?? "";
       if (["help", "h", "version", "v"].includes(name)) continue;
@@ -196,6 +215,28 @@ describe("the docs checker", () => {
     expect(await check(at("frobnicate"))).toContain("not an sdd command");
     expect(await check(at("mcp sources frobnicate"))).toContain("not a subcommand");
     expect(await check(at("next --frobnicate"))).toContain("not a flag");
+  });
+
+  it("checks a flag after a placeholder", async () => {
+    expect(await check(at("next --change <id> --no-agent"))).toBeNull();
+    expect(await check(at("next --change <id> --frobnicate"))).toContain("not a flag");
+  });
+
+  it("finds sdd after cd &&", () => {
+    expect(sddArguments("cd demo && sdd status")).toBe("status");
+    const shown = shownCommands("x.md", "```bash\ncd demo && sdd next --frobnicate\n```");
+    expect(shown.map((entry) => entry.text)).toEqual(["next --frobnicate"]);
+  });
+
+  it("covers the human sign-off command in the agent instructions", async () => {
+    const protocol = renderProtocolMd({ memory_path: "memory", changes_path: "changes" });
+    expect(protocol).toContain('sdd team signoff --note "…"');
+    const problems: string[] = [];
+    for (const shown of shownCommands("protocol.md", protocol)) {
+      const problem = await check(shown);
+      if (problem) problems.push(problem);
+    }
+    expect(problems).toEqual([]);
   });
 });
 

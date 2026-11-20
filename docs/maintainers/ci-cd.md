@@ -163,7 +163,7 @@ No secrets. Quality gate only (build, typecheck, test, CLI smoke, npm pack dry-r
 ## Install after a successful release
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 sdd --help
 ```
 

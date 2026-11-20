@@ -28,8 +28,10 @@ Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 
 Install once. The first command follows the current npm release and is also the upgrade. The second command installs the release this page was checked against.
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 ```
+
+Recent npm skips those two native install scripts unless you allow them. Search and embeddings need the scripts. `sdd doctor` tries to load both and prints this command when one fails. The same allow-list as a saved config is `npm config set allow-scripts=better-sqlite3,onnxruntime-node`, then the install command without the flag.
 
 ```bash
 npm install -g @structured-vibe-coding/cli@0.24.0

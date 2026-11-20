@@ -99,7 +99,8 @@ describe("team sign-off", () => {
     await commitReadme(root);
     expect(await recordSignoff(root, { note: "the person accepted the reading" })).toEqual({
       exitCode: 1,
-      stdout: "Git user.name is not a human approver.",
+      stdout:
+        "Git user.name is not a human approver. Add that name under humans in .sdd/team.yaml.",
     });
     expect(await recordSignoff(root, { note: "fine", stage: "../stage" })).toEqual({
       exitCode: 1,

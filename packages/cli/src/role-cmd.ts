@@ -111,7 +111,7 @@ const create = defineCommand({
         return;
       }
       if (!textArg(args.label)) {
-        process.stdout.write("A role needs a label.\n");
+        process.stdout.write("A role needs a label. Pass --label.\n");
         process.exit(1);
       }
       emit(

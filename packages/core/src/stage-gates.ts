@@ -2,7 +2,7 @@ import { join } from "pathe";
 import { incompleteArtifactReason } from "./artifacts.js";
 import { type ChangeContext, buildContext, saveChangeMeta } from "./change-context.js";
 import { pathExists, readText } from "./fs.js";
-import { checkHumanSignoff } from "./role/signoff.js";
+import { HUMAN_SIGNOFF_COMMAND, checkHumanSignoff } from "./role/signoff.js";
 import type { Config } from "./schemas.js";
 import { nowIso } from "./slug.js";
 import { activeStages, getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
@@ -95,7 +95,7 @@ export async function canLeaveStage(
   if (humanGate) {
     if (gateState?.status === "failed") {
       errors.push(
-        `Hard gate on stage "${stage.id}" is not approved. Run \`sdd gate approve\` or complete the checklist.`,
+        `Hard gate on stage "${stage.id}" is not approved. Run \`${HUMAN_SIGNOFF_COMMAND}\`.`,
       );
     } else if (gateState?.status !== "waived") {
       if (!projectRoot) {

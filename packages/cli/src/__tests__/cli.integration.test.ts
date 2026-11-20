@@ -625,14 +625,7 @@ stages:
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
     expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
 
-    const install = runSdd(root, [
-      "agents",
-      "install",
-      "--ai",
-      "kilo",
-      "--force",
-      "--ignore-agent-tools",
-    ]);
+    const install = runSdd(root, ["agents", "install", "--ai", "kilo", "--force"]);
     expect(install.status, install.stderr + install.stdout).toBe(0);
     expect(await exists(join(root, ".kilo/sdd.md"))).toBe(true);
     expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
@@ -1096,5 +1089,61 @@ stages:
     expect(stored).not.toContain("PRIVATE PROMPT CONTENT");
     expect(stored).not.toContain(logPath);
     expect(JSON.parse(stored).requests).toHaveLength(1);
+  });
+
+  it("names sdd team signoff for a failed human gate and does not call approve a success (#164)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-human-gate-"));
+    temps.push(root);
+    const git = (args: string[]) => {
+      const result = spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+      expect(result.status, result.stderr).toBe(0);
+    };
+    git(["init", "-b", "main"]);
+    git(["config", "user.email", "ada@example.com"]);
+    git(["config", "user.name", "Ada Lovelace"]);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["team", "init", "--template", "software"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Add export", "-w", "team-software", "-y", "--no-agent"]);
+    expect(created.status, created.stdout + created.stderr).toBe(0);
+    const changeDir = (await readdir(join(root, "changes"), { withFileTypes: true })).find(
+      (entry) => entry.isDirectory(),
+    )?.name;
+    expect(changeDir).toBeTruthy();
+    await writeFile(
+      join(root, "changes", changeDir!, "requirements.md"),
+      "# Requirements\n\nPeople can export a todo list. Success: the file downloads. Comments are out of scope.\n",
+    );
+    const failed = runSdd(root, ["gate", "fail", "--no-agent"]);
+    expect(failed.status, failed.stdout + failed.stderr).toBe(0);
+    expect(failed.stdout).toContain("Gate failed");
+    expect(failed.stdout).not.toContain("faild");
+    const blocked = runSdd(root, ["next", "--no-agent"]);
+    const blockedOut = blocked.stdout + blocked.stderr;
+    expect(blocked.status, blockedOut).not.toBe(0);
+    expect(blockedOut).toContain('sdd team signoff --note "…"');
+    expect(blockedOut).not.toContain("sdd gate approve");
+    const approved = runSdd(root, ["gate", "approve", "--no-agent"]);
+    const approvedOut = approved.stdout + approved.stderr;
+    expect(approved.status, approvedOut).toBe(0);
+    expect(approvedOut).toContain("needs a human sign-off");
+    expect(approvedOut).not.toContain("Gate approved");
+  });
+
+  it("rejects an unknown flag and names an unknown command (#141)", async () => {
+    const flag = runSdd(process.cwd(), ["next", "--chnage", "x"]);
+    expect(flag.status).toBe(2);
+    expect(flag.stderr).toContain('Unknown flag "--chnage"');
+    const cmd = runSdd(process.cwd(), ["stauts"]);
+    expect(cmd.status).toBe(2);
+    expect(cmd.stderr).toContain('Unknown command "stauts"');
+  });
+
+  it("names --label when a role is created without one (#141)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-role-label-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["role", "create", "analyst", "--job", "Write the reading"]);
+    expect(created.status).not.toBe(0);
+    expect(created.stdout).toContain("A role needs a label. Pass --label.");
   });
 });

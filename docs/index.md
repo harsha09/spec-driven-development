@@ -29,11 +29,13 @@ features:
 Install **Structured Vibe Coding** from npm: **[@structured-vibe-coding/cli](https://www.npmjs.com/package/@structured-vibe-coding/cli)** (binary: `sdd`)
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 cd your-app
 sdd setup
 sdd go "Fix empty list crash" --no-agent
 ```
+
+Recent npm skips the `better-sqlite3` and `onnxruntime-node` install scripts unless you allow them. `sdd doctor` loads both and prints that command when one did not build. To save the allow-list: `npm config set allow-scripts=better-sqlite3,onnxruntime-node`.
 
 On a terminal, `sdd setup` walks the pieces. Press Enter to write three roles when you have no roles yet. `sdd setup --yes --no-agent` writes those roles without questions. A **role** is a job in the repo. A **duty** is the kind of work it does: the planner plans, the architect names the modules, and the builder builds the change pack. The **mapping** is which stages of the workflow you named belong to that duty. `sdd go` asks their questions one at a time. With `SDD_ROLE_MODEL` set, the role writes the note and the guide hands the next stage to the next role. You still decide.
 

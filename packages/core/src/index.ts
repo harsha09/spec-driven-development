@@ -16,6 +16,7 @@ export * from "./defaults.js";
 export * from "./fs.js";
 export * from "./generated.js";
 export * from "./errors.js";
+export * from "./native-modules.js";
 export * from "./env.js";
 export * from "./version.js";
 export * from "./agents.js";

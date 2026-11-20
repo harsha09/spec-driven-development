@@ -11,7 +11,7 @@ Keep intent, design, and verify notes **in git**, not only in chat. Hotfix, gree
 ## Install
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 # or
 npx @structured-vibe-coding/cli --help
 ```

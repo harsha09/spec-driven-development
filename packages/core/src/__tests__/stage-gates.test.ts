@@ -68,4 +68,28 @@ describe("canLeaveStage", () => {
     const check = await canLeaveStage(ctx, config);
     expect(check.ok).toBe(true);
   });
+
+  it("names sdd team signoff when a human hard gate has failed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-gate-human-"));
+    temps.push(root);
+    await initProject({ projectRoot: root, agents: false });
+    const config = await loadConfig(root);
+    const ctx0 = await createChange({
+      projectRoot: root,
+      config,
+      title: "Human gate failed",
+      workflowName: "team-software",
+    });
+    await writeFile(
+      join(ctx0.path, "requirements.md"),
+      "# Requirements\n\nPeople can export a todo list. Success: the file downloads. Comments are out of scope.\n",
+      "utf8",
+    );
+    await approveGate(root, config, ctx0.id, "requirements", "stopped", "failed");
+    const ctx = await buildContext(root, config, ctx0.id);
+    const check = await canLeaveStage(ctx, config, root);
+    expect(check.ok).toBe(false);
+    expect(check.errors.join("\n")).toContain('sdd team signoff --note "…"');
+    expect(check.errors.join("\n")).not.toContain("sdd gate approve");
+  });
 });

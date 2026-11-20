@@ -8,6 +8,9 @@ import { nowIso } from "../slug.js";
 import { gitUserName, readTeamConfig } from "./team.js";
 import type { RoleCommandResult } from "./types.js";
 
+/** The command that opens a human hard gate. `sdd gate approve` does not. */
+export const HUMAN_SIGNOFF_COMMAND = 'sdd team signoff --note "…"';
+
 function ok(stdout: string): RoleCommandResult {
   return { exitCode: 0, stdout };
 }
@@ -129,7 +132,9 @@ export async function recordSignoff(
   const gitUser = gitUserName(root);
   if (!gitUser) return fail("Git user.name is not set.");
   if (!team.team.humans.some((human) => human.name === gitUser)) {
-    return fail("Git user.name is not a human approver.");
+    return fail(
+      "Git user.name is not a human approver. Add that name under humans in .sdd/team.yaml.",
+    );
   }
   const file = join(opened.path, signoffFileName(stage, sha));
   const existing = (await pathExists(file)) ? parseSignoff(await readText(file)) : null;
@@ -190,7 +195,7 @@ export async function checkHumanSignoff(
   if (!(await pathExists(file))) {
     return {
       ok: false,
-      message: `Hard gate on stage "${stageId}" needs a human sign-off for this commit. Run \`sdd team signoff\`.`,
+      message: `Hard gate on stage "${stageId}" needs a human sign-off for this commit. Run \`${HUMAN_SIGNOFF_COMMAND}\`.`,
     };
   }
   const parsed = parseSignoff(await readText(file));
