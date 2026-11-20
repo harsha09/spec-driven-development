@@ -147,7 +147,9 @@ export async function recordSignoff(
   const gitUser = gitUserName(root);
   if (!gitUser) return fail("Git user.name is not set.");
   if (!team.team.humans.some((human) => human.name === gitUser)) {
-    return fail("Git user.name is not a human approver.");
+    return fail(
+      "Git user.name is not a human approver. Add that name under humans in .sdd/team.yaml.",
+    );
   }
   const file = join(opened.path, signoffFileName(stage, sha));
   const existing = (await pathExists(file)) ? parseSignoff(await readText(file)) : null;

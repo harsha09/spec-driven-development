@@ -96,7 +96,7 @@ export const ROLE_TEXT = {
   self: "A role cannot review itself.",
   x: "X is not a role tool.",
   needsSection: "This needs an accepted section before a draft.",
-  noModel: "No role model is configured.",
+  noModel: "No role model is configured. Set SDD_ROLE_MODEL.",
   cannot: "A role cannot do that.",
   askFirst: "Ask first. This stays stopped.",
   choice: "Allow once, Always allow, or Deny.",
