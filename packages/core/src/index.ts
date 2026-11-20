@@ -79,3 +79,24 @@ export * from "./role/index.js";
 export * from "./sandbox/profile.js";
 export * from "./sandbox/record.js";
 export * from "./stories.js";
+export {
+  allowedDifferencePaths,
+  backportCompletionErrors,
+  compareTwinPatches,
+  findTwin,
+  formatBackportPlanningLines,
+  formatBackportStatusLines,
+  parseTasksBackportHints,
+  resolveBackportTargets,
+  splitUnifiedDiff,
+  tasksMissingTwinPr,
+  twinBranchName,
+  waiveTwin,
+} from "./backport.js";
+export type { BackportParityResult, BackportPlanningTask, GitRunner } from "./backport.js";
+export {
+  checkTwinParity,
+  defaultGitRunner,
+  openBackportTwin,
+  refreshTwinGitState,
+} from "./backport-git.js";

@@ -9,6 +9,7 @@ import {
   completeChange,
   createChange,
   describeKept,
+  formatBackportPlanningLines,
   formatJsonSummary,
   formatStatus,
   formatTokenInventory,
@@ -53,6 +54,8 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { backportCmd } from "./backport-cmd.js";
+import { checkCmd } from "./check-cmd.js";
 import { factCmd } from "./fact-cmd.js";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
@@ -350,6 +353,8 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
+      const planning = await formatBackportPlanningLines(ctx);
+      if (planning.length) consola.log(planning.join("\n"));
       const metrics = await readChangeMetrics(root, config, id);
       if (metrics.phases.length) {
         consola.log(pc.bold("Phase times (local):"));
@@ -1795,6 +1800,8 @@ export const commands = {
   graph: graphCmd,
   branch: branchCmd,
   pr: prCmd,
+  backport: backportCmd,
+  check: checkCmd,
   checkout: useChange,
   context: contextCmd,
   search: searchCmd,

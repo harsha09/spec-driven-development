@@ -1,3 +1,4 @@
+import { formatBackportStatusLines } from "./backport.js";
 import type { ChangeContext } from "./change-context.js";
 import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
@@ -41,6 +42,7 @@ export function formatStatus(ctx: ChangeContext): string {
     lines.push("");
     lines.push(`Overrides: skip=${ctx.meta.overrides.skip_stages.join(", ")}`);
   }
+  lines.push(...formatBackportStatusLines(ctx.meta));
   return lines.join("\n");
 }
 
