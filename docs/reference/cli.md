@@ -102,7 +102,7 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd gate status` | List required merge gates against the current HEAD. Exits 1 unless each is a fresh pass | Before merge |
 | `sdd gate record --verdict pass --reviewer "Ada Lovelace" --sha aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --evidence evidence/qa.log review` | Record a verdict pinned to that commit. `pass` and `pass-with-notes` need the SHA and an evidence link | After review or QA |
 | `sdd merge --check` | Refuse unless every required gate is a fresh pass on this HEAD. Does not merge | CI |
-| `sdd merge` | Same check, then `gh pr merge` with a head-match guard | Merge the pull request |
+| `sdd merge [--method merge\|squash\|rebase]` | Same check, then `gh pr merge` with that method (default `merge`) and a head-match guard | Merge the pull request |
 | `sdd verify` | Run the stage's `verify.commands`; PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
 | `sdd verify --no-run` | Checklist only — records NOT RUN, exits 1 | Manual testing |
 | `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
@@ -202,7 +202,7 @@ A workflow names the gates that change type needs before merge. `review`, `qa`, 
 
 `sdd gate status` compares those records to the local Git HEAD. A required gate is `fresh` when its latest verdict on that SHA is `pass` or `pass-with-notes`, `failed` when that verdict is `fail`, `stale` when the verdict names another SHA, and `missing` when nothing is recorded. A new commit makes the old verdicts stale. The command exits 1 when any required gate is not fresh.
 
-`sdd merge --check` uses the same rule and does not merge. `sdd merge` refuses on a stale, failed, or missing required gate. When every required gate is fresh, it merges that change's pull request and passes the checked SHA as a head-match guard, so a push during the merge fails instead of landing on a different commit. If HEAD moves after the check and before the merge starts, the merge does not run.
+`sdd merge --check` uses the same rule and does not merge. `sdd merge` refuses on a stale, failed, or missing required gate. When every required gate is fresh, it merges that change's pull request with an explicit method (`--method merge`, `squash` or `rebase`, default `merge`, because `gh` cannot prompt for one) and passes the checked SHA as a head-match guard, so a push during the merge fails instead of landing on a different commit. If HEAD moves after the check and before the merge starts, the merge does not run.
 
 ---
 

@@ -335,8 +335,44 @@ describe("gate verdict records", () => {
         return { exitCode: 0, stdout: "merged\n", stderr: "" };
       },
     });
-    expect(args).toEqual([["gh", "pr", "merge", "12", "--match-head-commit", HEAD]]);
+    expect(args).toEqual([["gh", "pr", "merge", "12", "--merge", "--match-head-commit", HEAD]]);
     expect(merged).toEqual({ ok: true, message: "merged" });
+
+    for (const method of ["squash", "rebase"] as const) {
+      const chosen: string[][] = [];
+      const result = await mergeChange({
+        projectRoot: root,
+        config,
+        changeId: ctx.id,
+        method,
+        readHead: readHead(HEAD),
+        readBranch: async () => "topic",
+        run: async (_cwd, command, commandArgs) => {
+          chosen.push([command, ...commandArgs]);
+          return { exitCode: 0, stdout: "merged\n", stderr: "" };
+        },
+      });
+      expect(result.ok).toBe(true);
+      expect(chosen).toEqual([
+        ["gh", "pr", "merge", "12", `--${method}`, "--match-head-commit", HEAD],
+      ]);
+    }
+
+    const unknown = await mergeChange({
+      projectRoot: root,
+      config,
+      changeId: ctx.id,
+      method: "fast-forward" as never,
+      readHead: readHead(HEAD),
+      readBranch: async () => "topic",
+      run: async () => {
+        throw new Error("gh should not run");
+      },
+    });
+    expect(unknown).toEqual({
+      ok: false,
+      message: "Merge blocked: method must be one of merge, squash, rebase.",
+    });
 
     const failed = await mergeChange({
       projectRoot: root,

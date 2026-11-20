@@ -1276,7 +1276,12 @@ stages:
     const merged = runSdd(root, ["merge"], env);
     expect(merged.status, merged.stderr + merged.stdout).toBe(0);
     expect(merged.stdout).toContain("merged");
-    expect(await readFile(ghLog, "utf8")).toContain(`pr merge 12 --match-head-commit ${head}`);
+    expect(await readFile(ghLog, "utf8")).toContain(
+      `pr merge 12 --merge --match-head-commit ${head}`,
+    );
+    const bad = runSdd(root, ["merge", "--method", "ff"], env);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr + bad.stdout).toContain("--method must be one of merge, squash, rebase");
   });
 
   describe("sdd go gap check", () => {
