@@ -294,6 +294,11 @@ Active work: \`.sdd/active-context.md\` and the configured changes folder.
   await writeTextIfMissing(join(changesDir(projectRoot, config), ".gitkeep"), "");
   await writeTextIfMissing(join(domainsDir(projectRoot, config), ".gitkeep"), "");
 
+  const decisions = join(sddRoot(projectRoot), "decisions");
+  await ensureDir(decisions);
+  await writeTextIfMissing(join(decisions, ".gitkeep"), "");
+  created.push(decisions);
+
   const sddIgnore = join(root, ".gitignore");
   const changesIgnore = join(changesDir(projectRoot, config), ".gitignore");
   if ((await ensureIgnoreEntries(sddIgnore, SDD_IGNORE_LINES)).created) {

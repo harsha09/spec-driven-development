@@ -32,7 +32,15 @@ node --version
 Install once. Use the current release:
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
+Current npm skips dependency install scripts unless you allow them. Search needs `better-sqlite3`, and embeddings need `onnxruntime-node`. `sdd doctor` loads both modules. If either is missing or not built, doctor prints that install command and exits 1.
+
+To allow the same scripts for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 ```
 
 Or, on its own, the release this page was checked against:
@@ -368,6 +376,7 @@ That line means there is no in-progress change. It is not the success check.
 | What you see | What to do |
 |--------------|------------|
 | `sdd: command not found` | Install again, or use `npx @structured-vibe-coding/cli` |
+| `✗ better-sqlite3` or `✗ onnxruntime-node` from `sdd doctor` | The native install script did not run. Run `npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli`, or `npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user` and install again |
 | `✗ Node.js … (24+ required)` from `sdd doctor` | CLI 0.24.0 failed that line. This page was checked on v24.22.2 |
 | `next` says `intent.md` is incomplete | Paste the sample intent above |
 | Doctor before setup exits 1 on `SDD init` | Run `sdd setup --yes --no-agent`, then `sdd doctor` |

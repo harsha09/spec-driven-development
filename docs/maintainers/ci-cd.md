@@ -163,8 +163,15 @@ No secrets. Quality gate only (build, typecheck, test, CLI smoke, npm pack dry-r
 ## Install after a successful release
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 sdd --help
+sdd doctor
+```
+
+Current npm skips dependency install scripts unless you allow them. `better-sqlite3` and `onnxruntime-node` need those scripts. To allow them for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 ```
 
 ---

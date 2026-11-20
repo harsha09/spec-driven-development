@@ -98,3 +98,7 @@ export function searchConfigPath(projectRoot: string): string {
 export function indexDbPath(projectRoot: string): string {
   return join(sddRoot(projectRoot), "index.db");
 }
+
+export function decisionsDir(projectRoot: string): string {
+  return join(sddRoot(projectRoot), "decisions");
+}

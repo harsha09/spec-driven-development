@@ -3,6 +3,7 @@ import { join } from "pathe";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { defaultTeamsDir } from "../defaults.js";
 import { listDirs, listFiles, pathExists, readText, writeText } from "../fs.js";
+import { recordManifestFiles } from "../generated.js";
 import { checkModels } from "./models/schema.js";
 import { createRole, parseRoleDocument, roleFilePath } from "./profile.js";
 import { type TeamConfig, TeamSchema, formatTeamError } from "./schema.js";
@@ -123,6 +124,10 @@ export async function initTeam(
   for (const role of roles) {
     await writeText(join(root, ".sdd", "roles", `${role.name}.md`), role.raw);
   }
+  await recordManifestFiles(
+    root,
+    roles.map((role) => ({ path: `.sdd/roles/${role.name}.md`, content: role.raw })),
+  );
   await writeText(teamPath, stringifyYaml(checked.data, { lineWidth: 100 }));
   if (copyRouting) await writeText(routingDest, await readText(routingSrc));
   await syncRoomIgnore(root, checked.data);
@@ -260,7 +265,7 @@ export async function createRoleFromTemplate(
   if ("error" in resolved) return fail(resolved.error);
   const parsed = parseRoleDocument(input.name, resolved.raw);
   if (!parsed || !parsed.job) return fail(`Role template "${resolved.id}" is invalid.`);
-  return createRole(root, {
+  const created = await createRole(root, {
     name: input.name,
     label: input.label?.trim() || parsed.label,
     job: input.job?.trim() || parsed.job,
@@ -278,4 +283,9 @@ export async function createRoleFromTemplate(
     rules: parsed.rules,
     goals: parsed.goals,
   });
+  if (created.exitCode !== 0) return created;
+  await recordManifestFiles(root, [
+    { path: `.sdd/roles/${input.name.trim()}.md`, content: resolved.raw },
+  ]);
+  return created;
 }

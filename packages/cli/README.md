@@ -11,9 +11,21 @@ Keep intent, design, and verify notes **in git**, not only in chat. Hotfix, gree
 ## Install
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 # or
 npx @structured-vibe-coding/cli --help
+```
+
+Current npm skips dependency install scripts unless you allow them. `better-sqlite3` and `onnxruntime-node` need those scripts. `sdd doctor` loads both and, when one is missing or not built, prints:
+
+```bash
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
+To allow them for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 ```
 
 Binary: **`sdd`**

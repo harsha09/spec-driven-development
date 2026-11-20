@@ -61,6 +61,7 @@ export {
   approveGate,
   fallbackIncompleteStageId,
   incompletePriorStageErrors,
+  isHumanHardGate,
 } from "./stage-gates.js";
 export { formatStatus, buildAgentPrompt } from "./agent-handoff.js";
 export { isSubstantiveArtifactContent } from "./artifacts.js";
