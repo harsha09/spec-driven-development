@@ -4,7 +4,17 @@
  */
 import { spawnSync } from "node:child_process";
 import { constants } from "node:fs";
-import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -234,6 +244,57 @@ stages:
     expect(stored).not.toContain("PRIVATE SESSION TEXT");
     expect(stored).not.toContain(logPath);
     expect(JSON.parse(stored).requests).toHaveLength(1);
+  });
+
+  it("sdd metrics with no arguments discovers session logs and is idempotent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-metrics-auto-"));
+    const home = await mkdtemp(join(tmpdir(), "sdd-cli-metrics-home-"));
+    temps.push(root, home);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Auto metrics", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const metricsPath = join(root, "changes", changeId, "metrics.json");
+
+    const none = runSdd(root, ["metrics"], { HOME: home });
+    expect(none.status, none.stderr + none.stdout).toBe(0);
+    const noneText = none.stdout + none.stderr;
+    expect(noneText).toContain("No agent session logs found");
+    expect(noneText).toContain("~/.claude/projects/");
+    expect(noneText).toContain("~/.codex/sessions/");
+    expect(noneText).toContain("~/.grok/sessions/");
+    expect(noneText).toContain("sdd metrics import <path>");
+
+    const realRoot = await realpath(root);
+    const logDir = join(home, ".claude", "projects", realRoot.replace(/[^A-Za-z0-9]/g, "-"));
+    await mkdir(logDir, { recursive: true });
+    const row = {
+      type: "assistant",
+      timestamp: new Date(Date.now() + 5000).toISOString(),
+      requestId: "auto-request-1",
+      cwd: realRoot,
+      message: {
+        usage: {
+          input_tokens: 11,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          output_tokens: 5,
+        },
+        content: [{ type: "text", text: "PRIVATE SESSION TEXT" }],
+      },
+    };
+    await writeFile(join(logDir, "session-1.jsonl"), `${JSON.stringify(row)}\n`);
+
+    const first = runSdd(root, ["metrics"], { HOME: home });
+    expect(first.status, first.stderr + first.stdout).toBe(0);
+    expect(first.stdout + first.stderr).toContain("Imported 1 new request");
+    const afterFirst = await readFile(metricsPath, "utf8");
+    const second = runSdd(root, ["metrics", "--change", changeId], { HOME: home });
+    expect(second.status, second.stderr + second.stdout).toBe(0);
+    expect(second.stdout + second.stderr).toContain("no new usage");
+    expect(await readFile(metricsPath, "utf8")).toBe(afterFirst);
+    expect(afterFirst).not.toContain("PRIVATE SESSION TEXT");
+    expect(JSON.parse(afterFirst).requests).toHaveLength(1);
   });
 
   it("imports a Grok usage.json per model and warns when usage is incomplete", async () => {
