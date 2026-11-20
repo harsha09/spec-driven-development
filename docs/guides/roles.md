@@ -44,9 +44,8 @@ You describe the work once. The guide picks the next stage from the role's list.
 
 With `SDD_ROLE_MODEL` set:
 
-- The planner asks who the change is for, then how you will know it worked, and writes the reading.
-- The architect asks which module owns the change, and writes the design.
-- The builder writes the tasks and the implementation note.
+- `sdd go` runs a gap check before each clarify stage (or once at the start on workflows that have no clarify stage). It asks only where the request is missing something the triggers describe, one question at a time, each with a proposed default. Questions from the role file are conditions for that check, not a fixed script `sdd go` reads aloud.
+- The planner writes the reading. The architect writes the design. The builder writes the tasks and the implementation note.
 - `sdd go` prints `Handoff: planner to architect.` when the work moves. The next role sees the request and the answers already given.
 - The planner and the architect have `write product code` on their never list, so during `sdd go` their writes stay inside the change pack. The builder does not generate a release. Push, a pull request, and merge stay with you.
 - The same three duties follow a hotfix, a feature, a new product, or `team-software`. A hotfix has no design stage, so the architect has no stage there and the builder takes implement and the local check.
@@ -109,17 +108,17 @@ builder: tasks, clarify_tasks, implement, local_verify
 Next: sdd go "what you want to build"
 ```
 
-Then ask the planner its questions:
+Then run the guide:
 
 ```bash
 sdd go "Fix empty list crash" --no-agent
-sdd go --answer "People who open an empty list" --no-agent
-sdd go --answer "An empty list shows a message" --no-agent
 ```
 
-The first command prints `Who is this for?` The second prints `How will you know it worked?` On a terminal, `sdd go` asks in place, so you can type the answer there.
+Without `SDD_ROLE_MODEL`, the run stops with `No role model is configured.` after it records that no gap check could run. A later run with the model set can still ask clarifying questions; a failed no-model run does not mark the gap check done.
 
-The questions do not need a model. The draft does. Set `SDD_ROLE_MODEL` to a command that reads one JSON object (`roleId` and `prompt`) on stdin and writes one JSON object on stdout. With that set, the `sdd go` that finishes the planner's questions writes the reading under the feature headings, skips the optional clarify and brainstorm stages, and prints `Handoff: planner to architect.` Design and tasks are separate files under their own headings. The local test results file says no command was run. Implement has no file, so it is not sent to the model. The architect then asks which module owns the change. After that answer, the architect writes the design and the builder takes the tasks. Without the variable, that step prints `No role model is configured.`
+Set `SDD_ROLE_MODEL` to a command that reads one JSON object (`roleId` and `prompt`) on stdin and writes one JSON object on stdout. With that set, `sdd go` may stop on a gap-check question, on a question the role asks while drafting, or continue through intent and the optional `clarify_intent` and `brainstorm` stages when the request is clear enough. On a terminal, `sdd go` asks in place; answer there or with `sdd go --answer "..."`. `--no-clarify` skips every gap check for that command and is kept for the whole interactive run. Accept a default with Enter or `sdd go --accept-default`.
+
+When intent is ready, `sdd go` prints `Handoff: planner to architect.` Design and tasks are separate files under their own headings. The local test results file says no command was run. Implement has no file, so it is not sent to the model. The architect may ask while drafting design; the builder takes tasks after design is ready.
 
 `--no-agent` means no AI host is installed. It does not set `SDD_ROLE_MODEL`. `--ai copilot` installs the host that `sdd new` and `sdd next` open. The guide still writes through `SDD_ROLE_MODEL`.
 
@@ -153,8 +152,8 @@ sdd role context planner --text "This app is an expense tracker. An empty list s
 
 | Role | Job | Owns | Skill | Never | Asks |
 |------|-----|------|-------|-------|------|
-| planner | Plan the change | the request, the plan | plan the change | accept a spec, write product code | Who is this for? How will you know it worked? |
-| architect | Name the modules | the design | name the modules | accept a spec, write product code | Which module owns this change? |
+| planner | Plan the change | the request, the plan | plan the change | accept a spec, write product code | Triggers for the gap check (who the change is for, how you will know it worked, …) |
+| architect | Name the modules | the design | name the modules | accept a spec, write product code | Triggers for the gap check (which module owns the change, …) |
 | builder | Build the change | the change pack | build the change | accept a spec, generate a release | |
 
 The builder has an empty ask list. It drafts and hands on.

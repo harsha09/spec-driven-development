@@ -673,15 +673,7 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
 
   const waiting = answer.length > 0 || input.acceptDefault === true;
   if (waiting && !state.pending) return fail("No question is waiting.");
-  if (input.noClarify && state.pending?.kind === "clarify") {
-    const count = proposeRemaining(clarify);
-    recordSkip(clarify, state.pending.role, "--no-clarify");
-    state.pending = undefined;
-    await mirror();
-    if (count === 0 && !waiting) {
-      // Nothing queued any more. Carry on.
-    }
-  } else if (waiting && state.pending) {
+  if (waiting && state.pending) {
     if (state.pending.kind === "clarify") {
       if (!answerNext(clarify, answer)) return fail("No question is waiting.");
     } else if (input.acceptDefault && !answer) {
@@ -693,6 +685,11 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
         answer,
       });
     }
+    state.pending = undefined;
+    await mirror();
+  } else if (input.noClarify && state.pending?.kind === "clarify") {
+    proposeRemaining(clarify);
+    recordSkip(clarify, state.pending.role, "--no-clarify");
     state.pending = undefined;
     await mirror();
   } else if (state.pending) {
@@ -757,7 +754,6 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
       if (!clarify.checked.includes(stage.id)) {
         const role = input.model ? await gapRole(root, stage.id) : undefined;
         if (!input.model || !role) {
-          markChecked(clarify, stage.id);
           recordSkip(clarify, stage.id, "no model to check the request for gaps");
           await mirror();
         } else {
@@ -771,12 +767,14 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
             earlier: await readyArtifacts(ctx.path, ctx.workflow.stages, ""),
             state: clarify,
           });
-          markChecked(clarify, stage.id);
           if (!found.ok) {
             recordSkip(clarify, stage.id, "the gap check reply was not valid");
             lines.push(`The gap check for ${stage.id} did not return a valid reply.`);
-          } else if (found.added === 0 && found.reason === "limit") {
-            recordSkip(clarify, stage.id, "question limit reached");
+          } else {
+            markChecked(clarify, stage.id);
+            if (found.added === 0 && found.reason === "limit") {
+              recordSkip(clarify, stage.id, "question limit reached");
+            }
           }
           await mirror();
         }
@@ -824,9 +822,9 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
 
     if (!hasClarifyStage && !clarify.checked.includes("start")) {
       // No clarify stage: the gap check runs once, before the first drafting stage.
-      markChecked(clarify, "start");
       if (input.noClarify) {
         recordSkip(clarify, "start", "--no-clarify");
+        markChecked(clarify, "start");
       } else if (!input.model) {
         recordSkip(clarify, "start", "no model to check the request for gaps");
       } else {
@@ -843,6 +841,8 @@ async function runGuideSteps(root: string, input: GuideInput): Promise<RoleComma
         if (!found.ok) {
           recordSkip(clarify, "start", "the gap check reply was not valid");
           lines.push("The gap check did not return a valid reply.");
+        } else {
+          markChecked(clarify, "start");
         }
       }
       await mirror();

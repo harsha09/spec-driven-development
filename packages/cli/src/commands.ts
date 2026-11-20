@@ -1732,7 +1732,6 @@ async function runGo(
     title = undefined;
     answer = picked.trim() || undefined;
     acceptDefault = answer === undefined;
-    input.noClarify = false;
   }
 }
 

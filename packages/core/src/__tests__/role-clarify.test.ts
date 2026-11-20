@@ -445,6 +445,16 @@ describe("confirmed answers are kept apart from proposed ones", () => {
     return { root, fake };
   }
 
+  it("--answer with --no-clarify confirms the typed answer instead of proposing the default", async () => {
+    const { root, fake } = await pending();
+    const result = await runGuide(root, { answer: "Admins", noClarify: true, model: fake.model });
+    expect(result.exitCode).toBe(0);
+    const stored = await readClarifyFile(await activeChange(root));
+    expect(stored?.answers.find((item) => item.id === "q1")).toEqual(
+      expect.objectContaining({ answer: "Admins", status: "confirmed" }),
+    );
+  });
+
   it("--no-clarify on waiting questions keeps their defaults as unconfirmed proposals", async () => {
     const { root, fake } = await pending();
     await runGuide(root, { answer: "Admins", model: fake.model });
@@ -509,6 +519,31 @@ describe("confirmed answers are kept apart from proposed ones", () => {
 });
 
 describe("--no-clarify", () => {
+  it("stays on for the whole change after a role question on feature", async () => {
+    const root = await emptyDir();
+    const fake = fakeModel(
+      [{ kind: "question", text: "Which surface shows the empty state?" }, headed(FEATURE)],
+      [{ questions: [ask("scope", 1)] }],
+    );
+    const first = await runGuide(root, {
+      title: "Add sharing",
+      workflow: "feature",
+      model: fake.model,
+      noClarify: true,
+      ...START,
+    });
+    expect(first.stdout).toContain("Which surface shows the empty state?");
+    const second = await runGuide(root, {
+      answer: "The main list",
+      model: fake.model,
+      noClarify: true,
+      ...START,
+    });
+    expect(second.stdout).not.toMatch(/Clarify \(/);
+    expect(fake.gapPrompts).toHaveLength(0);
+    expect(second.stdout).toContain("Skipped clarify_intent: --no-clarify.");
+  });
+
   it("skips the gap check for the run and records that it was skipped", async () => {
     const root = await emptyDir();
     const fake = fakeModel([headed(FEATURE)], [{ questions: [ask("scope", 1)] }]);
@@ -569,7 +604,18 @@ describe("gap check failures never block the run", () => {
       stage: "start",
       reason: "no model to check the request for gaps",
     });
+    expect(stored?.checked).not.toContain("start");
     expect(await pathExists(join(await activeChange(root), "clarify.yaml"))).toBe(true);
+  });
+
+  it("does not burn the start checkpoint without a model, so a later run can ask", async () => {
+    const root = await emptyDir();
+    await runGuide(root, { title: "Small fix", workflow: "hotfix", ...START });
+    const fake = fakeModel([], [{ questions: [ask("scope", 1)] }]);
+    const again = await runGuide(root, { model: fake.model, ...START });
+    expect(again.stdout.startsWith("Question:")).toBe(true);
+    expect(again.stdout).toContain("Clarify (scope, 1 of 1):");
+    expect(fake.gapPrompts).toHaveLength(1);
   });
 
   it("refuses a default for a question that has none", async () => {
