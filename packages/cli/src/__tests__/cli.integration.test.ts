@@ -666,6 +666,9 @@ stages:
     const doctor = runSdd(root, ["doctor"]);
     const nodeLevel = nodeSupportLevel(process.versions.node);
     expect(doctor.stdout).toContain(nodeDoctorDetail(process.versions.node));
+    expect(doctor.stdout).toContain("Native modules");
+    expect(doctor.stdout).toContain("better-sqlite3, onnxruntime-node");
+    expect(doctor.stdout).not.toContain("--allow-scripts");
     expect(doctor.stdout).toContain("AI host");
     expect(doctor.stdout).toContain("none (no-agent setup");
     expect(doctor.status, doctor.stdout + doctor.stderr).toBe(nodeLevel === "fail" ? 1 : 0);

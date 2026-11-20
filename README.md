@@ -25,11 +25,21 @@ node --version
 
 Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20. CI runs that suite on Node 20 and Node 24.
 
-Install once. The first command follows the current npm release and is also the upgrade. The second command installs the release this page was checked against.
+Install once. This command follows the current npm release and is also the upgrade.
 
 ```bash
-npm install -g @structured-vibe-coding/cli
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 ```
+
+Current npm skips dependency install scripts unless you allow them. Search needs `better-sqlite3`, and embeddings need `onnxruntime-node`. Without those scripts the packages install, but the native build is missing, and later commands fail with an error that does not mention npm. `sdd doctor` loads both modules and prints this install command when either one is missing or not built.
+
+To allow the same scripts for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
+```
+
+The release this page was checked against:
 
 ```bash
 npm install -g @structured-vibe-coding/cli@0.24.0

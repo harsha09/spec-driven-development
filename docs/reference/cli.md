@@ -109,7 +109,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List project workflows, name bundled workflows that are not copied yet, and print cl100k token counts for each workflow file and artifact | Discover |
 | `sdd help` | Short overview | First run |
-| `sdd doctor` | Health check | Stuck / setup |
+| `sdd doctor` | Health check, including native modules (`better-sqlite3`, `onnxruntime-node`) | Stuck / setup |
 
 ### Greenfield / backlog
 
@@ -126,6 +126,18 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 
 Most process commands refresh a short handoff and may open your AI.
 **Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
+
+`sdd doctor` loads `better-sqlite3` and `onnxruntime-node`. Current npm skips their install scripts unless you allow them, so a global install can succeed while the native build is missing. When a module is missing or not built, doctor exits 1 and prints:
+
+```bash
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
+To allow the same scripts for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
+```
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
