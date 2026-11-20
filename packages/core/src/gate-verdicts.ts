@@ -75,11 +75,20 @@ export type CommandRunner = (
   args: string[],
 ) => Promise<CommandOutput>;
 
+export const MERGE_METHODS = ["merge", "squash", "rebase"] as const;
+export type MergeMethod = (typeof MERGE_METHODS)[number];
+
+export function isMergeMethod(value: string): value is MergeMethod {
+  return (MERGE_METHODS as readonly string[]).includes(value);
+}
+
 export interface MergeChangeOptions {
   projectRoot: string;
   config: Config;
   changeId: string;
   checkOnly?: boolean;
+  /** How gh merges the pull request. Default `merge`. gh cannot prompt here, so one is always passed. */
+  method?: MergeMethod;
   readHead?: (projectRoot: string) => Promise<string | null>;
   readBranch?: (projectRoot: string) => Promise<string | null>;
   run?: CommandRunner;
@@ -366,6 +375,13 @@ export async function mergeChange(options: MergeChangeOptions): Promise<MergeCha
   const readHead = options.readHead ?? getHeadSha;
   const readBranch = options.readBranch ?? currentBranch;
   const run = options.run ?? spawnCommand;
+  const method = options.method ?? "merge";
+  if (!isMergeMethod(method)) {
+    return {
+      ok: false,
+      message: `Merge blocked: method must be one of ${MERGE_METHODS.join(", ")}.`,
+    };
+  }
   const ctx = await buildContext(options.projectRoot, options.config, options.changeId);
   if (ctx.meta.branch) {
     const current = await readBranch(options.projectRoot);
@@ -407,6 +423,7 @@ export async function mergeChange(options: MergeChangeOptions): Promise<MergeCha
     "pr",
     "merge",
     String(number),
+    `--${method}`,
     "--match-head-commit",
     head,
   ]);

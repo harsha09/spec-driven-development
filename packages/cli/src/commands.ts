@@ -1,6 +1,7 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
   HUMAN_SIGNOFF_COMMAND,
+  MERGE_METHODS,
   SETUP_WHY,
   advanceStage,
   approveGate,
@@ -24,6 +25,7 @@ import {
   installAgentIntegration,
   isHumanHardGate,
   isInitialized,
+  isMergeMethod,
   listBacklogFeatures,
   listBundledWorkflowNames,
   listChanges,
@@ -593,15 +595,25 @@ const merge = defineCommand({
       description: "Only check required gates against the current head. Do not merge.",
       default: false,
     },
+    method: {
+      type: "string",
+      description: "Merge method passed to gh: merge, squash or rebase",
+      default: "merge",
+    },
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
+      const method = String(args.method ?? "merge");
+      if (!isMergeMethod(method)) {
+        throw new Error(`--method must be one of ${MERGE_METHODS.join(", ")}`);
+      }
       const id = await resolveChangeId(root, config, args.change);
       const result = await mergeChange({
         projectRoot: root,
         config,
         changeId: id,
         checkOnly: args.check === true,
+        method,
       });
       process.stdout.write(`${result.message}\n`);
       if (!result.ok) process.exitCode = 1;
