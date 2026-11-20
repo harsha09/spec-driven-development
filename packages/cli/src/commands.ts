@@ -57,6 +57,8 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { checkCmd } from "./check-cmd.js";
+import { decisionCmd } from "./decision-cmd.js";
 import { factCmd } from "./fact-cmd.js";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
@@ -1824,6 +1826,8 @@ export const commands = {
   sandbox: sandboxCmd,
   team: teamCmd,
   fact: factCmd,
+  decision: decisionCmd,
+  check: checkCmd,
   models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,
