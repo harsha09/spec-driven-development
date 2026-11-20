@@ -6,7 +6,9 @@ import {
   buildContext,
   buildRefinePlan,
   changePath,
+  collectTemplateStatus,
   completeChange,
+  countOutdated,
   createChange,
   describeKept,
   formatJsonSummary,
@@ -68,6 +70,7 @@ import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
 import { teamCmd } from "./team-cmd.js";
+import { templatesCmd } from "./templates-cmd.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
 function displayRepoPath(projectRoot: string, absolutePath: string): string {
@@ -1294,6 +1297,19 @@ const doctor = defineCommand({
       } else {
         line("Active change", true, 'none — run: sdd new "My first change"');
       }
+
+      const generated = await collectTemplateStatus(root);
+      const outdated = countOutdated(generated.summary);
+      if (outdated > 0) {
+        const noun = outdated === 1 ? "file is" : "files are";
+        consola.log(
+          `  ${pc.yellow("!")} ${pc.bold("Generated files")}  ${pc.dim(`${outdated} stock-but-outdated ${noun} behind this SDD — run: sdd templates status`)}`,
+        );
+      } else {
+        consola.log(
+          `  ${pc.green("✓")} ${pc.bold("Generated files")}  ${pc.dim("none outdated — sdd templates status for detail")}`,
+        );
+      }
     }
 
     consola.log("");
@@ -1785,6 +1801,7 @@ export const commands = {
   verify,
   complete,
   workflows,
+  templates: templatesCmd,
   agent,
   agents,
   role: roleCmd,

@@ -15,6 +15,7 @@ export * from "./slug.js";
 export * from "./defaults.js";
 export * from "./fs.js";
 export * from "./generated.js";
+export * from "./template-status.js";
 export * from "./errors.js";
 export * from "./env.js";
 export * from "./version.js";
