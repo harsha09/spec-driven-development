@@ -59,6 +59,7 @@ import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { metricsCmd } from "./metrics-cmd.js";
 import { modelsCmd } from "./models-cmd.js";
+import { inspectNativeDependencies, nativeDoctorLines } from "./native-deps.js";
 import { nodeDoctorDetail, nodeRequirementPhrase, nodeSupportLevel } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
@@ -1244,7 +1245,7 @@ const refine = defineCommand({
 const doctor = defineCommand({
   meta: {
     name: "doctor",
-    description: "Check local setup (Node, init, AI host, active change)",
+    description: "Check local setup (Node, native modules, init, AI host, active change)",
   },
   async run() {
     const root = projectRoot();
@@ -1266,6 +1267,17 @@ const doctor = defineCommand({
     consola.log(
       `  ${nodeMark} ${pc.bold("Node.js")}  ${pc.dim(nodeDoctorDetail(process.versions.node))}`,
     );
+
+    const native = nativeDoctorLines(inspectNativeDependencies());
+    for (const check of native.checks) {
+      line(check.label, check.ok, check.detail);
+    }
+    if (native.fix && native.config) {
+      consola.log(`    ${pc.dim("Fix:")} ${pc.cyan(native.fix)}`);
+      consola.log(
+        `    ${pc.dim("Or persist the allow list, then install again:")} ${pc.cyan(native.config)}`,
+      );
+    }
 
     const initialized = await isInitialized(root);
     line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd setup");
