@@ -3,6 +3,7 @@ export * from "./paths.js";
 export * from "./config.js";
 export * from "./git-head.js";
 export * from "./metrics.js";
+export * from "./metrics-discover.js";
 export * from "./report.js";
 export * from "./search/index.js";
 export * from "./sync.js";
@@ -15,6 +16,7 @@ export * from "./slug.js";
 export * from "./defaults.js";
 export * from "./fs.js";
 export * from "./generated.js";
+export * from "./template-status.js";
 export * from "./errors.js";
 export * from "./env.js";
 export * from "./version.js";
@@ -80,3 +82,20 @@ export * from "./sandbox/profile.js";
 export * from "./sandbox/record.js";
 export * from "./stories.js";
 export * from "./gate-verdicts.js";
+export {
+  addDecision,
+  checkDecisionReferences,
+  extractDecisionRefs,
+  formatDecisionRecord,
+  isValidDecisionId,
+  listDecisionIds,
+  listDecisions,
+  loadDecisionRecord,
+  resolveDecisionRefsInText,
+  runDecisionCheck,
+  showDecision,
+  showDecisionResolved,
+  DecisionHistoryEntrySchema,
+  DecisionRecordSchema,
+} from "./decisions.js";
+export type { DecisionCheckResult, DecisionHistoryEntry, DecisionRecord } from "./decisions.js";

@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { renderProtocolMd } from "@structured-vibe-coding/core";
 import type { ArgsDef, CommandDef } from "citty";
 import { describe, expect, it } from "vitest";
 import { commands } from "../commands.js";
@@ -196,6 +197,21 @@ describe("the docs checker", () => {
     expect(await check(at("frobnicate"))).toContain("not an sdd command");
     expect(await check(at("mcp sources frobnicate"))).toContain("not a subcommand");
     expect(await check(at("next --frobnicate"))).toContain("not a flag");
+  });
+});
+
+describe("agent instructions", () => {
+  it("covers the hard-gate sentence and only names real commands", async () => {
+    const protocol = renderProtocolMd({ memory_path: "memory", changes_path: "changes" });
+    const sentence = protocol.split("\n").find((line) => line.includes("Do not skip hard gates"));
+    expect(sentence).toContain('sdd team signoff --note "…"');
+    expect(sentence).not.toContain("tell the human to run `sdd gate approve`");
+    const problems: string[] = [];
+    for (const shown of shownCommands("protocol.md", protocol)) {
+      const problem = await check(shown);
+      if (problem) problems.push(problem);
+    }
+    expect(problems).toEqual([]);
   });
 });
 

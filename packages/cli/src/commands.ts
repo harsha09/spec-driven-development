@@ -1,12 +1,15 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
+  HUMAN_SIGNOFF_COMMAND,
   SETUP_WHY,
   advanceStage,
   approveGate,
   buildContext,
   buildRefinePlan,
   changePath,
+  collectTemplateStatus,
   completeChange,
+  countOutdated,
   createChange,
   describeKept,
   formatGateStatus,
@@ -18,6 +21,7 @@ import {
   getActiveChangeId,
   getStage,
   installAgentIntegration,
+  isHumanHardGate,
   isInitialized,
   listBacklogFeatures,
   listBundledWorkflowNames,
@@ -57,12 +61,15 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { checkCmd } from "./check-cmd.js";
+import { decisionCmd } from "./decision-cmd.js";
 import { factCmd } from "./fact-cmd.js";
 import { runSpeckitStyleInit, selectIntegration } from "./init-flow.js";
 import { launchConfiguredAgent, reportAgentLaunch } from "./launch-agent.js";
 import { mcpCmd } from "./mcp-cmd.js";
 import { metricsCmd } from "./metrics-cmd.js";
 import { modelsCmd } from "./models-cmd.js";
+import { inspectNativeDependencies, nativeDoctorLines } from "./native-deps.js";
 import { nodeDoctorDetail, nodeRequirementPhrase, nodeSupportLevel } from "./node-support.js";
 import { projectRoot, withInitialized, withProject } from "./project.js";
 import { costCmd, reportCmd } from "./report-cmd.js";
@@ -72,6 +79,7 @@ import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
 import { teamCmd } from "./team-cmd.js";
+import { templatesCmd } from "./templates-cmd.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
 function displayRepoPath(projectRoot: string, absolutePath: string): string {
@@ -531,7 +539,7 @@ const gate = defineCommand({
         process.stdout.write(`Recorded ${saved.verdict} on ${saved.gate} at ${saved.sha}.\n`);
         return;
       }
-      if (!["approve", "waive", "fail"].includes(action)) {
+      if (action !== "approve" && action !== "waive" && action !== "fail") {
         throw new Error("action must be approve | waive | fail | status | record");
       }
       const statusMap = {
@@ -539,16 +547,18 @@ const gate = defineCommand({
         waive: "waived",
         fail: "failed",
       } as const;
+      const past = { approve: "approved", waive: "waived", fail: "failed" } as const;
       const id = await resolveChangeId(root, config, args.change);
-      const ctx = await approveGate(
-        root,
-        config,
-        id,
-        args.stage,
-        args.note,
-        statusMap[action as keyof typeof statusMap],
-      );
-      consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
+      const ctx = await approveGate(root, config, id, args.stage, args.note, statusMap[action]);
+      const stageId = args.stage ?? ctx.meta.stage;
+      const stage = getStage(ctx.workflow, ctx.meta, stageId);
+      if (action === "approve" && isHumanHardGate(stage, config)) {
+        consola.warn(
+          `Recorded, but this stage needs a human sign-off. Run \`${HUMAN_SIGNOFF_COMMAND}\`.`,
+        );
+      } else {
+        consola.success(`Gate ${past[action]} on ${stageId}`);
+      }
       consola.log(formatStatus(ctx));
       consola.log("");
       const launch = await launchConfiguredAgent({
@@ -1310,7 +1320,7 @@ const refine = defineCommand({
 const doctor = defineCommand({
   meta: {
     name: "doctor",
-    description: "Check local setup (Node, init, AI host, active change)",
+    description: "Check local setup (Node, native modules, init, AI host, active change)",
   },
   async run() {
     const root = projectRoot();
@@ -1332,6 +1342,17 @@ const doctor = defineCommand({
     consola.log(
       `  ${nodeMark} ${pc.bold("Node.js")}  ${pc.dim(nodeDoctorDetail(process.versions.node))}`,
     );
+
+    const native = nativeDoctorLines(inspectNativeDependencies());
+    for (const check of native.checks) {
+      line(check.label, check.ok, check.detail);
+    }
+    if (native.fix && native.config) {
+      consola.log(`    ${pc.dim("Fix:")} ${pc.cyan(native.fix)}`);
+      consola.log(
+        `    ${pc.dim("Or persist the allow list, then install again:")} ${pc.cyan(native.config)}`,
+      );
+    }
 
     const initialized = await isInitialized(root);
     line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd setup");
@@ -1359,6 +1380,19 @@ const doctor = defineCommand({
         }
       } else {
         line("Active change", true, 'none — run: sdd new "My first change"');
+      }
+
+      const generated = await collectTemplateStatus(root);
+      const outdated = countOutdated(generated.summary);
+      if (outdated > 0) {
+        const noun = outdated === 1 ? "file is" : "files are";
+        consola.log(
+          `  ${pc.yellow("!")} ${pc.bold("Generated files")}  ${pc.dim(`${outdated} stock-but-outdated ${noun} behind this SDD — run: sdd templates status`)}`,
+        );
+      } else {
+        consola.log(
+          `  ${pc.green("✓")} ${pc.bold("Generated files")}  ${pc.dim("none outdated — sdd templates status for detail")}`,
+        );
       }
     }
 
@@ -1852,12 +1886,15 @@ export const commands = {
   verify,
   complete,
   workflows,
+  templates: templatesCmd,
   agent,
   agents,
   role: roleCmd,
   sandbox: sandboxCmd,
   team: teamCmd,
   fact: factCmd,
+  decision: decisionCmd,
+  check: checkCmd,
   models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,

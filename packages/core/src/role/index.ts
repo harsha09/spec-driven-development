@@ -35,7 +35,7 @@ export type {
   SetupStepInput,
 } from "./setup-tour.js";
 export type { Duty } from "./guide.js";
-export { recordDecisionRequest, recordSignoff } from "./signoff.js";
+export { HUMAN_SIGNOFF_COMMAND, recordDecisionRequest, recordSignoff } from "./signoff.js";
 export type { AllowRoleInput, RunRoleInput } from "./run.js";
 export {
   createRole,

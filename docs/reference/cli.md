@@ -46,7 +46,8 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | Build backlog item | `sdd backlog start F-001` |
 | See where I am | `sdd status` |
 | Sync recorded checks to local HEAD | `sdd sync <change>` |
-| Import measured agent token usage | `sdd metrics import <session-log>` |
+| See measured token usage (sessions found automatically) | `sdd metrics` |
+| Import one session log by hand | `sdd metrics import <path>` |
 | Report phase time, tokens, and cost | `sdd report` |
 | Report every change that has metrics | `sdd report --all` |
 | Print the one-change cost report | `sdd cost` |
@@ -78,6 +79,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd status` | Progress (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
 | `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
+| `sdd metrics` | Find agent session logs for this project in each host's default location (Claude Code `~/.claude/projects/`, Codex `~/.codex/sessions/`, Grok `~/.grok/sessions/`), import only new usage, then print the change report. Matches logs to this repo by working directory and to a change by a recorded session or launch window, then by phase time. Running it twice gives the same totals. `--change <id>` limits it to one change; `--all` covers every change. When nothing is found it lists every place searched. Only usage fields (model, token counts, timestamps, session id) are read; prompt and response text is never read into storage. | Review token use |
 | `sdd metrics import <session-log>` | Import measured Claude Code or Codex JSONL, a Grok `usage.json`, or a Grok session directory into the active change; use `--change <id>` for another change | Review token use |
 | `sdd report` | Print active time, human wait, measured tokens, and cost for the active change. Use `--change <id>` to select one change. | After metrics exist |
 | `sdd report --all` | Print that report for every change that has a metrics.json, sorted by first phase start. | Compare changes |
@@ -113,7 +115,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List project workflows, name bundled workflows that are not copied yet, and print cl100k token counts for each workflow file and artifact | Discover |
 | `sdd help` | Short overview | First run |
-| `sdd doctor` | Health check | Stuck / setup |
+| `sdd doctor` | Health check, including native modules (`better-sqlite3`, `onnxruntime-node`) | Stuck / setup |
 
 ### Greenfield / backlog
 
@@ -131,6 +133,18 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 Most process commands refresh a short handoff and may open your AI.
 **Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`, `gate status`, `gate record`, `merge`.
 
+`sdd doctor` loads `better-sqlite3` and `onnxruntime-node`. Current npm skips their install scripts unless you allow them, so a global install can succeed while the native build is missing. When a module is missing or not built, doctor exits 1 and prints:
+
+```bash
+npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
+To allow the same scripts for later global installs, then install again:
+
+```bash
+npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
+```
+
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
 
@@ -143,6 +157,10 @@ metrics:
 ```
 
 `metrics.exclude` lists repo-relative prefixes. Import refuses to read a session log under an excluded prefix. The default is `[]`.
+
+`metrics.exclude` also applies to auto-discovery: a log under an excluded prefix is skipped and counted.
+
+An agent launched through `sdd` is recorded in `metrics.json` as a host and launch window (never a path or content), so its usage is attributed to that change even when another change was open at the same time.
 
 When metrics are disabled, `sdd report` and `sdd cost` print `Metrics are disabled` and exit 0.
 
