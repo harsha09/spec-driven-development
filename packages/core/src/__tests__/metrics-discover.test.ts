@@ -1,3 +1,4 @@
+import { chmod } from "node:fs/promises";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
@@ -276,6 +277,38 @@ describe("metrics auto-discovery", () => {
     const result = await discoverAndImportMetrics(root, config, { home, env: {} });
     expect(result.excluded).toBe(1);
     expect((await readChangeMetrics(root, config, change.id)).requests).toEqual([]);
+  });
+
+  it("skips an unreadable Claude or Codex JSONL and keeps discovering other logs", async () => {
+    const { root, home, config, change } = await setup();
+    const dir = join(home, ".claude", "projects", claudeProjectDirName(root));
+    await mkdir(dir, { recursive: true });
+    const blocked = join(dir, "blocked.jsonl");
+    await writeFile(blocked, `${JSON.stringify(claudeRow("req-b", later(), root, "blocked"))}\n`);
+    await chmod(blocked, 0o000);
+    await writeClaudeLog(home, root, "sess-ok", [claudeRow("req-ok", later(), root, "sess-ok")]);
+
+    const codexDir = join(home, ".codex", "sessions", "2026", "11", "20");
+    await mkdir(codexDir, { recursive: true });
+    const codexBlocked = join(codexDir, "rollout-blocked.jsonl");
+    await writeFile(
+      codexBlocked,
+      `${JSON.stringify({ type: "session_meta", payload: { id: "codex-b", cwd: root } })}\n`,
+    );
+    await chmod(codexBlocked, 0o000);
+    await writeCodexLog(home, root, "codex-ok", later());
+
+    try {
+      const found = await discoverSessions(root, { home, env: {} });
+      expect(found.sessions.map((s) => s.sessionId).sort()).toEqual(["codex-ok", "sess-ok"]);
+
+      const result = await discoverAndImportMetrics(root, config, { home, env: {} });
+      expect(result.imported).toBe(2);
+      expect((await readChangeMetrics(root, config, change.id)).requests).toHaveLength(2);
+    } finally {
+      await chmod(blocked, 0o600);
+      await chmod(codexBlocked, 0o600);
+    }
   });
 
   it("refuses when metrics are disabled", async () => {

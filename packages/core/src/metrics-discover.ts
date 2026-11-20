@@ -112,6 +112,9 @@ async function scanHead<T>(
         // Not a JSON line. Skip it.
       }
     }
+  } catch {
+    // Unreadable or truncated JSONL: skip this file and keep scanning other hosts.
+    return undefined;
   } finally {
     lines.close();
     stream.destroy();
