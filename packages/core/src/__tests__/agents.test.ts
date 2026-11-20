@@ -222,6 +222,8 @@ describe("agent integrations (registry)", () => {
 
   it("agent surfaces mention constitution", () => {
     expect(PROTOCOL_MD).toMatch(/constitution/i);
+    expect(PROTOCOL_MD).toContain('sdd team signoff --note "…"');
+    expect(PROTOCOL_MD).not.toContain("tell the human to run `sdd gate approve`");
     expect(
       agentKickoffMessage({
         title: "T",
