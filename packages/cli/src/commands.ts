@@ -2,7 +2,6 @@ import { isAbsolute, join, relative, sep } from "node:path";
 import {
   SETUP_WHY,
   advanceStage,
-  approveGate,
   buildContext,
   buildRefinePlan,
   changePath,
@@ -75,6 +74,8 @@ function displayRepoPath(projectRoot: string, absolutePath: string): string {
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return absolutePath;
   return rel.split(sep).join("/");
 }
+import { gateCmd } from "./gate-cmd.js";
+import { mergeCmd } from "./merge-cmd.js";
 import { syncCmd } from "./sync-cmd.js";
 
 const init = defineCommand({
@@ -469,57 +470,6 @@ const use = defineCommand({
         ctx,
         noAgent: noAgentRequested(args),
         event: `workflow → ${args.workflow} · stage ${ctx.meta.stage}`,
-      });
-      await reportAgentLaunch(launch);
-    });
-  },
-});
-
-const gate = defineCommand({
-  meta: {
-    name: "gate",
-    description: "Approve/waive/fail a gate, then launch the AI agent",
-  },
-  args: {
-    action: {
-      type: "positional",
-      description: "approve | waive | fail",
-      required: true,
-    },
-    stage: { type: "string", description: "Stage id (default: current)", alias: "s" },
-    note: { type: "string", description: "Note", alias: "n" },
-    change: { type: "string", description: "Change id", alias: "c" },
-    "no-agent": noAgentArg,
-  },
-  async run({ args }) {
-    await withProject(async ({ root, config }) => {
-      const action = args.action;
-      if (!["approve", "waive", "fail"].includes(action)) {
-        throw new Error("action must be approve | waive | fail");
-      }
-      const statusMap = {
-        approve: "approved",
-        waive: "waived",
-        fail: "failed",
-      } as const;
-      const id = await resolveChangeId(root, config, args.change);
-      const ctx = await approveGate(
-        root,
-        config,
-        id,
-        args.stage,
-        args.note,
-        statusMap[action as keyof typeof statusMap],
-      );
-      consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
-      consola.log(formatStatus(ctx));
-      consola.log("");
-      const launch = await launchConfiguredAgent({
-        projectRoot: root,
-        config,
-        ctx,
-        noAgent: noAgentRequested(args),
-        event: `gate ${action} on ${args.stage ?? ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
     });
@@ -1781,7 +1731,8 @@ export const commands = {
   next,
   skip,
   use,
-  gate,
+  gate: gateCmd,
+  merge: mergeCmd,
   verify,
   complete,
   workflows,

@@ -93,6 +93,12 @@ export const WorkflowSchema = z.object({
       domain_sync: z.enum(["never", "recommend", "require"]).default("never"),
     })
     .optional(),
+  /** Gates that must pass on the current HEAD before `sdd merge` is allowed. */
+  merge: z
+    .object({
+      gates: z.array(z.string()).default([]),
+    })
+    .optional(),
 });
 
 export const ConfigSchema = z.object({

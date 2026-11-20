@@ -4,6 +4,11 @@ description: >
   low-level design, plan, test plan, development, pull-request review,
   QA testing, QA sign-off, product-owner review, and product-owner sign-off
 version: 1
+merge:
+  gates:
+    - pr_review
+    - qa_signoff
+    - po_signoff
 recommendation:
   priority: 10
   when:

@@ -62,6 +62,17 @@ export {
   fallbackIncompleteStageId,
   incompletePriorStageErrors,
 } from "./stage-gates.js";
+export {
+  assertMergeGates,
+  evaluateGateVerdict,
+  formatGateStatusReport,
+  gateStatusReport,
+  mergeRequiredGateIds,
+  type GateStatusReport,
+  type GateVerdictRow,
+  type GateVerdictState,
+} from "./gate-verdicts.js";
+export { mergeWithGateGuard, type MergeWithGatesResult } from "./merge.js";
 export { formatStatus, buildAgentPrompt } from "./agent-handoff.js";
 export { isSubstantiveArtifactContent } from "./artifacts.js";
 

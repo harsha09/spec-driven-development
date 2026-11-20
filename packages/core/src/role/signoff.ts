@@ -36,28 +36,35 @@ export function signoffFileName(stage: string, sha: string): string {
   return `reviews/${stage}-${sha}.md`;
 }
 
-interface SignoffRecord {
+export interface SignoffRecord {
   kind: string;
   sha: string;
   reviewer: string;
   verdict: string;
   evidence: string;
+  at?: string;
+}
+
+export const PASS_VERDICTS = new Set(["accept", "pass", "pass-with-notes"]);
+
+export function isPassVerdict(verdict: string): boolean {
+  return PASS_VERDICTS.has(verdict.trim().toLowerCase());
 }
 
 function renderSignoff(record: SignoffRecord): string {
-  return [
+  const lines = [
     "---",
     `kind: ${record.kind}`,
     `sha: ${record.sha}`,
     `reviewer: ${record.reviewer}`,
     `verdict: ${record.verdict}`,
-    "---",
-    record.evidence,
-    "",
-  ].join("\n");
+  ];
+  if (record.at) lines.push(`at: ${record.at}`);
+  lines.push("---", record.evidence, "");
+  return lines.join("\n");
 }
 
-function parseSignoff(raw: string): SignoffRecord | null {
+export function parseSignoff(raw: string): SignoffRecord | null {
   const lines = raw.split("\n");
   if (lines[0] !== "---") return null;
   const end = lines.indexOf("---", 1);
@@ -72,12 +79,14 @@ function parseSignoff(raw: string): SignoffRecord | null {
   const sha = fields.get("sha") ?? "";
   const reviewer = fields.get("reviewer") ?? "";
   const verdict = fields.get("verdict") ?? "";
+  const at = fields.get("at");
   const evidence = lines
     .slice(end + 1)
     .join("\n")
     .trim();
   if (!kind || !sha || !reviewer || !verdict || !evidence) return null;
-  return { kind, sha, reviewer, verdict, evidence };
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(sha)) return null;
+  return { kind, sha: sha.toLowerCase(), reviewer, verdict, evidence, at };
 }
 
 async function headSha(root: string): Promise<string | RoleCommandResult> {
@@ -142,7 +151,14 @@ export async function recordSignoff(
   if (!same) {
     await writeText(
       file,
-      renderSignoff({ kind: stage, sha, reviewer: gitUser, verdict: "accept", evidence: words }),
+      renderSignoff({
+        kind: stage,
+        sha,
+        reviewer: gitUser,
+        verdict: "accept",
+        evidence: words,
+        at: nowIso(),
+      }),
     );
   }
   await appendFile(
@@ -198,7 +214,7 @@ export async function checkHumanSignoff(
     parsed !== null &&
     parsed.kind === stageId &&
     parsed.sha === sha &&
-    parsed.verdict === "accept" &&
+    isPassVerdict(parsed.verdict) &&
     team.team.humans.some((human) => human.name === parsed.reviewer);
   if (!listed) {
     return { ok: false, message: `Sign-off for stage "${stageId}" does not match this commit.` };
