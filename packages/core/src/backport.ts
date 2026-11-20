@@ -3,6 +3,42 @@ import type { ChangeContext } from "./change-context.js";
 import { readText } from "./fs.js";
 import type { ChangeMeta } from "./schemas.js";
 import { nowIso } from "./slug.js";
+import { validBranchName } from "./stories.js";
+
+const GIT_SHA = /^[0-9a-f]{40}$/i;
+const GIT_SHA_EXTENDED = /^[0-9a-f]{64}$/i;
+
+/** Reject refs that could be interpreted as git flags or remote commands. */
+export function assertSafeGitRef(ref: string): void {
+  if (!ref || ref.startsWith("-") || /[\0\r\n]/.test(ref)) {
+    throw new Error(`Unsafe git ref: ${ref}`);
+  }
+  if (GIT_SHA.test(ref) || GIT_SHA_EXTENDED.test(ref)) return;
+  if (!validBranchName(ref)) {
+    throw new Error(`Unsafe git ref: ${ref}`);
+  }
+}
+
+export function assertSafeGitRevRange(range: string): void {
+  if (!range || range.startsWith("-")) {
+    throw new Error(`Unsafe git rev range: ${range}`);
+  }
+  const parts = range.split("..");
+  if (parts.length !== 2) {
+    throw new Error(`Unsafe git rev range: ${range}`);
+  }
+  assertSafeGitRef(parts[0]!);
+  assertSafeGitRef(parts[1]!);
+}
+
+export function assertSafeGitRemote(name: string): void {
+  if (!name || name.startsWith("-") || /[\0\r\n/]/.test(name)) {
+    throw new Error(`Unsafe git remote: ${name}`);
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(name)) {
+    throw new Error(`Unsafe git remote: ${name}`);
+  }
+}
 
 export type GitRunner = (
   cwd: string,
@@ -51,19 +87,38 @@ export function allowedDifferencePaths(meta: ChangeMeta): Set<string> {
   return new Set((meta.backport_allowed_differences ?? []).map((entry) => entry.path));
 }
 
+function pathsFromDiffGitLine(line: string): { aPath: string; bPath: string } | null {
+  const marker = "diff --git ";
+  if (!line.startsWith(marker)) return null;
+  const body = line.slice(marker.length);
+  const splitAt = body.indexOf(" b/");
+  if (splitAt < 0) return null;
+  const aPart = body.slice(0, splitAt);
+  const bPart = body.slice(splitAt + 1);
+  if (!aPart.startsWith("a/") || !bPart.startsWith("b/")) return null;
+  return { aPath: aPart.slice(2), bPath: bPart.slice(2) };
+}
+
 /** Split a unified diff into per-file patch bodies keyed by path (b-side). */
 export function splitUnifiedDiff(diff: string): Map<string, string> {
   const map = new Map<string, string>();
-  const trimmed = diff.trim();
-  if (!trimmed) return map;
-  const chunks = trimmed.split(/^diff --git /m).filter(Boolean);
-  for (const chunk of chunks) {
-    const header = chunk.match(/^a\/(.+?) b\/(.+)$/m);
-    if (!header) continue;
-    const bPath = header[2]!;
-    const aPath = header[1]!;
-    const path = bPath === "dev/null" ? aPath : bPath;
-    map.set(path, `diff --git ${chunk}`.trimEnd());
+  const lines = diff.split(/\r?\n/);
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (!line.startsWith("diff --git ")) {
+      index += 1;
+      continue;
+    }
+    const start = index;
+    index += 1;
+    while (index < lines.length && !lines[index]!.startsWith("diff --git ")) {
+      index += 1;
+    }
+    const paths = pathsFromDiffGitLine(line);
+    if (!paths) continue;
+    const path = paths.bPath === "dev/null" ? paths.aPath : paths.bPath;
+    map.set(path, lines.slice(start, index).join("\n"));
   }
   return map;
 }

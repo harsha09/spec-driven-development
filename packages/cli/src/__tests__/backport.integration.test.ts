@@ -50,19 +50,25 @@ async function patchMeta(
   metaPath: string,
   patch: { backport_targets?: string[]; branch?: string },
 ): Promise<void> {
-  let text = await readFile(metaPath, "utf8");
+  const lines = (await readFile(metaPath, "utf8")).split(/\r?\n/);
   if (patch.backport_targets) {
-    const block = `backport_targets:\n${patch.backport_targets.map((t) => `  - ${t}`).join("\n")}`;
-    text = /^backport_targets:/m.test(text)
-      ? text.replace(/^backport_targets:.*(?:\n {2}- .+)*$/m, block)
-      : `${text.trimEnd()}\n${block}`;
+    const start = lines.findIndex((line) => line.startsWith("backport_targets:"));
+    const block = ["backport_targets:", ...patch.backport_targets.map((target) => `  - ${target}`)];
+    if (start >= 0) {
+      let end = start + 1;
+      while (end < lines.length && lines[end]!.startsWith("  - ")) end += 1;
+      lines.splice(start, end - start, ...block);
+    } else {
+      lines.push(...block);
+    }
   }
   if (patch.branch) {
-    const line = `branch: ${patch.branch}\n`;
-    text = /^branch:/m.test(text)
-      ? text.replace(/^branch:.*$/m, line.trimEnd())
-      : `${text.trimEnd()}\n${line}`;
+    const idx = lines.findIndex((line) => line.startsWith("branch:"));
+    const branchLine = `branch: ${patch.branch}`;
+    if (idx >= 0) lines[idx] = branchLine;
+    else lines.push(branchLine);
   }
+  const text = lines.join("\n");
   await writeFile(metaPath, text.endsWith("\n") ? text : `${text}\n`);
 }
 

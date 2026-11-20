@@ -6,6 +6,9 @@ import {
   type BackportParityResult,
   type GitRunner,
   allowedDifferencePaths,
+  assertSafeGitRef,
+  assertSafeGitRemote,
+  assertSafeGitRevRange,
   compareTwinPatches,
   findTwin,
   resolveBackportTargets,
@@ -14,8 +17,52 @@ import {
 import type { ChangeMeta } from "./schemas.js";
 import { nowIso } from "./slug.js";
 
+const GIT_LITERAL_ARGS = new Set([
+  "HEAD",
+  "merge-base",
+  "rev-parse",
+  "diff",
+  "branch",
+  "show-ref",
+  "switch",
+  "cherry-pick",
+  "rev-list",
+  "push",
+  "verify",
+  "quiet",
+  "abort",
+  "merged",
+  "reverse",
+  "origin",
+  "show-ref",
+]);
+
+function guardGitArgs(args: string[]): void {
+  for (const arg of args) {
+    if (arg.startsWith("-")) continue;
+    if (GIT_LITERAL_ARGS.has(arg)) continue;
+    if (arg.startsWith("refs/heads/")) {
+      assertSafeGitRef(arg.slice("refs/heads/".length));
+      continue;
+    }
+    if (arg.includes("..")) {
+      assertSafeGitRevRange(arg);
+      continue;
+    }
+    if (/^[0-9a-f]{40}$/i.test(arg) || /^[0-9a-f]{64}$/i.test(arg)) continue;
+    if (arg === "origin") {
+      assertSafeGitRemote(arg);
+      continue;
+    }
+    if (arg.includes("/") || /^[A-Za-z0-9]/.test(arg)) {
+      assertSafeGitRef(arg);
+    }
+  }
+}
+
 export const defaultGitRunner: GitRunner = (cwd, args) =>
   new Promise((resolve) => {
+    guardGitArgs(args);
     const child = spawn("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
@@ -167,7 +214,8 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
     .map((line) => line.trim())
     .filter(Boolean);
   for (const sha of commits) {
-    const picked = await run(projectRoot, ["cherry-pick", sha]);
+    assertSafeGitRef(sha);
+    const picked = await run(projectRoot, ["cherry-pick", "--", sha]);
     if (picked.exitCode !== 0) {
       await run(projectRoot, ["cherry-pick", "--abort"]);
       await run(projectRoot, ["switch", meta.branch]);

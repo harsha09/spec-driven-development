@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkTwinParity, openBackportTwin } from "../backport-git.js";
 import {
+  assertSafeGitRef,
   backportCompletionErrors,
   compareTwinPatches,
   parseTasksBackportHints,
@@ -40,6 +41,12 @@ function meta(overrides: Partial<ChangeMeta> = {}): ChangeMeta {
     ...overrides,
   });
 }
+
+describe("assertSafeGitRef", () => {
+  it("rejects flag-like refs", () => {
+    expect(() => assertSafeGitRef("--upload-pack=evil")).toThrow(/Unsafe git ref/);
+  });
+});
 
 describe("compareTwinPatches", () => {
   it("fails on an unlisted file difference", () => {
