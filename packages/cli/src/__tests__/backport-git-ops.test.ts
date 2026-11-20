@@ -3,9 +3,9 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  type ChangeMeta,
   ChangeMetaSchema,
   backportCompletionErrors,
-  type ChangeMeta,
 } from "@structured-vibe-coding/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkTwinParity, openBackportTwin } from "../backport-git-ops.js";
