@@ -1,0 +1,5 @@
+# https://harsha09.github.io/spec-driven-development/
+User-agent: *
+Allow: /
+
+Sitemap: https://harsha09.github.io/spec-driven-development/sitemap.xml
