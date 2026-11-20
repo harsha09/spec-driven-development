@@ -74,6 +74,8 @@ export const WorkflowSchema = z.object({
   description: z.string().optional(),
   version: z.number().default(1),
   stages: z.array(StageSchema).min(1),
+  /** Gap check limits. `max_questions` caps the questions asked in one change. */
+  clarify: z.object({ max_questions: z.number().int().min(0).max(5).optional() }).optional(),
   recommendation: z
     .object({
       when: z

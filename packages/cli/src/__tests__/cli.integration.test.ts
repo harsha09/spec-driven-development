@@ -1162,6 +1162,68 @@ stages:
     expect(JSON.parse(stored).requests).toHaveLength(1);
   });
 
+  describe("sdd go gap check", () => {
+    async function gapModel(): Promise<string> {
+      const dir = await mkdtemp(join(tmpdir(), "sdd-cli-gap-model-"));
+      temps.push(dir);
+      const script = join(dir, "model.mjs");
+      await writeFile(
+        script,
+        [
+          'let raw = "";',
+          'process.stdin.setEncoding("utf8");',
+          'process.stdin.on("data", (c) => { raw += c; });',
+          'process.stdin.on("end", () => {',
+          '  const prompt = JSON.parse(raw).prompt ?? "";',
+          '  if (prompt.includes("You check one request for gaps.")) {',
+          '    process.stdout.write(JSON.stringify({ questions: [{ gap: "scope", question: "Which file is the typo in?", proposed: "README.md" }] }));',
+          "  } else {",
+          '    process.stdout.write(JSON.stringify({ kind: "draft", text: "Fix the typo." }));',
+          "  }",
+          "});",
+          "",
+        ].join("\n"),
+      );
+      return `node ${script}`;
+    }
+
+    it("asks a targeted question with a default, then accepts it without a terminal", async () => {
+      const root = await mkdtemp(join(tmpdir(), "sdd-cli-gap-"));
+      temps.push(root);
+      const env = { SDD_ROLE_MODEL: await gapModel() };
+      const first = runSdd(root, ["go", "Fix a typo", "-w", "hotfix", "--no-agent", "-y"], env);
+      const text = first.stdout + first.stderr;
+      expect(first.status, text).toBe(0);
+      expect(text).toContain("Question:");
+      expect(text).toContain("Clarify (scope, 1 of 1):");
+      expect(text).toContain("Which file is the typo in?");
+      expect(text).toContain("Default: README.md");
+
+      const second = runSdd(root, ["go", "--accept-default", "--no-agent", "-y"], env);
+      expect(second.status, second.stdout + second.stderr).toBe(0);
+      expect(second.stdout + second.stderr).not.toContain("Which file is the typo in?");
+      const changeId = (await readdir(join(root, "changes"))).find((n) => !n.startsWith("."))!;
+      const stored = await readFile(join(root, "changes", changeId, "clarify.yaml"), "utf8");
+      expect(stored).toContain("status: confirmed");
+      expect(stored).toContain("answer: README.md");
+    });
+
+    it("--no-clarify asks nothing and records the skip", async () => {
+      const root = await mkdtemp(join(tmpdir(), "sdd-cli-noclarify-"));
+      temps.push(root);
+      const env = { SDD_ROLE_MODEL: await gapModel() };
+      const run = runSdd(
+        root,
+        ["go", "Fix a typo", "-w", "hotfix", "--no-clarify", "--no-agent", "-y"],
+        env,
+      );
+      expect(run.stdout + run.stderr).not.toContain("Question:");
+      const changeId = (await readdir(join(root, "changes"))).find((n) => !n.startsWith("."))!;
+      const stored = await readFile(join(root, "changes", changeId, "clarify.yaml"), "utf8");
+      expect(stored).toContain("--no-clarify");
+    });
+  });
+
   it("does not report an unqualified success when approving a human gate", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-human-gate-"));
     temps.push(root);

@@ -380,3 +380,50 @@ export const REVISION_FAMILY: KindFamily = { kinds: ["revision"], infer: () => "
 export const PLAN_FAMILY: KindFamily = { kinds: ["plan_tree"], infer: () => "plan_tree" };
 /** A guide reply is a draft or a question, like any draft reply. */
 export const GUIDE_FAMILY: KindFamily = DRAFT_FAMILY;
+
+/** What a gap in a request is about. One question names one gap. */
+export const CLARIFY_GAPS = ["scope", "users", "edge_cases", "acceptance", "constraints"] as const;
+
+/**
+ * The gap check reply: the questions the request really needs, or none. Each question carries the
+ * default the person accepts with Enter. The cap is enforced by the reader, not by this schema.
+ */
+export function clarifyReplySchema(max: number) {
+  return z.object({
+    questions: z
+      .array(
+        z.object({
+          gap: z
+            .enum(CLARIFY_GAPS, { error: `must be one of ${CLARIFY_GAPS.join(", ")}` })
+            .describe("The gap this question closes."),
+          question: z.string().min(1).describe("One specific question about this request."),
+          proposed: z
+            .string()
+            .min(1)
+            .describe("The answer you recommend. The person accepts it by pressing Enter."),
+        }),
+      )
+      .describe(`At most ${max} questions. An empty list when the request is clear.`),
+  });
+}
+
+export function clarifyExamples(max: number): ReplyExamples {
+  return {
+    valid: [
+      { questions: [] },
+      {
+        questions: [
+          {
+            gap: "users",
+            question: "Who opens the shared list?",
+            proposed: "Anyone with the link, view only.",
+          },
+        ].slice(0, Math.max(1, max)),
+      },
+    ],
+    invalid: {
+      value: { questions: [{ gap: "color", question: "Which color?", proposed: "Blue" }] },
+      why: `color is not a gap. Use one of ${CLARIFY_GAPS.join(", ")}.`,
+    },
+  };
+}
