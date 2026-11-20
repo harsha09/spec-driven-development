@@ -86,7 +86,11 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd next --force` | Bypass checks | Emergency only |
 | `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
 | `sdd use <workflow>` | Switch path mid-flight | Scope changed |
-| `sdd gate approve\|waive\|fail` | Approve / waive / fail a gate | Enterprise gates |
+| `sdd gate approve\|waive\|fail` | Approve / waive / fail a stage gate | Enterprise gates |
+| `sdd gate status` | List required merge gates against the current HEAD. Exits 1 unless each is a fresh pass | Before merge |
+| `sdd gate record --verdict pass --reviewer "Ada Lovelace" --sha aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --evidence evidence/qa.log review` | Record a verdict pinned to that commit. `pass` and `pass-with-notes` need the SHA and an evidence link | After review or QA |
+| `sdd merge --check` | Refuse unless every required gate is a fresh pass on this HEAD. Does not merge | CI |
+| `sdd merge` | Same check, then `gh pr merge` with a head-match guard | Merge the pull request |
 | `sdd verify` | Run the stage's `verify.commands`; PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
 | `sdd verify --no-run` | Checklist only — records NOT RUN, exits 1 | Manual testing |
 | `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
@@ -125,7 +129,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 ## About the AI opening
 
 Most process commands refresh a short handoff and may open your AI.
-**Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`.
+**Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`, `gate status`, `gate record`, `merge`.
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
@@ -161,6 +165,16 @@ Embeddings are off by default. Set `embeddings: true` in `.sdd/search.yaml` to d
 Related change specs and memory pages can be packed as a short extractive summary. The active change and code stay full. The keyword index is unchanged. Repeated searches are cached in `.sdd/index.db`, and search text does not gain a cache banner.
 
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
+
+## Merge gates
+
+A workflow names the gates that change type needs before merge. `review`, `qa`, and `domain` are the usual names. A workflow that omits `required_gates` does not add any.
+
+`sdd gate record` writes `gate-verdicts.yaml` on the change. Each record stores the gate, the reviewer, the verdict (`pass`, `fail`, or `pass-with-notes`), the exact commit SHA, the time, and evidence links. A pass or a pass-with-notes is refused without the SHA and at least one evidence link. An evidence link is a repo-relative path or an http(s) URL. This is separate from `sdd gate approve`, which signs the current stage gate.
+
+`sdd gate status` compares those records to the local Git HEAD. A required gate is `fresh` when its latest verdict on that SHA is `pass` or `pass-with-notes`, `failed` when that verdict is `fail`, `stale` when the verdict names another SHA, and `missing` when nothing is recorded. A new commit makes the old verdicts stale. The command exits 1 when any required gate is not fresh.
+
+`sdd merge --check` uses the same rule and does not merge. `sdd merge` refuses on a stale, failed, or missing required gate. When every required gate is fresh, it merges that change's pull request and passes the checked SHA as a head-match guard, so a push during the merge fails instead of landing on a different commit. If HEAD moves after the check and before the merge starts, the merge does not run.
 
 ---
 

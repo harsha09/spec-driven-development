@@ -79,3 +79,4 @@ export * from "./role/index.js";
 export * from "./sandbox/profile.js";
 export * from "./sandbox/record.js";
 export * from "./stories.js";
+export * from "./gate-verdicts.js";

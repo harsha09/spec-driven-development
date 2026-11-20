@@ -9,9 +9,11 @@ import {
   completeChange,
   createChange,
   describeKept,
+  formatGateStatus,
   formatJsonSummary,
   formatStatus,
   formatTokenInventory,
+  gateVerdictStatus,
   generateCodeContext,
   getActiveChangeId,
   getStage,
@@ -24,6 +26,7 @@ import {
   loadConfig,
   loadInstalledAgent,
   loadWorkflow,
+  mergeChange,
   missingBundledWorkflows,
   modelFromEnv,
   parseIntegration,
@@ -33,6 +36,7 @@ import {
   readChangeMetrics,
   readSetupStatus,
   recommendWorkflow,
+  recordGateVerdict,
   refreshActiveAgentContext,
   resolveChangeId,
   runGuide,
@@ -478,24 +482,57 @@ const use = defineCommand({
 const gate = defineCommand({
   meta: {
     name: "gate",
-    description: "Approve/waive/fail a gate, then launch the AI agent",
+    description: "Approve, waive, or fail a stage gate, or record a verdict pinned to a commit SHA",
   },
   args: {
     action: {
       type: "positional",
-      description: "approve | waive | fail",
+      description: "approve | waive | fail | status | record",
       required: true,
+    },
+    target: {
+      type: "positional",
+      description: "Change id for status, or gate name for record",
+      required: false,
     },
     stage: { type: "string", description: "Stage id (default: current)", alias: "s" },
     note: { type: "string", description: "Note", alias: "n" },
     change: { type: "string", description: "Change id", alias: "c" },
+    gate: { type: "string", description: "Gate name for record, such as review, qa, or domain" },
+    verdict: { type: "string", description: "pass, fail, or pass-with-notes" },
+    reviewer: { type: "string", description: "Person who gave the verdict" },
+    sha: { type: "string", description: "Commit SHA the verdict was given against" },
+    evidence: {
+      type: "string",
+      description: "Evidence link (repeatable). Repo path or http(s) URL",
+    },
     "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const action = args.action;
+      if (action === "status") {
+        const id = await resolveChangeId(root, config, args.change || args.target);
+        const report = await gateVerdictStatus(root, config, id);
+        process.stdout.write(`${formatGateStatus(report)}\n`);
+        if (!report.ready) process.exitCode = 1;
+        return;
+      }
+      if (action === "record") {
+        const id = await resolveChangeId(root, config, args.change);
+        const gateName = (args.gate || args.target || "").trim();
+        const saved = await recordGateVerdict(root, config, id, {
+          gate: gateName,
+          reviewer: args.reviewer ?? "",
+          verdict: args.verdict ?? "",
+          sha: args.sha,
+          evidence: asStringList(args.evidence),
+        });
+        process.stdout.write(`Recorded ${saved.verdict} on ${saved.gate} at ${saved.sha}.\n`);
+        return;
+      }
       if (!["approve", "waive", "fail"].includes(action)) {
-        throw new Error("action must be approve | waive | fail");
+        throw new Error("action must be approve | waive | fail | status | record");
       }
       const statusMap = {
         approve: "approved",
@@ -522,6 +559,35 @@ const gate = defineCommand({
         event: `gate ${action} on ${args.stage ?? ctx.meta.stage}`,
       });
       await reportAgentLaunch(launch);
+    });
+  },
+});
+
+const merge = defineCommand({
+  meta: {
+    name: "merge",
+    description:
+      "Merge the change pull request when every required gate is a fresh pass on this head",
+  },
+  args: {
+    change: { type: "string", description: "Change id", alias: "c" },
+    check: {
+      type: "boolean",
+      description: "Only check required gates against the current head. Do not merge.",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      const id = await resolveChangeId(root, config, args.change);
+      const result = await mergeChange({
+        projectRoot: root,
+        config,
+        changeId: id,
+        checkOnly: args.check === true,
+      });
+      process.stdout.write(`${result.message}\n`);
+      if (!result.ok) process.exitCode = 1;
     });
   },
 });
@@ -1782,6 +1848,7 @@ export const commands = {
   skip,
   use,
   gate,
+  merge,
   verify,
   complete,
   workflows,

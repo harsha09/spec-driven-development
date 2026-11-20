@@ -93,6 +93,19 @@ export const WorkflowSchema = z.object({
       domain_sync: z.enum(["never", "recommend", "require"]).default("never"),
     })
     .optional(),
+  /**
+   * Gates that need a fresh pass on the current commit before `sdd merge`.
+   * Names such as review, qa, or domain. Omitted means this change type has none.
+   */
+  required_gates: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+    )
+    .optional(),
 });
 
 export const ConfigSchema = z.object({
