@@ -3,6 +3,7 @@ export * from "./paths.js";
 export * from "./config.js";
 export * from "./git-head.js";
 export * from "./metrics.js";
+export * from "./metrics-discover.js";
 export * from "./report.js";
 export * from "./search/index.js";
 export * from "./sync.js";

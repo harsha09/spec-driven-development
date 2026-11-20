@@ -12,7 +12,9 @@ import {
   type ChangeContext,
   type Config,
   agentKickoffMessage,
+  closeSessionLaunch,
   loadInstalledAgent,
+  recordSession,
   refreshActiveAgentContext,
   resolveChangeId,
   writeAgentHandoff,
@@ -180,6 +182,7 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
       handoffPath,
       target,
       preferPrintFlag: true,
+      session: { projectRoot: opts.projectRoot, config: opts.config, changeId },
     });
   }
 
@@ -192,6 +195,7 @@ export async function launchConfiguredAgent(opts: LaunchAgentOptions): Promise<L
       handoffPath,
       target,
       preferPrintFlag: true,
+      session: { projectRoot: opts.projectRoot, config: opts.config, changeId },
     });
   }
 
@@ -301,6 +305,8 @@ async function spawnCliAgent(opts: {
   handoffPath: string;
   target: AgentTarget;
   preferPrintFlag: boolean;
+  /** When set, the launch window is recorded so its usage is attributed to this change. */
+  session?: { projectRoot: string; config: Config; changeId: string };
 }): Promise<LaunchAgentResult> {
   if (!toolOnPath(opts.bin)) {
     return {
@@ -312,6 +318,52 @@ async function spawnCliAgent(opts: {
   }
 
   consola.info(pc.cyan(`Starting ${opts.label}…`));
+  const stopRecording = await recordLaunch(opts.session, opts.target);
+  try {
+    return await runCliAgent(opts);
+  } finally {
+    await stopRecording();
+  }
+}
+
+async function recordLaunch(
+  session: { projectRoot: string; config: Config; changeId: string } | undefined,
+  target: AgentTarget,
+): Promise<() => Promise<void>> {
+  const host = target === "grok" || target === "claude-code" ? target : null;
+  if (!session || !host) return async () => {};
+  const launchedAt = new Date().toISOString();
+  try {
+    await recordSession(session.projectRoot, session.config, session.changeId, {
+      host,
+      launchedAt,
+    });
+  } catch {
+    return async () => {};
+  }
+  return async () => {
+    try {
+      await closeSessionLaunch(
+        session.projectRoot,
+        session.config,
+        session.changeId,
+        host,
+        launchedAt,
+      );
+    } catch {
+      // Metrics must never break a launch.
+    }
+  };
+}
+
+async function runCliAgent(opts: {
+  bin: string;
+  kickoff: string;
+  cwd: string;
+  handoffPath: string;
+  target: AgentTarget;
+  preferPrintFlag: boolean;
+}): Promise<LaunchAgentResult> {
   if (opts.preferPrintFlag) {
     const args = ["-p", opts.kickoff];
     const r = spawnSync(opts.bin, args, {

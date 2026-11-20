@@ -44,16 +44,31 @@ export const DecisionMetricSchema = z.object({
   outputTokens: z.number().int().nonnegative().nullable(),
 });
 
+/**
+ * An agent session tied to a change. Holds the host and an id or a launch window only,
+ * never a path or any session content.
+ */
+export const SessionRefSchema = z
+  .object({
+    host: z.enum(["claude-code", "codex", "grok"]),
+    sessionId: z.string().min(1).optional(),
+    launchedAt: UtcTimestampSchema,
+    endedAt: UtcTimestampSchema.optional(),
+  })
+  .refine((s) => !s.endedAt || Date.parse(s.endedAt) >= Date.parse(s.launchedAt));
+
 export const ChangeMetricsSchema = z.object({
   version: z.literal(1),
   phases: z.array(PhaseMetricSchema),
   requests: z.array(TokenUsageMetricSchema),
   decisions: z.array(DecisionMetricSchema).optional(),
+  sessions: z.array(SessionRefSchema).optional(),
 });
 
 export type PhaseMetric = z.infer<typeof PhaseMetricSchema>;
 export type TokenUsageMetric = z.infer<typeof TokenUsageMetricSchema>;
 export type DecisionMetric = z.infer<typeof DecisionMetricSchema>;
+export type SessionRef = z.infer<typeof SessionRefSchema>;
 export type ChangeMetrics = z.infer<typeof ChangeMetricsSchema>;
 
 export interface MetricsImportResult {
@@ -65,7 +80,7 @@ export interface MetricsImportResult {
   incomplete: boolean;
 }
 
-interface ParsedRequest {
+export interface ParsedRequest {
   provider: "claude-code" | "codex" | "grok";
   model?: string;
   requestId: string;
@@ -96,7 +111,7 @@ export async function readChangeMetrics(
   return ChangeMetricsSchema.parse(JSON.parse(await readText(path)));
 }
 
-async function writeChangeMetrics(
+export async function writeChangeMetrics(
   projectRoot: string,
   config: Config,
   changeId: string,
@@ -247,7 +262,7 @@ function parseCodexUsage(
   };
 }
 
-function phaseAt(metrics: ChangeMetrics, timestamp: string): PhaseMetric | undefined {
+export function phaseAt(metrics: ChangeMetrics, timestamp: string): PhaseMetric | undefined {
   const requestTime = Date.parse(timestamp);
   return metrics.phases.find((phase) => {
     const start = Date.parse(phase.startedAt);
@@ -396,8 +411,7 @@ function grokBucket(value: unknown): {
 
 async function importGrokUsage(
   filePath: string,
-  metrics: ChangeMetrics,
-  requestIds: Set<string>,
+  emit: (parsed: ParsedRequest) => void,
   providers: Set<string>,
   result: MetricsImportResult,
 ): Promise<void> {
@@ -452,7 +466,7 @@ async function importGrokUsage(
         result.ignored += 1;
         continue;
       }
-      recordParsed(metrics, requestIds, result, {
+      emit({
         provider: "grok",
         model,
         requestId: `${sessionId}:${turnNumber}:${model}`,
@@ -468,8 +482,7 @@ async function importGrokUsage(
 
 async function importJsonlUsage(
   sessionLogPath: string,
-  metrics: ChangeMetrics,
-  requestIds: Set<string>,
+  emit: (parsed: ParsedRequest) => void,
   providers: Set<string>,
   result: MetricsImportResult,
 ): Promise<void> {
@@ -503,7 +516,7 @@ async function importJsonlUsage(
       if (claudeCandidate || codexCandidate) result.ignored += 1;
       continue;
     }
-    recordParsed(metrics, requestIds, result, parsed);
+    emit(parsed);
   }
 }
 
@@ -541,10 +554,85 @@ export async function importSessionMetrics(
   };
 
   const grokPath = await grokUsagePath(sessionLogPath);
-  if (grokPath) await importGrokUsage(grokPath, metrics, requestIds, providers, result);
-  else await importJsonlUsage(sessionLogPath, metrics, requestIds, providers, result);
+  const emit = (parsed: ParsedRequest) => recordParsed(metrics, requestIds, result, parsed);
+  if (grokPath) await importGrokUsage(grokPath, emit, providers, result);
+  else await importJsonlUsage(sessionLogPath, emit, providers, result);
 
   result.providers = [...providers].sort();
   if (result.imported) await writeChangeMetrics(projectRoot, config, changeId, metrics);
   return result;
+}
+
+export interface SessionUsage {
+  requests: ParsedRequest[];
+  providers: string[];
+  ignored: number;
+  incomplete: boolean;
+}
+
+/**
+ * Parse one session log into usage rows without touching any change. Reads only the
+ * usage, token, model, id and timestamp fields. No prompt or response text is kept.
+ */
+export async function collectSessionUsage(sessionLogPath: string): Promise<SessionUsage> {
+  const requests: ParsedRequest[] = [];
+  const providers = new Set<string>();
+  const result: MetricsImportResult = {
+    imported: 0,
+    duplicates: 0,
+    ignored: 0,
+    unmatched: 0,
+    providers: [],
+    incomplete: false,
+  };
+  const emit = (parsed: ParsedRequest) => {
+    requests.push(parsed);
+  };
+  const grokPath = await grokUsagePath(sessionLogPath);
+  if (grokPath) await importGrokUsage(grokPath, emit, providers, result);
+  else await importJsonlUsage(sessionLogPath, emit, providers, result);
+  return {
+    requests,
+    providers: [...providers].sort(),
+    ignored: result.ignored,
+    incomplete: result.incomplete,
+  };
+}
+
+/** Record a launched or known agent session against a change. Idempotent per session id. */
+export async function recordSession(
+  projectRoot: string,
+  config: Config,
+  changeId: string,
+  ref: SessionRef,
+): Promise<void> {
+  if (!config.metrics.enabled) return;
+  const metrics = await readChangeMetrics(projectRoot, config, changeId);
+  const sessions = metrics.sessions ?? [];
+  const parsed = SessionRefSchema.parse(ref);
+  const existing = parsed.sessionId
+    ? sessions.findIndex((s) => s.host === parsed.host && s.sessionId === parsed.sessionId)
+    : -1;
+  if (existing >= 0) sessions[existing] = { ...sessions[existing], ...parsed };
+  else sessions.push(parsed);
+  await writeChangeMetrics(projectRoot, config, changeId, { ...metrics, sessions });
+}
+
+/** Close the launch window recorded by `recordSession` once the agent process exits. */
+export async function closeSessionLaunch(
+  projectRoot: string,
+  config: Config,
+  changeId: string,
+  host: SessionRef["host"],
+  launchedAt: string,
+  endedAt = new Date().toISOString(),
+): Promise<void> {
+  if (!config.metrics.enabled) return;
+  const metrics = await readChangeMetrics(projectRoot, config, changeId);
+  const entry = metrics.sessions?.find(
+    (s) => s.host === host && s.launchedAt === launchedAt && !s.endedAt,
+  );
+  if (!entry) return;
+  entry.endedAt = Date.parse(endedAt) >= Date.parse(launchedAt) ? endedAt : launchedAt;
+  await writeChangeMetrics(projectRoot, config, changeId, metrics);
 }

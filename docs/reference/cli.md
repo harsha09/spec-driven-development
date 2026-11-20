@@ -46,7 +46,8 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | Build backlog item | `sdd backlog start F-001` |
 | See where I am | `sdd status` |
 | Sync recorded checks to local HEAD | `sdd sync <change>` |
-| Import measured agent token usage | `sdd metrics import <session-log>` |
+| See measured token usage (sessions found automatically) | `sdd metrics` |
+| Import one session log by hand | `sdd metrics import <path>` |
 | Report phase time, tokens, and cost | `sdd report` |
 | Report every change that has metrics | `sdd report --all` |
 | Print the one-change cost report | `sdd cost` |
@@ -78,6 +79,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 | `sdd status` | Progress (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
 | `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
+| `sdd metrics` | Find agent session logs for this project in each host's default location (Claude Code `~/.claude/projects/`, Codex `~/.codex/sessions/`, Grok `~/.grok/sessions/`), import only new usage, then print the change report. Matches logs to this repo by working directory and to a change by a recorded session or launch window, then by phase time. Running it twice gives the same totals. `--change <id>` limits it to one change; `--all` covers every change. When nothing is found it lists every place searched. Only usage fields (model, token counts, timestamps, session id) are read; prompt and response text is never read into storage. | Review token use |
 | `sdd metrics import <session-log>` | Import measured Claude Code or Codex JSONL, a Grok `usage.json`, or a Grok session directory into the active change; use `--change <id>` for another change | Review token use |
 | `sdd report` | Print active time, human wait, measured tokens, and cost for the active change. Use `--change <id>` to select one change. | After metrics exist |
 | `sdd report --all` | Print that report for every change that has a metrics.json, sorted by first phase start. | Compare changes |
@@ -151,6 +153,10 @@ metrics:
 ```
 
 `metrics.exclude` lists repo-relative prefixes. Import refuses to read a session log under an excluded prefix. The default is `[]`.
+
+`metrics.exclude` also applies to auto-discovery: a log under an excluded prefix is skipped and counted.
+
+An agent launched through `sdd` is recorded in `metrics.json` as a host and launch window (never a path or content), so its usage is attributed to that change even when another change was open at the same time.
 
 When metrics are disabled, `sdd report` and `sdd cost` print `Metrics are disabled` and exit 0.
 
