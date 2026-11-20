@@ -6,6 +6,9 @@ recommendation:
   when:
     keywords: [feature, add, build, support]
     min_complexity: medium
+clarify:
+  max_questions: 5
+
 stages:
   - id: intent
     title: Feature intent

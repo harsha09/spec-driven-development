@@ -15,7 +15,7 @@ import {
   writeYaml,
 } from "../fs.js";
 import { initProject } from "../init.js";
-import { templatesDir } from "../paths.js";
+import { changePath, templatesDir } from "../paths.js";
 import {
   type KindRead,
   type NoteLegacy,
@@ -28,6 +28,23 @@ import {
 import { GUIDE_FAMILY, guideReplySchema } from "../reply-schemas.js";
 import type { Stage } from "../schemas.js";
 import { getStage, loadWorkflow } from "../workflow.js";
+import {
+  type ClarifyState,
+  answerNext,
+  clarifyBody,
+  clarifyLimit,
+  clarifyQuestionText,
+  emptyClarify,
+  markChecked,
+  parseClarify,
+  proposeRemaining,
+  recordSkip,
+  renderClarifyPage,
+  runGapCheck,
+  teamClarifyMax,
+  unconfirmedLine,
+  writeClarifyFile,
+} from "./clarify.js";
 import { createRole, readRole } from "./profile.js";
 import { guideDraftPrompt } from "./prompts.js";
 import { matchRoute } from "./routing.js";
@@ -119,7 +136,7 @@ interface GuideAnswer {
 
 interface GuidePending {
   role: string;
-  kind: "role" | "model";
+  kind: "role" | "model" | "clarify";
   question: string;
 }
 
@@ -128,6 +145,7 @@ interface GuideState {
   request: string;
   answers: GuideAnswer[];
   pending?: GuidePending;
+  clarify?: ClarifyState;
 }
 
 function ok(stdout: string): RoleCommandResult {
@@ -184,12 +202,24 @@ function parseState(value: unknown): GuideState | null {
     const row = rec.pending as Record<string, unknown>;
     const role = asText(row.role);
     const question = asText(row.question);
-    const kind = row.kind === "model" ? "model" : row.kind === "role" ? "role" : "";
+    const kind =
+      row.kind === "model"
+        ? "model"
+        : row.kind === "role"
+          ? "role"
+          : row.kind === "clarify"
+            ? "clarify"
+            : "";
     if (!role || !question || !kind) return null;
     pending = { role, kind, question };
   }
   const state: GuideState = { change, request, answers };
   if (pending) state.pending = pending;
+  if (rec.clarify !== undefined) {
+    const clarify = parseClarify(rec.clarify);
+    if (!clarify) return null;
+    state.clarify = clarify;
+  }
   return state;
 }
 
@@ -212,6 +242,7 @@ async function writeState(root: string, state: GuideState): Promise<void> {
     answers: state.answers,
   };
   if (state.pending) body.pending = state.pending;
+  if (state.clarify) body.clarify = clarifyBody(state.clarify);
   await writeYaml(statePath(root), body);
 }
 
@@ -219,13 +250,6 @@ function questionText(role: string, question: string): string {
   return [`Question:`, `${role} asks:`, question, `Answer with: sdd go --answer "..."`.trim()].join(
     "\n",
   );
-}
-
-function nextRoleQuestion(role: RoleProfile, answers: GuideAnswer[]): string | undefined {
-  const answered = new Set(
-    answers.filter((item) => item.role === role.name).map((item) => item.question),
-  );
-  return role.askHumanWhen.find((item) => !answered.has(item));
 }
 
 async function roleFiles(root: string): Promise<string[]> {
@@ -485,7 +509,14 @@ async function draftStage(
   if (required.length === 0) {
     return leaveStage(root, config, ctx.id, stage.id, role.name, false, lines, state);
   }
-  const answers = state.answers.filter((item) => item.role === role.name);
+  const answers: { question: string; answer: string; status?: "confirmed" | "proposed" }[] = [
+    ...state.answers.filter((item) => item.role === role.name),
+    ...(state.clarify?.answers ?? []).map((item) => ({
+      question: item.question,
+      answer: item.answer,
+      status: item.status,
+    })),
+  ];
   for (const artifact of required) {
     const headings = await templateHeadings(root, artifact.template);
     const abs = join(ctx.path, artifact.path);
@@ -546,17 +577,48 @@ async function draftStage(
   return leaveStage(root, config, ctx.id, stage.id, role.name, true, lines, state);
 }
 
-export async function runGuide(
-  root: string,
-  input: {
-    title?: string;
-    answer?: string;
-    workflow?: string;
-    model?: RoleModel;
-    agents?: false | AgentTarget;
-    now?: () => Date;
-  } = {},
-): Promise<RoleCommandResult> {
+export interface GuideInput {
+  title?: string;
+  answer?: string;
+  /** Take the proposed default of the question that is waiting (Enter on a terminal). */
+  acceptDefault?: boolean;
+  /** Skip the gap check for this run. The skip is recorded. */
+  noClarify?: boolean;
+  workflow?: string;
+  model?: RoleModel;
+  agents?: false | AgentTarget;
+  now?: () => Date;
+}
+
+/**
+ * Open a change and let each role ask, draft, and hand off. Questions come from a gap check on
+ * the request, not from the role files: ask only where the request has real gaps, one at a time,
+ * each with a proposed default.
+ */
+export async function runGuide(root: string, input: GuideInput = {}): Promise<RoleCommandResult> {
+  const result = await runGuideSteps(root, input);
+  if (result.exitCode !== 0 || result.stdout.startsWith("Question:")) return result;
+  try {
+    const state = await readState(root);
+    const line = state && state !== "invalid" ? unconfirmedLine(state.clarify ?? null) : null;
+    if (line) return { ...result, stdout: `${result.stdout}\n${line}` };
+  } catch {
+    // The note is extra. Never fail a run for it.
+  }
+  return result;
+}
+
+async function gapRole(root: string, stageId: string): Promise<RoleProfile | undefined> {
+  const routed = await matchRoute(root, { stage: stageId });
+  if (routed.ok && routed.match.kind !== "ask") {
+    const role = await readRole(root, routed.match.role);
+    if (role) return role;
+  }
+  const first = (await roleFiles(root)).sort()[0];
+  return first ? ((await readRole(root, first.replace(/\.md$/, ""))) ?? undefined) : undefined;
+}
+
+async function runGuideSteps(root: string, input: GuideInput): Promise<RoleCommandResult> {
   const prepared = await prepareGuide(root, {
     workflow: input.workflow,
     agents: input.agents,
@@ -565,7 +627,9 @@ export async function runGuide(
 
   const title = input.title?.trim() ?? "";
   const answer = input.answer?.trim() ?? "";
-  if (input.answer !== undefined && !answer) return fail("An answer needs text.");
+  if (input.answer !== undefined && !answer && !input.acceptDefault) {
+    return fail("An answer needs text.");
+  }
 
   let loaded: GuideState | null | "invalid";
   try {
@@ -585,7 +649,7 @@ export async function runGuide(
         title,
         workflowName: input.workflow?.trim() || "feature",
       });
-      state = { change: ctx.id, request: title, answers: [] };
+      state = { change: ctx.id, request: title, answers: [], clarify: emptyClarify() };
       await writeState(root, state);
     } catch (error) {
       return fail(error instanceof Error ? error.message : String(error));
@@ -600,19 +664,51 @@ export async function runGuide(
       return fail(error instanceof Error ? error.message : String(error));
     }
   }
-
-  if (answer && !state.pending) return fail("No question is waiting.");
-  if (answer && state.pending) {
-    state.answers.push({
-      role: state.pending.role,
-      question: state.pending.question,
-      answer,
-    });
-    state.pending = undefined;
+  const clarify = state.clarify ?? emptyClarify();
+  state.clarify = clarify;
+  const mirror = async () => {
     await writeState(root, state);
+    await writeClarifyFile(changePath(root, config, state.change), clarify);
+  };
+
+  const waiting = answer.length > 0 || input.acceptDefault === true;
+  if (waiting && !state.pending) return fail("No question is waiting.");
+  if (input.noClarify && state.pending?.kind === "clarify") {
+    const count = proposeRemaining(clarify);
+    recordSkip(clarify, state.pending.role, "--no-clarify");
+    state.pending = undefined;
+    await mirror();
+    if (count === 0 && !waiting) {
+      // Nothing queued any more. Carry on.
+    }
+  } else if (waiting && state.pending) {
+    if (state.pending.kind === "clarify") {
+      if (!answerNext(clarify, answer)) return fail("No question is waiting.");
+    } else if (input.acceptDefault && !answer) {
+      return fail("This question has no default. Answer with text.");
+    } else {
+      state.answers.push({
+        role: state.pending.role,
+        question: state.pending.question,
+        answer,
+      });
+    }
+    state.pending = undefined;
+    await mirror();
   } else if (state.pending) {
+    if (state.pending.kind === "clarify") {
+      return ok(clarifyQuestionText(clarify, []));
+    }
     return ok(questionText(state.pending.role, state.pending.question));
   }
+
+  const askNext = async (lines: string[]): Promise<RoleCommandResult> => {
+    const next = clarify.queue[0];
+    if (!next) return fail("No question is waiting.");
+    state.pending = { role: next.stage, kind: "clarify", question: next.question };
+    await mirror();
+    return ok(clarifyQuestionText(clarify, lines));
+  };
 
   const lines: string[] = [];
   let lastRole = "";
@@ -626,17 +722,94 @@ export async function runGuide(
     }
     const stage = getStage(ctx.workflow, ctx.meta, ctx.meta.stage);
     if (!stage) return fail("No active change.");
+    const limit = clarifyLimit(ctx.workflow, await teamClarifyMax(root));
+    const hasClarifyStage = ctx.workflow.stages.some((item) => item.kind === "clarify");
 
-    if (optionalStage(stage) && stage.skippable) {
+    const skipHere = async (reason: string, note: string): Promise<RoleCommandResult | null> => {
       const before = ctx.meta.stage;
       try {
-        await skipStage(root, config, ctx.id, stage.id, "No role runs this optional stage.");
+        await skipStage(root, config, ctx.id, stage.id, reason);
       } catch (error) {
         return fail(error instanceof Error ? error.message : String(error));
       }
       const after = await buildContext(root, config, state.change);
       if (after.meta.stage === before) return fail("This stage stayed put.");
-      lines.push(`Skipped ${stage.id}.`);
+      lines.push(note);
+      return null;
+    };
+
+    if (stage.kind === "clarify" && stage.skippable) {
+      // A clarify stage runs when the request has open questions. It is skipped, with the
+      // reason, only when there are none.
+      if (input.noClarify) {
+        recordSkip(clarify, stage.id, "--no-clarify");
+        markChecked(clarify, stage.id);
+        await mirror();
+        if (!clarify.answers.some((item) => item.stage === stage.id)) {
+          const stopped = await skipHere(
+            "Clarify was turned off for this run (--no-clarify).",
+            `Skipped ${stage.id}: --no-clarify.`,
+          );
+          if (stopped) return stopped;
+          continue;
+        }
+      }
+      if (!clarify.checked.includes(stage.id)) {
+        const role = input.model ? await gapRole(root, stage.id) : undefined;
+        if (!input.model || !role) {
+          markChecked(clarify, stage.id);
+          recordSkip(clarify, stage.id, "no model to check the request for gaps");
+          await mirror();
+        } else {
+          const found = await runGapCheck({
+            model: input.model,
+            role,
+            request: state.request,
+            stage: stage.id,
+            checkpoint: stage.id,
+            limit,
+            earlier: await readyArtifacts(ctx.path, ctx.workflow.stages, ""),
+            state: clarify,
+          });
+          markChecked(clarify, stage.id);
+          if (!found.ok) {
+            recordSkip(clarify, stage.id, "the gap check reply was not valid");
+            lines.push(`The gap check for ${stage.id} did not return a valid reply.`);
+          } else if (found.added === 0 && found.reason === "limit") {
+            recordSkip(clarify, stage.id, "question limit reached");
+          }
+          await mirror();
+        }
+      }
+      if (clarify.queue.length > 0) return askNext(lines);
+      if (clarify.answers.some((item) => item.stage === stage.id)) {
+        const artifact = stage.artifacts[0]?.path ?? `${stage.id}.md`;
+        await writeOne(join(ctx.path, artifact), renderClarifyPage(clarify, stage));
+        const moved = await leaveStage(
+          root,
+          config,
+          ctx.id,
+          stage.id,
+          "clarify",
+          true,
+          lines,
+          state,
+        );
+        if (moved !== "next") return moved;
+        continue;
+      }
+      const why = clarify.skipped.find((item) => item.stage === stage.id)?.reason;
+      const stopped = await skipHere(
+        why ? `No questions: ${why}.` : "No gaps found in the request.",
+        why ? `Skipped ${stage.id}: ${why}.` : `Skipped ${stage.id}: no gaps found.`,
+      );
+      if (stopped) return stopped;
+      continue;
+    }
+
+    if (optionalStage(stage) && stage.skippable) {
+      const stopped = await skipHere("No role runs this optional stage.", `Skipped ${stage.id}.`);
+      if (stopped) return stopped;
       continue;
     }
 
@@ -649,20 +822,32 @@ export async function runGuide(
     if (!role) return fail(ROLE_TEXT.notFound);
     if (lastRole && lastRole !== role.name) lines.push(`Handoff: ${lastRole} to ${role.name}.`);
 
-    const question = nextRoleQuestion(role, state.answers);
-    if (question) {
-      state.pending = { role: role.name, kind: "role", question };
-      await writeState(root, state);
-      return ok(
-        [
-          "Question:",
-          ...lines,
-          `${role.name} asks:`,
-          question,
-          'Answer with: sdd go --answer "..."',
-        ].join("\n"),
-      );
+    if (!hasClarifyStage && !clarify.checked.includes("start")) {
+      // No clarify stage: the gap check runs once, before the first drafting stage.
+      markChecked(clarify, "start");
+      if (input.noClarify) {
+        recordSkip(clarify, "start", "--no-clarify");
+      } else if (!input.model) {
+        recordSkip(clarify, "start", "no model to check the request for gaps");
+      } else {
+        const found = await runGapCheck({
+          model: input.model,
+          role,
+          request: state.request,
+          stage: stage.id,
+          checkpoint: "start",
+          limit,
+          earlier: [],
+          state: clarify,
+        });
+        if (!found.ok) {
+          recordSkip(clarify, "start", "the gap check reply was not valid");
+          lines.push("The gap check did not return a valid reply.");
+        }
+      }
+      await mirror();
     }
+    if (!hasClarifyStage && clarify.queue.length > 0) return askNext(lines);
 
     const required = stage.artifacts.filter((artifact) => artifact.required !== false);
     const moved = await draftStage(

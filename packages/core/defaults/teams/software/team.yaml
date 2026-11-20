@@ -22,3 +22,5 @@ bots:
     wip: 1
 role_wip:
   developer: 2
+clarify:
+  max_questions: 5

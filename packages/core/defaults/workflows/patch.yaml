@@ -6,6 +6,9 @@ recommendation:
   when:
     keywords: [fix, bug, patch, small]
     max_complexity: medium
+clarify:
+  max_questions: 2
+
 stages:
   - id: intent
     title: Intent

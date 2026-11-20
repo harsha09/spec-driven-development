@@ -14,6 +14,8 @@ import {
   ROOM_POST_EXAMPLES,
   RevisionReplySchema,
   RoomPostSchema,
+  clarifyExamples,
+  clarifyReplySchema,
   critiqueExamples,
   critiqueReplySchema,
   draftContractSchema,
@@ -265,7 +267,7 @@ export function roomPrompt(input: {
 export function guideDraftPrompt(input: {
   role: RoleProfile;
   request: string;
-  answers: { question: string; answer: string }[];
+  answers: { question: string; answer: string; status?: "confirmed" | "proposed" }[];
   stageId: string;
   summary: string;
   instructions: string;
@@ -297,7 +299,12 @@ export function guideDraftPrompt(input: {
     {
       label: "Answers",
       source: "the person",
-      text: input.answers.map((item) => `- ${item.question}: ${item.answer}`).join("\n"),
+      text: input.answers
+        .map(
+          (item) =>
+            `- ${item.question}: ${item.answer}${item.status === "proposed" ? " [unconfirmed: proposed, the person has not confirmed it]" : ""}`,
+        )
+        .join("\n"),
     },
     { label: "Headings", source: "the artifact template", text: input.headings.join("\n") },
     ...input.earlier.map((file) => ({
@@ -450,5 +457,61 @@ export function ownerRunPrompt(input: {
       WRITE_ONLY,
     ],
     output: DRAFT(["Put what you did for the artifact in text."], input.boundary === "ask"),
+  });
+}
+
+/**
+ * The gap check. The triggers are conditions, not questions: ask only when one applies to this
+ * request, or when the request has another real gap. A clear request gets no questions.
+ */
+export function clarifyGapPrompt(input: {
+  role: RoleProfile;
+  request: string;
+  stageId: string;
+  triggers: string[];
+  answered: { question: string; answer: string }[];
+  earlier: { path: string; body: string }[];
+  max: number;
+}): string {
+  const me = who(input.role);
+  const inputs: PromptInputBlock[] = [
+    { label: "Request", source: "the person", text: input.request },
+    {
+      label: "Triggers",
+      source: "the role file",
+      text: input.triggers.map((item) => `- ${item}`).join("\n"),
+    },
+    {
+      label: "Already answered",
+      source: "the person",
+      text: input.answered.map((item) => `- ${item.question}: ${item.answer}`).join("\n"),
+    },
+    ...input.earlier.map((file) => ({
+      label: `Earlier artifact ${file.path}`,
+      source: "the change folder",
+      text: file.body,
+    })),
+  ];
+  return buildPrompt({
+    role: me.role,
+    scope: scopeLines(me.card, ["You check one request for gaps. You do not draft anything."]),
+    task: [
+      `Stage: ${input.stageId}`,
+      "1. Read the request and the earlier artifacts.",
+      "2. Find real gaps: scope, users, edge cases, acceptance, constraints.",
+      "3. Each entry in Triggers is a condition. Ask about it only when it applies to this request.",
+      `4. Ask at most ${input.max} questions. Each one names one gap and carries your recommended default.`,
+      "5. Do not repeat a question in Already answered.",
+      "Done when: every real gap has one question, or you sent an empty list because the request is clear.",
+    ],
+    inputs,
+    guardrails: [
+      "A clear request gets no questions. Send an empty list.",
+      "Do not invent a gap to fill the quota.",
+      "Ask about the request, not about how to build it.",
+    ],
+    output: renderReplyContract(clarifyReplySchema(input.max), {
+      examples: clarifyExamples(input.max),
+    }),
   });
 }

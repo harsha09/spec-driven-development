@@ -14,6 +14,16 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 
 ---
 
+## Clarifying questions
+
+The `ask_human_when` entries in a role file are triggers, not questions. `sdd go` asks the role, or the model behind it, to check the request against its triggers and for other real gaps: scope, users, edge cases, acceptance, constraints. A clear request gets no question.
+
+- **Capped and one at a time.** At most `clarify.max_questions` questions in a whole change, set in the workflow file (`hotfix` and `patch` 2, `spike` 3, `feature`, `greenfield`, `enterprise-feature` and `team-software` 5, 3 when a workflow sets none). A team template can carry a fallback in `.sdd/team.yaml` (`clarify.max_questions`, 0 to 5). Each question names its gap and carries a proposed default.
+- **Where it runs.** A workflow with a clarify stage runs the check when that stage starts. A workflow without one checks once before its first drafting stage. The stage is skipped, with the reason, when there are no gaps.
+- **Confirmed and proposed.** A typed answer or an accepted default is `confirmed`. A default that nobody confirmed, for example after `--no-clarify`, stays `proposed`. The clarify page lists them apart, later prompts flag the unconfirmed ones, and `sdd go` and `sdd gate` print how many are unconfirmed.
+- **No repeats.** Questions and answers are kept in `.sdd/role-runs/guide.yaml` and in the change pack as `clarify.yaml`, so a question already answered is never asked again after a restart.
+- **`--no-clarify`** skips the check for one run and records the skip.
+
 ## Start work: which command?
 
 | Situation | Command |
@@ -25,7 +35,7 @@ Commit `.sdd/config.yaml`, workflows, templates, `protocol.md`, `memory/`, and c
 `sdd new` and `sdd backlog start` both open a **change pack**. The difference is the **source**: free-form title vs backlog id.
 `-w feature` is a **workflow pack name**, not the same as `sdd backlog` / the old `sdd feature` alias.
 
-`sdd setup` is the first-time path. On a terminal it walks folder, workflow, host, roles, model, a check, and an optional first change. Enter initializes the folder, keeps the `feature` workflow, skips the host, and writes planner, architect, and builder when no role file exists yet. Each new duty file lists the stages of the workflow you pass with `-w`. Come back to one piece with `sdd setup --step model` (also `folder`, `workflow`, `host`, `roles`, `check`, or `start`). `sdd setup --yes` keeps the short path: the three duties when the roles folder is empty, a host only with `--ai`, and no model file. What a role and a duty are, why they help, and the setup for each workflow are in [Roles and duties](../guides/roles). `sdd go "I want to build this"` opens the change and runs the role for the current stage. That role asks the questions in its `ask_human_when` list, one at a time. Answer with `sdd go --answer "..."`. On a terminal, `sdd go` asks in place. When the draft is written, the guide moves to the next stage and hands the work to the role that lists it. Optional clarify and brainstorm stages are skipped. A hard gate that needs you stops and says so. The role does not sign it. A role whose `never` list says `write product code` can write only inside the change pack. Push, a pull request, and merge stay refused.
+`sdd setup` is the first-time path. On a terminal it walks folder, workflow, host, roles, model, a check, and an optional first change. Enter initializes the folder, keeps the `feature` workflow, skips the host, and writes planner, architect, and builder when no role file exists yet. Each new duty file lists the stages of the workflow you pass with `-w`. Come back to one piece with `sdd setup --step model` (also `folder`, `workflow`, `host`, `roles`, `check`, or `start`). `sdd setup --yes` keeps the short path: the three duties when the roles folder is empty, a host only with `--ai`, and no model file. What a role and a duty are, why they help, and the setup for each workflow are in [Roles and duties](../guides/roles). `sdd go "I want to build this"` opens the change and runs the role for the current stage. `sdd go` checks the request for real gaps and asks only about those, one question at a time, each with a proposed default. See [Clarifying questions](#clarifying-questions). Answer with `sdd go --answer "..."`, or accept the default with `sdd go --accept-default`. On a terminal, `sdd go` asks in place and Enter accepts the default. When the draft is written, the guide moves to the next stage and hands the work to the role that lists it. Clarify stages run when the request has open questions and are skipped, with the reason, when it has none. Brainstorm stages are skipped. A hard gate that needs you stops and says so. The role does not sign it. A role whose `never` list says `write product code` can write only inside the change pack. Push, a pull request, and merge stay refused.
 
 ---
 

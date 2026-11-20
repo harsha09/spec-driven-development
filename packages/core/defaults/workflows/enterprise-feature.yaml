@@ -8,6 +8,9 @@ recommendation:
   when:
     keywords: [arb, architecture, migration, epic, platform]
     min_complexity: high
+clarify:
+  max_questions: 5
+
 stages:
   - id: feature
     title: Feature definition

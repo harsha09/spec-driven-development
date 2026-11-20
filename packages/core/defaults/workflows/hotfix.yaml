@@ -6,6 +6,9 @@ recommendation:
   when:
     keywords: [typo, hotfix, nit, rename, bump, chore]
     max_complexity: low
+clarify:
+  max_questions: 2
+
 stages:
   - id: intent
     title: Intent

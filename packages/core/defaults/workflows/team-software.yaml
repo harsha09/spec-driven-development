@@ -8,6 +8,9 @@ recommendation:
   priority: 10
   when:
     keywords: [team-software]
+clarify:
+  max_questions: 5
+
 stages:
   - id: requirements
     title: Requirements

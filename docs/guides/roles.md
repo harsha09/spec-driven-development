@@ -21,7 +21,7 @@ A role is the file `.sdd/roles/<name>.md`. The file holds:
 | Owns | The thing this role is responsible for |
 | Skill | The line another rule can match, such as `plan the change` |
 | Never | Work this role leaves alone |
-| Asks | Questions `sdd go` puts to you, one at a time |
+| Asks | The gap check questions `sdd go` puts to you, one at a time, each with a default |
 | Stages | The stage ids of a workflow that this role follows |
 
 A duty is one of three kinds of work. `sdd setup` writes one role for each:
