@@ -1,5 +1,6 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
+  HUMAN_SIGNOFF_COMMAND,
   SETUP_WHY,
   advanceStage,
   approveGate,
@@ -16,6 +17,7 @@ import {
   getActiveChangeId,
   getStage,
   installAgentIntegration,
+  isHumanHardGate,
   isInitialized,
   listBacklogFeatures,
   listBundledWorkflowNames,
@@ -494,7 +496,7 @@ const gate = defineCommand({
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const action = args.action;
-      if (!["approve", "waive", "fail"].includes(action)) {
+      if (action !== "approve" && action !== "waive" && action !== "fail") {
         throw new Error("action must be approve | waive | fail");
       }
       const statusMap = {
@@ -502,16 +504,18 @@ const gate = defineCommand({
         waive: "waived",
         fail: "failed",
       } as const;
+      const past = { approve: "approved", waive: "waived", fail: "failed" } as const;
       const id = await resolveChangeId(root, config, args.change);
-      const ctx = await approveGate(
-        root,
-        config,
-        id,
-        args.stage,
-        args.note,
-        statusMap[action as keyof typeof statusMap],
-      );
-      consola.success(`Gate ${action}d on ${args.stage ?? ctx.meta.stage}`);
+      const ctx = await approveGate(root, config, id, args.stage, args.note, statusMap[action]);
+      const stageId = args.stage ?? ctx.meta.stage;
+      const stage = getStage(ctx.workflow, ctx.meta, stageId);
+      if (action === "approve" && isHumanHardGate(stage, config)) {
+        consola.warn(
+          `Recorded, but this stage needs a human sign-off. Run \`${HUMAN_SIGNOFF_COMMAND}\`.`,
+        );
+      } else {
+        consola.success(`Gate ${past[action]} on ${stageId}`);
+      }
       consola.log(formatStatus(ctx));
       consola.log("");
       const launch = await launchConfiguredAgent({

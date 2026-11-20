@@ -1097,4 +1097,40 @@ stages:
     expect(stored).not.toContain(logPath);
     expect(JSON.parse(stored).requests).toHaveLength(1);
   });
+
+  it("does not report an unqualified success when approving a human gate", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-human-gate-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Add export", "-w", "team-software", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+
+    const approved = runSdd(root, ["gate", "approve", "--no-agent"]);
+    const approvedOut = approved.stdout + approved.stderr;
+    expect(approved.status, approvedOut).toBe(0);
+    expect(approvedOut).toContain("Recorded, but this stage needs a human sign-off");
+    expect(approvedOut).toContain('sdd team signoff --note "…"');
+    expect(approvedOut).not.toContain("Gate approved");
+
+    const failed = runSdd(root, ["gate", "fail", "--no-agent"]);
+    const failedOut = failed.stdout + failed.stderr;
+    expect(failed.status, failedOut).toBe(0);
+    expect(failedOut).toContain("Gate failed on");
+    expect(failedOut).not.toContain("faild");
+
+    const blocked = runSdd(root, ["next", "--no-agent"]);
+    const blockedOut = blocked.stdout + blocked.stderr;
+    expect(blocked.status, blockedOut).toBe(1);
+    expect(blockedOut).toContain("sdd team signoff");
+    expect(blockedOut).not.toContain("sdd gate approve");
+
+    const other = await mkdtemp(join(tmpdir(), "sdd-cli-plain-gate-"));
+    temps.push(other);
+    expect(runSdd(other, ["init", "--here", "--no-agent"]).status).toBe(0);
+    expect(runSdd(other, ["new", "Hotfix", "-w", "hotfix", "-y", "--no-agent"]).status).toBe(0);
+    const plain = runSdd(other, ["gate", "approve", "--no-agent"]);
+    const plainOut = plain.stdout + plain.stderr;
+    expect(plain.status, plainOut).toBe(0);
+    expect(plainOut).toContain("Gate approved on");
+  });
 });
