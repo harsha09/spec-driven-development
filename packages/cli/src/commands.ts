@@ -12,6 +12,7 @@ import {
   countOutdated,
   createChange,
   describeKept,
+  formatBackportPlanningLines,
   formatJsonSummary,
   formatStatus,
   formatTokenInventory,
@@ -58,6 +59,7 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { backportCmd } from "./backport-cmd.js";
 import { checkCmd } from "./check-cmd.js";
 import { decisionCmd } from "./decision-cmd.js";
 import { factCmd } from "./fact-cmd.js";
@@ -359,6 +361,8 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
+      const planning = await formatBackportPlanningLines(ctx);
+      if (planning.length) consola.log(planning.join("\n"));
       const metrics = await readChangeMetrics(root, config, id);
       if (metrics.phases.length) {
         consola.log(pc.bold("Phase times (local):"));
@@ -1852,11 +1856,12 @@ export const commands = {
   team: teamCmd,
   fact: factCmd,
   decision: decisionCmd,
-  check: checkCmd,
   models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,
   pr: prCmd,
+  backport: backportCmd,
+  check: checkCmd,
   checkout: useChange,
   context: contextCmd,
   search: searchCmd,

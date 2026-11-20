@@ -82,6 +82,24 @@ export * from "./sandbox/profile.js";
 export * from "./sandbox/record.js";
 export * from "./stories.js";
 export {
+  allowedDifferencePaths,
+  assertSafeGitRemote,
+  backportCompletionErrors,
+  compareTwinPatches,
+  findTwin,
+  formatBackportPlanningLines,
+  formatBackportStatusLines,
+  parseTasksBackportHints,
+  resolveBackportTargets,
+  safeGitRef,
+  safeGitRevRange,
+  splitUnifiedDiff,
+  tasksMissingTwinPr,
+  twinBranchName,
+  waiveTwin,
+} from "./backport.js";
+export type { BackportParityResult, BackportPlanningTask } from "./backport.js";
+export {
   addDecision,
   checkDecisionReferences,
   extractDecisionRefs,

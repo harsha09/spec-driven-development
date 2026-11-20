@@ -502,6 +502,12 @@ export async function completeChange(
     throw new Error(check.errors.join("\n"));
   }
 
+  const { backportCompletionErrors } = await import("./backport.js");
+  const backportErrors = backportCompletionErrors(ctx.meta);
+  if (backportErrors.length) {
+    throw new Error(backportErrors.join("\n"));
+  }
+
   await transitionPhase(
     projectRoot,
     config,

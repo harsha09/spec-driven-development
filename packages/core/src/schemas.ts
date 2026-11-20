@@ -223,6 +223,43 @@ export const ChangeMetaSchema = z.object({
       url: z.string().optional(),
     })
     .optional(),
+  /** Release branches that need a twin pull request for this change. */
+  backport_targets: z.array(z.string().min(1)).default([]),
+  /** Paths whose main vs twin patch may differ intentionally (path + reason). */
+  backport_allowed_differences: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        reason: z.string().min(1),
+      }),
+    )
+    .default([]),
+  /** One record per backport target after `sdd backport open`. */
+  backports: z
+    .array(
+      z.object({
+        target: z.string().min(1),
+        branch: z.string().min(1),
+        base_sha: z.string().optional(),
+        head_sha: z.string().optional(),
+        merged: z.boolean().default(false),
+        pr: z
+          .object({
+            number: z.number().optional(),
+            url: z.string().optional(),
+          })
+          .optional(),
+        waived: z
+          .object({
+            reason: z.string().min(1),
+            at: z.string(),
+          })
+          .optional(),
+        parity_ok: z.boolean().optional(),
+        parity_checked_at: z.string().optional(),
+      }),
+    )
+    .default([]),
   completed_at: z.string().optional(),
 });
 
