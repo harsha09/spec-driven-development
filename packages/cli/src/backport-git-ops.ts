@@ -24,6 +24,7 @@ const GIT_VERBS = new Set([
   "diff",
   "branch",
   "show-ref",
+  "symbolic-ref",
   "switch",
   "cherry-pick",
   "rev-list",
@@ -101,6 +102,28 @@ async function mergeBase(cwd: string, left: string, right: string): Promise<stri
   return sha.length ? sha : null;
 }
 
+/**
+ * The branch the change was made against. An explicit value wins, then the remote default
+ * branch, then a local main or master.
+ */
+export async function resolveBaseRef(cwd: string, explicit?: string): Promise<string> {
+  const wanted = explicit?.trim();
+  if (wanted) {
+    const ref = safeGitRef(wanted);
+    const found = await runGit(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", ref]);
+    if (found.exitCode !== 0) throw new Error(`Base ref ${wanted} was not found.`);
+    return ref;
+  }
+  const remote = await runGit(cwd, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+  const candidates = [remote.exitCode === 0 ? remote.stdout.trim() : "", "main", "master"];
+  for (const candidate of candidates.filter(Boolean)) {
+    const ref = safeGitRef(candidate);
+    const found = await runGit(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", ref]);
+    if (found.exitCode === 0) return ref;
+  }
+  throw new Error("Could not find the base branch. Pass --base <branch>.");
+}
+
 async function diffRange(cwd: string, base: string, head: string): Promise<string> {
   const range = safeGitRevRange(`${safeGitRef(base)}..${safeGitRef(head)}`);
   const result = await runGit(cwd, ["diff", "--end-of-options", range]);
@@ -147,7 +170,10 @@ export async function checkTwinParity(
   if (!meta.branch || !twin) {
     throw new Error("Main branch and a twin record are required for parity check.");
   }
-  const mainBase = await mergeBase(projectRoot, meta.branch, twin.target);
+  // The change's own patch starts where its branch left the base branch, not at the release
+  // branch. A release branch behind main would otherwise count every unrelated main commit.
+  const baseRef = await resolveBaseRef(projectRoot, twin.base_ref);
+  const mainBase = await mergeBase(projectRoot, meta.branch, baseRef);
   const twinBase = await mergeBase(projectRoot, twin.branch, twin.target);
   if (!mainBase || !twinBase) {
     throw new Error(`Could not find merge-base for ${target}.`);
@@ -168,6 +194,8 @@ export interface OpenTwinOptions {
   target: string;
   /** When true, skip gh and only create the branch locally (for tests). */
   dryPr?: boolean;
+  /** Branch the change was made against. Default: the remote default branch, then main. */
+  base?: string;
 }
 
 export interface OpenTwinResult {
@@ -220,6 +248,25 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
     throw new Error(`Branch ${twinName} already exists.`);
   }
 
+  // Only the change's own commits: reachable from its branch, not from the base branch. The range
+  // must not start at the release branch, which would pull in every main commit it lacks.
+  const baseRef = await resolveBaseRef(projectRoot, opts.base);
+  const range = safeGitRevRange(`${baseRef}..${safeMain}`);
+  const list = await runGit(projectRoot, [
+    "rev-list",
+    "--reverse",
+    "--no-merges",
+    "--end-of-options",
+    range,
+  ]);
+  const commits = list.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (commits.length === 0) {
+    throw new Error(`Nothing to backport: ${meta.branch} has no commits that ${baseRef} lacks.`);
+  }
+
   const created = await runGit(projectRoot, [
     "switch",
     "-c",
@@ -231,23 +278,20 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
     throw new Error(created.stderr.trim() || "Twin branch was not created.");
   }
 
-  const range = safeGitRevRange(`${safeTarget}..${safeMain}`);
-  const list = await runGit(projectRoot, ["rev-list", "--reverse", "--end-of-options", range]);
-  const commits = list.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
   for (const sha of commits) {
     const safeSha = safeGitRef(sha);
-    const picked = await runGit(projectRoot, ["cherry-pick", "--", safeSha]);
+    // -x records "(cherry picked from commit ...)" so the twin can be traced to its source.
+    const picked = await runGit(projectRoot, ["cherry-pick", "-x", "--", safeSha]);
     if (picked.exitCode !== 0) {
       await runGit(projectRoot, ["cherry-pick", "--abort"]);
       await runGit(projectRoot, ["switch", "--end-of-options", safeMain]);
+      // The twin branch was created a moment ago and holds only the partial picks.
+      await runGit(projectRoot, ["branch", "-D", "--end-of-options", safeTwin]);
       throw new Error(picked.stderr.trim() || `Cherry-pick failed at ${sha}.`);
     }
   }
 
-  const head = await runGit(projectRoot, ["rev-parse", "--end-of-options", "HEAD"]);
+  const head = await runGit(projectRoot, ["rev-parse", "--verify", "HEAD"]);
   const base = await mergeBase(projectRoot, twinName, target);
   const back = await runGit(projectRoot, ["switch", "--end-of-options", safeMain]);
   if (back.exitCode !== 0) {
@@ -258,6 +302,7 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
     target,
     branch: twinName,
     base_sha: base ?? undefined,
+    base_ref: baseRef,
     head_sha: head.exitCode === 0 ? head.stdout.trim() : undefined,
     merged: false,
     pr: undefined as { number?: number; url?: string } | undefined,

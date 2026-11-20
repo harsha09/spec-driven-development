@@ -29,6 +29,11 @@ const openCmd = defineCommand({
       type: "string",
       description: "Release branch ref (default: first backport_targets entry)",
     },
+    base: {
+      type: "string",
+      description:
+        "Branch the change was made against (default: the remote default branch, then main)",
+    },
     "dry-pr": {
       type: "boolean",
       description: "Create the twin branch locally only; skip gh pr create",
@@ -54,6 +59,7 @@ const openCmd = defineCommand({
           meta: ctx.meta,
           target,
           dryPr: args["dry-pr"] === true,
+          base: args.base,
         });
         await saveChangeMeta(root, config, opened.meta);
         const lines = [

@@ -43,8 +43,13 @@ export const checkCmd = defineCommand({
       if (hasChange) {
         const id = await resolveChangeId(root, config, args.change);
         const ctx = await buildContext(root, config, id);
+        // A check only reads. Write meta.yaml back only when a twin's recorded state changed,
+        // so running it does not dirty the working tree.
+        const before = JSON.stringify(ctx.meta.backports ?? []);
         ctx.meta = await refreshTwinGitState(root, ctx.meta);
-        await saveChangeMeta(root, config, ctx.meta);
+        if (JSON.stringify(ctx.meta.backports ?? []) !== before) {
+          await saveChangeMeta(root, config, ctx.meta);
+        }
 
         const lines: string[] = [];
         const { needsBackport } = await parseTasksBackportHints(ctx.path);
