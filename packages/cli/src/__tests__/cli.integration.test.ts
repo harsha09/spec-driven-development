@@ -686,14 +686,7 @@ stages:
     expect(runSdd(root, ["init", "--here", "--ai", "copilot"]).status).toBe(0);
     expect(await exists(join(root, ".github/agents/sdd.agent.md"))).toBe(true);
 
-    const install = runSdd(root, [
-      "agents",
-      "install",
-      "--ai",
-      "kilo",
-      "--force",
-      "--ignore-agent-tools",
-    ]);
+    const install = runSdd(root, ["agents", "install", "--ai", "kilo", "--force"]);
     expect(install.status, install.stderr + install.stdout).toBe(0);
     expect(await exists(join(root, ".kilo/sdd.md"))).toBe(true);
     expect(await exists(join(root, ".sdd/protocol.md"))).toBe(true);
@@ -1380,5 +1373,23 @@ stages:
     const plainOut = plain.stdout + plain.stderr;
     expect(plain.status, plainOut).toBe(0);
     expect(plainOut).toContain("Gate approved on");
+  });
+
+  it("rejects an unknown flag and names an unknown command", async () => {
+    const flag = runSdd(process.cwd(), ["next", "--chnage", "x"]);
+    expect(flag.status).toBe(2);
+    expect(flag.stderr).toContain('Unknown flag "--chnage"');
+    const cmd = runSdd(process.cwd(), ["stauts"]);
+    expect(cmd.status).toBe(2);
+    expect(cmd.stderr).toContain('Unknown command "stauts"');
+  });
+
+  it("names --label when a role is created without one", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-role-label-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["role", "create", "analyst", "--job", "Write the reading"]);
+    expect(created.status).not.toBe(0);
+    expect(created.stdout).toContain("A role needs a label. Pass --label.");
   });
 });

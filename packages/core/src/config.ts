@@ -15,7 +15,16 @@ export async function loadConfig(projectRoot: string): Promise<Config> {
       hint: "cd into your app and run: sdd init --here --ai copilot",
     });
   }
-  const raw = await readYaml(path);
+  let raw: unknown;
+  try {
+    raw = await readYaml(path);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new SddError(`Cannot read ${path}: ${detail}`, {
+      code: "CONFIG_YAML",
+      hint: "Fix the YAML in .sdd/config.yaml and run the command again.",
+    });
+  }
   return ConfigSchema.parse(raw);
 }
 

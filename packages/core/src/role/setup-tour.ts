@@ -7,7 +7,7 @@ import { prepareGuide } from "./guide.js";
 import { modelFromEnv } from "./models/command.js";
 import { loadModels } from "./models/schema.js";
 import { gitUserName, initTeam } from "./team.js";
-import type { RoleCommandResult } from "./types.js";
+import { ROLE_TEXT, type RoleCommandResult } from "./types.js";
 
 export const SETUP_STEP_IDS = [
   "folder",
@@ -72,7 +72,7 @@ export function formatSetupStatus(status: SetupStatus): string {
     status.model === "configured"
       ? "Model: configured."
       : status.model === "missing"
-        ? "Model: No role model is configured."
+        ? `Model: ${ROLE_TEXT.noModel}`
         : `Model: ${status.model.error}`;
   return [folder, host, roles, model].join("\n");
 }
@@ -173,8 +173,8 @@ export async function runSetupStep(
       const state = await modelState(root, env);
       if (state === "configured") return ok("Model: configured.");
       if (typeof state === "object") return fail(state.error);
-      if (input.requireModel) return fail("No role model is configured.");
-      return ok("No role model is configured.");
+      if (input.requireModel) return fail(ROLE_TEXT.noModel);
+      return ok(ROLE_TEXT.noModel);
     }
 
     if (input.step === "check") {

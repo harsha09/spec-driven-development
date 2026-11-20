@@ -82,7 +82,7 @@ process.stdin.on("end", () => {
 
     const missing = runSdd(root, ["role", "run", "builder", "--task", "again"]);
     expect(missing.status).toBe(1);
-    expect(missing.stdout.trim()).toBe("No role model is configured.");
+    expect(missing.stdout.trim()).toBe("No role model is configured. Set SDD_ROLE_MODEL.");
   });
 
   it("turns messaging off and refuses a handoff to the same role", async () => {

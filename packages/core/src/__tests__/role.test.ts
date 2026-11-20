@@ -276,7 +276,10 @@ describe("role run", () => {
     const root = await project();
     await builder(root);
     const missing = await runRole(root, { name: "builder", task: "hi", now: clock(0) });
-    expect(missing).toEqual({ exitCode: 1, stdout: "No role model is configured." });
+    expect(missing).toEqual({
+      exitCode: 1,
+      stdout: "No role model is configured. Set SDD_ROLE_MODEL.",
+    });
     expect(await pathExists(join(root, ".sdd/role-runs"))).toBe(false);
     await writeFile(join(root, ".sdd/role.yaml"), "approval_timeout_minutes: -1\n");
     const { model, calls } = fake([json({ text: "nope" })]);
