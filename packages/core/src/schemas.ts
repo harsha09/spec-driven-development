@@ -254,6 +254,8 @@ export const ChangeMetaSchema = z.object({
         target: z.string().min(1),
         branch: z.string().min(1),
         base_sha: z.string().optional(),
+        /** The branch the change was made against (for example origin/main). Its own commits start here. */
+        base_ref: z.string().optional(),
         head_sha: z.string().optional(),
         merged: z.boolean().default(false),
         pr: z

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -91,8 +91,9 @@ describe("sdd backport", () => {
     const root = await repo();
     const created = runSdd(root, ["new", "Hotfix widget", "-w", "hotfix", "-y", "--no-agent"]);
     expect(created.status, created.stderr).toBe(0);
-    const changeDirs = (await import("node:fs/promises")).readdir(join(root, "changes"));
-    const changeId = (await changeDirs).find((name) => name.includes("hotfix"))!;
+    const changeId = (await readdir(join(root, "changes"))).find((name) =>
+      name.includes("hotfix"),
+    )!;
     const metaPath = join(root, "changes", changeId, "meta.yaml");
     await patchMeta(metaPath, { backport_targets: ["release/1.0"] });
     await writeFile(
@@ -124,5 +125,28 @@ describe("sdd backport", () => {
     const parityOut = parity.stderr + parity.stdout;
     expect(parity.status, parityOut).toBe(0);
     expect(parityOut).toContain("parity ok");
+  });
+
+  it("sdd check reads twin state without rewriting meta.yaml when nothing changed", async () => {
+    const root = await repo();
+    const created = runSdd(root, ["new", "Hotfix gadget", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr).toBe(0);
+    const changeId = (await readdir(join(root, "changes"))).find((name) =>
+      name.includes("hotfix"),
+    )!;
+    const metaPath = join(root, "changes", changeId, "meta.yaml");
+    await patchMeta(metaPath, { backport_targets: ["release/1.0"] });
+    git(root, ["switch", "-c", "fix/gadget"]);
+    await writeFile(join(root, "README.md"), "fixed\n");
+    git(root, ["add", "README.md"]);
+    git(root, ["commit", "-m", "fix"]);
+    await patchMeta(metaPath, { branch: "fix/gadget" });
+    const opened = runSdd(root, ["backport", "open", "-c", changeId, "--dry-pr"]);
+    expect(opened.status, opened.stderr + opened.stdout).toBe(0);
+
+    const before = await readFile(metaPath, "utf8");
+    const checked = runSdd(root, ["check", "-c", changeId]);
+    expect(checked.stdout + checked.stderr).toContain("Incomplete backport twins");
+    expect(await readFile(metaPath, "utf8")).toBe(before);
   });
 });
