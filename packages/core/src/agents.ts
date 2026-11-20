@@ -14,6 +14,7 @@ import {
   loadProductTeam,
   renderProductTeamSection,
 } from "./role/entrypoint-team.js";
+import { HUMAN_SIGNOFF_COMMAND } from "./role/signoff.js";
 import type { Config } from "./schemas.js";
 import type { SearchRuntime } from "./search/index.js";
 
@@ -1049,7 +1050,7 @@ export function renderProtocolMd(
     "",
     "## Hard rules",
     "",
-    "1. **Do not skip hard gates.** If blocked, tell the human to run `sdd gate approve` (or fix the gate).",
+    `1. **Do not skip hard gates.** If a human gate is blocked, tell the person to run \`${HUMAN_SIGNOFF_COMMAND}\`. On any other hard gate, tell them to run \`sdd gate approve\` (or fix the gate).`,
     "2. **Stay in scope** of the active change title/intent. No drive-by refactors or new features.",
     "3. **Honor constraints** in `arb-decision.md`, design, and memory non-negotiables.",
     "4. **Local verify** is part of done when the workflow has a verify stage: `sdd verify`.",

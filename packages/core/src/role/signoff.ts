@@ -1,6 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "pathe";
-import { buildContext, getActiveChangeId } from "../change-context.js";
+import { buildContext, getActiveChangeId, saveChangeMeta } from "../change-context.js";
 import { loadConfig } from "../config.js";
 import { pathExists, readText, writeText } from "../fs.js";
 import { getHeadSha } from "../git-head.js";
@@ -31,6 +31,9 @@ function oneLine(
 function safeStageId(stage: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(stage);
 }
+
+/** The command that opens a human hard gate. `sdd gate approve` does not. */
+export const HUMAN_SIGNOFF_COMMAND = 'sdd team signoff --note "…"';
 
 export function signoffFileName(stage: string, sha: string): string {
   return `reviews/${stage}-${sha}.md`;
@@ -94,18 +97,33 @@ async function headSha(root: string): Promise<string | RoleCommandResult> {
 async function openChange(
   root: string,
   change: string | undefined,
-): Promise<{ path: string; stage: string } | RoleCommandResult> {
+): Promise<{ path: string; stage: string; id: string } | RoleCommandResult> {
   const config = await loadConfig(root);
   const requested = change?.trim() ?? "";
   const changeId = requested || (await getActiveChangeId(root, config));
   if (!changeId) return fail("No active change.");
   try {
     const ctx = await buildContext(root, config, changeId);
-    return { path: ctx.path, stage: ctx.meta.stage };
+    return { path: ctx.path, stage: ctx.meta.stage, id: ctx.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Change not found.";
     return fail(message);
   }
+}
+
+/**
+ * A failed mark is checked before the sign-off file, so it would ignore the
+ * command the error names. Signing this commit clears that mark. A later
+ * `sdd gate fail` records a new failure and blocks again.
+ */
+async function clearFailedGate(root: string, changeId: string, stage: string): Promise<void> {
+  const config = await loadConfig(root);
+  const ctx = await buildContext(root, config, changeId);
+  if (ctx.meta.gates?.[stage]?.status !== "failed") return;
+  const gates = { ...ctx.meta.gates };
+  delete gates[stage];
+  ctx.meta.gates = gates;
+  await saveChangeMeta(root, config, ctx.meta);
 }
 
 function isFailure(value: object): value is RoleCommandResult {
@@ -149,6 +167,7 @@ export async function recordSignoff(
     join(opened.path, "decisions.md"),
     `${nowIso()} sign-off ${stage} ${sha} ${gitUser} accept ${words}\n`,
   );
+  await clearFailedGate(root, opened.id, stage);
   return ok(`Signed ${stage} at ${sha}.`);
 }
 
@@ -190,7 +209,7 @@ export async function checkHumanSignoff(
   if (!(await pathExists(file))) {
     return {
       ok: false,
-      message: `Hard gate on stage "${stageId}" needs a human sign-off for this commit. Run \`sdd team signoff\`.`,
+      message: `Hard gate on stage "${stageId}" needs a human sign-off for this commit. Run \`${HUMAN_SIGNOFF_COMMAND}\`.`,
     };
   }
   const parsed = parseSignoff(await readText(file));

@@ -187,7 +187,36 @@ describe("team-software workflow", () => {
       0,
     );
     await approveGate(root, config, ctx.id, "requirements", "the person stopped this", "failed");
-    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/not approved|gate/i);
+    const outcome = await advanceStage(root, config, ctx.id).then(
+      () => ({ blocked: false, message: "" }),
+      (error: unknown) => ({
+        blocked: true,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    expect(outcome.blocked).toBe(true);
+    expect(outcome.message).toContain('sdd team signoff --note "…"');
+    expect(outcome.message).not.toContain("sdd gate approve");
+  });
+
+  it("opens a failed human gate after the person signs this commit", async () => {
+    const root = await project();
+    const config = await loadConfig(root);
+    const ctx = await createChange({
+      projectRoot: root,
+      config,
+      title: "Failed then signed",
+      workflowName: "team-software",
+    });
+    await teamRepo(root);
+    await writeFile(join(ctx.path, "requirements.md"), meat("Requirements"), "utf8");
+    await approveGate(root, config, ctx.id, "requirements", "the person stopped this", "failed");
+    await expect(advanceStage(root, config, ctx.id)).rejects.toThrow(/sdd team signoff/);
+    expect((await recordSignoff(root, { note: "the person accepted the reading" })).exitCode).toBe(
+      0,
+    );
+    const next = await advanceStage(root, config, ctx.id);
+    expect(next.to).toBe("clarifications");
   });
 
   // This walks all 12 stages. Each one runs a real git commit and sign-off, about 40 git

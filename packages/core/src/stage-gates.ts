@@ -2,8 +2,8 @@ import { join } from "pathe";
 import { incompleteArtifactReason } from "./artifacts.js";
 import { type ChangeContext, buildContext, saveChangeMeta } from "./change-context.js";
 import { pathExists, readText } from "./fs.js";
-import { checkHumanSignoff } from "./role/signoff.js";
-import type { Config } from "./schemas.js";
+import { HUMAN_SIGNOFF_COMMAND, checkHumanSignoff } from "./role/signoff.js";
+import type { Config, Stage } from "./schemas.js";
 import { nowIso } from "./slug.js";
 import { activeStages, getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
@@ -66,6 +66,14 @@ export async function incompletePriorStageErrors(ctx: ChangeContext): Promise<st
   return errors;
 }
 
+/** A hard gate that lists `human` opens on a sign-off or a waive, not on approve. */
+export function isHumanHardGate(stage: Stage | undefined, config: Config): boolean {
+  if (!stage) return false;
+  const declared = stage.gate?.type ?? "soft";
+  const effective = config.policy.gates === "hard" && declared === "soft" ? "hard" : declared;
+  return effective === "hard" && (stage.gate?.approvers?.includes("human") ?? false);
+}
+
 /** Artifact + gate + verify checks before leaving the current stage. */
 export async function canLeaveStage(
   ctx: ChangeContext,
@@ -91,11 +99,10 @@ export async function canLeaveStage(
   }
 
   const gateState = ctx.meta.gates?.[stage.id];
-  const humanGate = effectiveGate === "hard" && (stage.gate?.approvers?.includes("human") ?? false);
-  if (humanGate) {
+  if (isHumanHardGate(stage, config)) {
     if (gateState?.status === "failed") {
       errors.push(
-        `Hard gate on stage "${stage.id}" is not approved. Run \`sdd gate approve\` or complete the checklist.`,
+        `Hard gate on stage "${stage.id}" is not approved. Run \`${HUMAN_SIGNOFF_COMMAND}\` or complete the checklist.`,
       );
     } else if (gateState?.status !== "waived") {
       if (!projectRoot) {

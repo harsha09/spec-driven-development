@@ -14,6 +14,7 @@ import {
   writeText,
   writeYaml,
 } from "../fs.js";
+import { recordManifestFiles } from "../generated.js";
 import { initProject } from "../init.js";
 import { changePath, templatesDir } from "../paths.js";
 import {
@@ -45,7 +46,7 @@ import {
   unconfirmedLine,
   writeClarifyFile,
 } from "./clarify.js";
-import { createRole, readRole } from "./profile.js";
+import { createRole, readRole, roleFilePath } from "./profile.js";
 import { guideDraftPrompt } from "./prompts.js";
 import { matchRoute } from "./routing.js";
 import { ROLE_TEXT, type RoleCommandResult, type RoleModel, type RoleProfile } from "./types.js";
@@ -270,12 +271,18 @@ export async function prepareGuide(
     const ids = workflow.stages.map((stage) => stage.id);
     const existing = await roleFiles(root);
     if (existing.length === 0) {
+      const manifestRecords: { path: string; content: string }[] = [];
       for (const duty of DUTIES) {
         const { bucket, ...role } = duty;
         const stages = ids.filter((id) => dutyForStage(id, ids) === bucket);
         const created = await createRole(root, { ...role, stages });
         if (created.exitCode !== 0) return created;
+        manifestRecords.push({
+          path: `.sdd/roles/${duty.name}.md`,
+          content: await readText(roleFilePath(root, duty.name)),
+        });
       }
+      await recordManifestFiles(root, manifestRecords);
     }
     const lines = ["Ready.", `Workflow: ${workflowName}.`];
     if (existing.length > 0) {
