@@ -81,6 +81,7 @@ export * from "./sandbox/record.js";
 export * from "./stories.js";
 export {
   allowedDifferencePaths,
+  assertSafeGitRemote,
   backportCompletionErrors,
   compareTwinPatches,
   findTwin,
@@ -95,10 +96,4 @@ export {
   twinBranchName,
   waiveTwin,
 } from "./backport.js";
-export type { BackportParityResult, BackportPlanningTask, GitRunner } from "./backport.js";
-export {
-  checkTwinParity,
-  defaultGitRunner,
-  openBackportTwin,
-  refreshTwinGitState,
-} from "./backport-git.js";
+export type { BackportParityResult, BackportPlanningTask } from "./backport.js";

@@ -51,11 +51,6 @@ export function assertSafeGitRemote(name: string): void {
   }
 }
 
-export type GitRunner = (
-  cwd: string,
-  args: string[],
-) => Promise<{ exitCode: number; stdout: string; stderr: string; missing: boolean }>;
-
 export interface BackportParityResult {
   ok: boolean;
   unlisted: string[];

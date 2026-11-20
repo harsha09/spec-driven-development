@@ -1,9 +1,6 @@
 import {
   buildContext,
-  checkTwinParity,
-  openBackportTwin,
   parseTasksBackportHints,
-  refreshTwinGitState,
   resolveBackportTargets,
   resolveChangeId,
   saveChangeMeta,
@@ -11,6 +8,7 @@ import {
   waiveTwin,
 } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
+import { checkTwinParity, openBackportTwin, refreshTwinGitState } from "./backport-git-ops.js";
 import { withProject } from "./project.js";
 
 function emit(result: { exitCode: number; stdout: string }): void {

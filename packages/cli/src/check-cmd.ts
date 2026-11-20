@@ -3,11 +3,11 @@ import {
   buildContext,
   formatBackportPlanningLines,
   parseTasksBackportHints,
-  refreshTwinGitState,
   resolveChangeId,
   saveChangeMeta,
   tasksMissingTwinPr,
 } from "@structured-vibe-coding/core";
+import { refreshTwinGitState } from "./backport-git-ops.js";
 import { defineCommand } from "citty";
 import { withProject } from "./project.js";
 

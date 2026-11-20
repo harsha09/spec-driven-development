@@ -1,9 +1,7 @@
-import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkTwinParity, openBackportTwin } from "../backport-git.js";
 import {
   assertSafeGitRef,
   backportCompletionErrors,
@@ -172,47 +170,4 @@ describe("twinBranchName", () => {
   it("sanitizes slashes in release branch names", () => {
     expect(twinBranchName("fix/demo", "release/1.0.0")).toBe("fix/demo-twin-release-1.0.0");
   });
-});
-
-describe("openBackportTwin integration", () => {
-  function git(cwd: string, args: string[]): void {
-    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
-    if (result.status !== 0) {
-      throw new Error(result.stderr || result.stdout || args.join(" "));
-    }
-  }
-
-  it("cherry-picks main commits without rebase and checks parity", async () => {
-    const root = await mkdtemp(join(tmpdir(), "sdd-backport-git-"));
-    temps.push(root);
-    git(root, ["init", "-b", "main"]);
-    git(root, ["config", "user.email", "sdd@example.com"]);
-    git(root, ["config", "user.name", "sdd"]);
-    await writeFile(join(root, "README.md"), "main\n");
-    git(root, ["add", "README.md"]);
-    git(root, ["commit", "-m", "init"]);
-    git(root, ["branch", "release/1.0"]);
-    git(root, ["switch", "-c", "fix/demo"]);
-    await writeFile(join(root, "README.md"), "fixed\n");
-    git(root, ["add", "README.md"]);
-    git(root, ["commit", "-m", "fix"]);
-    git(root, ["switch", "fix/demo"]);
-
-    const opened = await openBackportTwin({
-      projectRoot: root,
-      meta: meta(),
-      target: "release/1.0",
-      dryPr: true,
-    });
-    expect(opened.commitsCherryPicked).toBe(1);
-    expect(opened.branch).toBe("fix/demo-twin-release-1.0");
-
-    const { result } = await checkTwinParity(root, opened.meta, "release/1.0");
-    expect(result.ok).toBe(true);
-
-    git(root, ["switch", "release/1.0"]);
-    git(root, ["merge", "--no-ff", opened.branch, "-m", "merge twin"]);
-    opened.meta.backports![0]!.merged = true;
-    expect(backportCompletionErrors(opened.meta)).toEqual([]);
-  }, 20_000);
 });
