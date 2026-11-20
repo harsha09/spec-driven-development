@@ -19,6 +19,12 @@ export function assertSafeGitRef(ref: string): void {
   }
 }
 
+/** Validated ref for argv after `--end-of-options` (CodeQL + git injection safe). */
+export function safeGitRef(ref: string): string {
+  assertSafeGitRef(ref);
+  return ref;
+}
+
 export function assertSafeGitRevRange(range: string): void {
   if (!range || range.startsWith("-")) {
     throw new Error(`Unsafe git rev range: ${range}`);
@@ -29,6 +35,11 @@ export function assertSafeGitRevRange(range: string): void {
   }
   assertSafeGitRef(parts[0]!);
   assertSafeGitRef(parts[1]!);
+}
+
+export function safeGitRevRange(range: string): string {
+  assertSafeGitRevRange(range);
+  return range;
 }
 
 export function assertSafeGitRemote(name: string): void {

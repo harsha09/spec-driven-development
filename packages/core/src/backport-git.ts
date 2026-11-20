@@ -6,64 +6,22 @@ import {
   type BackportParityResult,
   type GitRunner,
   allowedDifferencePaths,
-  assertSafeGitRef,
   assertSafeGitRemote,
-  assertSafeGitRevRange,
   compareTwinPatches,
   findTwin,
   resolveBackportTargets,
+  safeGitRef,
+  safeGitRevRange,
   twinBranchName,
 } from "./backport.js";
 import type { ChangeMeta } from "./schemas.js";
 import { nowIso } from "./slug.js";
 
-const GIT_LITERAL_ARGS = new Set([
-  "HEAD",
-  "merge-base",
-  "rev-parse",
-  "diff",
-  "branch",
-  "show-ref",
-  "switch",
-  "cherry-pick",
-  "rev-list",
-  "push",
-  "verify",
-  "quiet",
-  "abort",
-  "merged",
-  "reverse",
-  "origin",
-  "show-ref",
-]);
+type GitExit = { exitCode: number; stdout: string; stderr: string; missing: boolean };
 
-function guardGitArgs(args: string[]): void {
-  for (const arg of args) {
-    if (arg.startsWith("-")) continue;
-    if (GIT_LITERAL_ARGS.has(arg)) continue;
-    if (arg.startsWith("refs/heads/")) {
-      assertSafeGitRef(arg.slice("refs/heads/".length));
-      continue;
-    }
-    if (arg.includes("..")) {
-      assertSafeGitRevRange(arg);
-      continue;
-    }
-    if (/^[0-9a-f]{40}$/i.test(arg) || /^[0-9a-f]{64}$/i.test(arg)) continue;
-    if (arg === "origin") {
-      assertSafeGitRemote(arg);
-      continue;
-    }
-    if (arg.includes("/") || /^[A-Za-z0-9]/.test(arg)) {
-      assertSafeGitRef(arg);
-    }
-  }
-}
-
-export const defaultGitRunner: GitRunner = (cwd, args) =>
-  new Promise((resolve) => {
-    guardGitArgs(args);
-    const child = spawn("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+function runGit(cwd: string, argv: readonly string[]): Promise<GitExit> {
+  return new Promise((resolve) => {
+    const child = spawn("git", argv as string[], { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -79,6 +37,9 @@ export const defaultGitRunner: GitRunner = (cwd, args) =>
       resolve({ exitCode: code ?? 1, stdout, stderr, missing: false });
     });
   });
+}
+
+export const defaultGitRunner: GitRunner = (cwd, args) => runGit(cwd, args);
 
 async function mergeBase(
   cwd: string,
@@ -86,14 +47,20 @@ async function mergeBase(
   right: string,
   run: GitRunner,
 ): Promise<string | null> {
-  const result = await run(cwd, ["merge-base", left, right]);
+  const result = await run(cwd, [
+    "merge-base",
+    "--end-of-options",
+    safeGitRef(left),
+    safeGitRef(right),
+  ]);
   if (result.exitCode !== 0) return null;
   const sha = result.stdout.trim();
   return sha.length ? sha : null;
 }
 
 async function diffRange(cwd: string, base: string, head: string, run: GitRunner): Promise<string> {
-  const result = await run(cwd, ["diff", `${base}..${head}`]);
+  const range = safeGitRevRange(`${safeGitRef(base)}..${safeGitRef(head)}`);
+  const result = await run(cwd, ["diff", "--end-of-options", range]);
   if (result.exitCode !== 0) return "";
   return result.stdout;
 }
@@ -104,7 +71,7 @@ async function branchMergedInto(
   target: string,
   run: GitRunner,
 ): Promise<boolean> {
-  const result = await run(cwd, ["branch", "--merged", target]);
+  const result = await run(cwd, ["branch", "--merged", "--end-of-options", safeGitRef(target)]);
   if (result.exitCode !== 0) return false;
   const names = result.stdout
     .split(/\r?\n/)
@@ -120,7 +87,12 @@ export async function refreshTwinGitState(
 ): Promise<ChangeMeta> {
   if (!meta.branch) return meta;
   for (const record of meta.backports ?? []) {
-    const head = await run(projectRoot, ["rev-parse", "--verify", record.branch]);
+    const head = await run(projectRoot, [
+      "rev-parse",
+      "--verify",
+      "--end-of-options",
+      safeGitRef(record.branch),
+    ]);
     if (head.exitCode === 0) {
       record.head_sha = head.stdout.trim();
     }
@@ -187,45 +159,63 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
     );
   }
 
-  const verifyTarget = await run(projectRoot, ["rev-parse", "--verify", "--quiet", target]);
+  const safeTarget = safeGitRef(target);
+  const safeMain = safeGitRef(meta.branch);
+
+  const verifyTarget = await run(projectRoot, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    "--end-of-options",
+    safeTarget,
+  ]);
   if (verifyTarget.exitCode !== 0) {
     throw new Error(`Backport target ref ${target} was not found.`);
   }
 
   const twinName = twinBranchName(meta.branch, target);
+  const safeTwin = safeGitRef(twinName);
   const existing = await run(projectRoot, [
     "show-ref",
     "--verify",
     "--quiet",
-    `refs/heads/${twinName}`,
+    "--end-of-options",
+    `refs/heads/${safeTwin}`,
   ]);
   if (existing.exitCode === 0) {
     throw new Error(`Branch ${twinName} already exists.`);
   }
 
-  const created = await run(projectRoot, ["switch", "-c", twinName, target]);
+  const created = await run(projectRoot, [
+    "switch",
+    "-c",
+    safeTwin,
+    "--end-of-options",
+    safeTarget,
+  ]);
   if (created.exitCode !== 0) {
     throw new Error(created.stderr.trim() || "Twin branch was not created.");
   }
 
-  const list = await run(projectRoot, ["rev-list", "--reverse", `${target}..${meta.branch}`]);
+  const range = safeGitRevRange(`${safeTarget}..${safeMain}`);
+  const list = await run(projectRoot, ["rev-list", "--reverse", "--end-of-options", range]);
   const commits = list.stdout
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
   for (const sha of commits) {
-    assertSafeGitRef(sha);
-    const picked = await run(projectRoot, ["cherry-pick", "--", sha]);
+    const safeSha = safeGitRef(sha);
+    const picked = await run(projectRoot, ["cherry-pick", "--", safeSha]);
     if (picked.exitCode !== 0) {
       await run(projectRoot, ["cherry-pick", "--abort"]);
-      await run(projectRoot, ["switch", meta.branch]);
+      await run(projectRoot, ["switch", "--end-of-options", safeMain]);
       throw new Error(picked.stderr.trim() || `Cherry-pick failed at ${sha}.`);
     }
   }
 
-  const head = await run(projectRoot, ["rev-parse", "HEAD"]);
+  const head = await run(projectRoot, ["rev-parse", "--end-of-options", "HEAD"]);
   const base = await mergeBase(projectRoot, twinName, target, run);
-  const back = await run(projectRoot, ["switch", meta.branch]);
+  const back = await run(projectRoot, ["switch", "--end-of-options", safeMain]);
   if (back.exitCode !== 0) {
     throw new Error("Could not switch back to the main change branch.");
   }
@@ -241,7 +231,8 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
 
   let prUrl: string | undefined;
   if (!opts.dryPr) {
-    const pushed = await run(projectRoot, ["push", "-u", "origin", twinName]);
+    assertSafeGitRemote("origin");
+    const pushed = await run(projectRoot, ["push", "-u", "origin", "--end-of-options", safeTwin]);
     if (pushed.exitCode === 0) {
       const bodyLines = [
         `Twin backport for change ${meta.id}`,
@@ -256,9 +247,9 @@ export async function openBackportTwin(opts: OpenTwinOptions): Promise<OpenTwinR
           "pr",
           "create",
           "--base",
-          target,
+          safeTarget,
           "--head",
-          twinName,
+          safeTwin,
           "--title",
           `[backport ${target}] ${meta.title}`,
           "--body-file",

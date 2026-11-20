@@ -88,6 +88,8 @@ export {
   formatBackportStatusLines,
   parseTasksBackportHints,
   resolveBackportTargets,
+  safeGitRef,
+  safeGitRevRange,
   splitUnifiedDiff,
   tasksMissingTwinPr,
   twinBranchName,
