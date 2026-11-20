@@ -98,6 +98,29 @@ export async function loadGeneratedManifest(path: string): Promise<GeneratedMani
   }
 }
 
+export function generatedManifestPath(projectRoot: string): string {
+  return join(projectRoot, ".sdd", ".generated.json");
+}
+
+/** Record content hashes for paths sdd wrote without walking the tree again. */
+export async function recordManifestFiles(
+  projectRoot: string,
+  records: { path: string; content: string }[],
+): Promise<void> {
+  if (records.length === 0) return;
+  const manifestPath = generatedManifestPath(projectRoot);
+  const manifest = await loadGeneratedManifest(manifestPath);
+  let changed = false;
+  for (const { path, content } of records) {
+    const hash = contentHash(content);
+    if (manifest.files[path] !== hash) {
+      manifest.files[path] = hash;
+      changed = true;
+    }
+  }
+  if (changed) await saveGeneratedManifest(manifestPath, manifest);
+}
+
 export async function saveGeneratedManifest(
   path: string,
   manifest: GeneratedManifest,
