@@ -24,6 +24,8 @@ export const TeamSchema = z
     bots: z.array(botSchema).min(1),
     humans: z.array(humanSchema).default([]),
     role_wip: z.record(z.string().trim().min(1), z.number().int().positive()).optional(),
+    /** Gap check limit for workflows that set none. A project from this template keeps it. */
+    clarify: z.strictObject({ max_questions: z.number().int().min(0).max(5) }).optional(),
     limits: z
       .strictObject({
         loop_max_steps: z.number().int().positive().optional(),

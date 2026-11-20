@@ -53,13 +53,23 @@ function headed(headings: string[], sentence: string) {
   };
 }
 
-function model(replies: unknown[] = []): { model: RoleModel; prompts: string[] } {
+function model(
+  replies: unknown[] = [],
+  gaps: unknown[] = [],
+): { model: RoleModel; prompts: string[]; gapPrompts: string[] } {
   const pending = replies.slice();
+  const pendingGaps = gaps.slice();
   const prompts: string[] = [];
+  const gapPrompts: string[] = [];
   return {
     prompts,
+    gapPrompts,
     model: {
       async complete(input) {
+        if (input.prompt.includes("You check one request for gaps.")) {
+          gapPrompts.push(input.prompt);
+          return JSON.stringify(pendingGaps.shift() ?? { questions: [] });
+        }
         prompts.push(input.prompt);
         const next = pending.shift() ?? { text: DRAFT };
         return typeof next === "string" ? next : JSON.stringify(next);
@@ -107,7 +117,7 @@ describe("prepareGuide", () => {
 });
 
 describe("runGuide", () => {
-  it("asks one question at a time, then hands the next stage to the next role", async () => {
+  it("drafts the request, then skips clarify with a reason when the request is clear", async () => {
     const root = await emptyDir();
     const fake = model([headed(FEATURE, DRAFT)]);
     const first = await runGuide(root, {
@@ -118,29 +128,13 @@ describe("runGuide", () => {
       now: () => new Date("2026-10-29T00:00:00.000Z"),
     });
     expect(first.exitCode).toBe(0);
-    expect(first.stdout.startsWith("Question:")).toBe(true);
-    expect(first.stdout).toContain("planner asks:\nWho is this for?");
-    expect(fake.prompts).toHaveLength(0);
-
-    const second = await runGuide(root, {
-      answer: "people tracking expenses",
-      model: fake.model,
-      now: () => new Date("2026-10-29T00:00:01.000Z"),
-    });
-    expect(second.stdout).toContain("How will you know it worked?");
-
-    const third = await runGuide(root, {
-      answer: "an empty list shows a message",
-      model: fake.model,
-      now: () => new Date("2026-10-29T00:00:02.000Z"),
-    });
-    expect(third.stdout).toContain("Skipped clarify_intent.");
-    expect(third.stdout).toContain("Skipped brainstorm.");
-    expect(third.stdout).toContain("Handoff: planner to architect.");
-    expect(third.stdout).toContain("Which module owns this change?");
-    expect(fake.prompts).toHaveLength(1);
+    expect(first.stdout.startsWith("Question:")).toBe(false);
+    expect(first.stdout).toContain("Skipped clarify_intent: no gaps found.");
+    expect(first.stdout).toContain("Skipped brainstorm.");
+    expect(first.stdout).toContain("Handoff: planner to architect.");
+    expect(fake.gapPrompts).toHaveLength(1);
+    expect(fake.prompts).toHaveLength(2);
     expect(fake.prompts[0]).toContain("Stay inside this role.");
-    expect(fake.prompts[0]).toContain("people tracking expenses");
     expect(fake.prompts[0]).toContain("Non-goals");
     expect(fake.prompts[0]).not.toContain("Produce a concrete design");
     const changeDirs = await readFile(join(root, "changes/.active"), "utf8");
@@ -149,18 +143,28 @@ describe("runGuide", () => {
     expect(drafted).toContain(DRAFT);
   });
 
-  it("waits when the role asks one more question", async () => {
+  it("does not print an ask_human_when condition as a question", async () => {
     const root = await emptyDir();
-    const fake = model([{ text: "Question: Which list is empty?" }]);
-    await runGuide(root, {
+    const fake = model([headed(FEATURE, DRAFT)]);
+    const result = await runGuide(root, {
       title: "Build an empty state",
       workflow: "feature",
       agents: false,
       model: fake.model,
     });
-    await runGuide(root, { answer: "people tracking expenses", model: fake.model });
+    expect(result.stdout).not.toContain("Who is this for?");
+    expect(result.stdout).not.toContain("How will you know it worked?");
+    expect(fake.gapPrompts[0]).toContain("Who is this for?");
+    expect(fake.gapPrompts[0]).toContain("Each entry in Triggers is a condition.");
+  });
+
+  it("waits when the role asks one more question", async () => {
+    const root = await emptyDir();
+    const fake = model([{ text: "Question: Which list is empty?" }]);
     const asked = await runGuide(root, {
-      answer: "an empty list shows a message",
+      title: "Build an empty state",
+      workflow: "feature",
+      agents: false,
       model: fake.model,
     });
     expect(asked.stdout).toContain("Which list is empty?");
@@ -177,16 +181,10 @@ describe("runGuide", () => {
       headed(TASKS, TASKS_SENTENCE),
       headed(PLAN, PLAN_SENTENCE),
     ]);
-    await runGuide(root, {
+    const done = await runGuide(root, {
       title: "Build an empty state",
       workflow: "feature",
       agents: false,
-      model: fake.model,
-    });
-    await runGuide(root, { answer: "people tracking expenses", model: fake.model });
-    await runGuide(root, { answer: "an empty list shows a message", model: fake.model });
-    const done = await runGuide(root, {
-      answer: "the list module",
       model: fake.model,
     });
     expect(done.exitCode).toBe(0);
@@ -237,15 +235,10 @@ describe("runGuide", () => {
       DRAFT,
     );
     const fake = model([incomplete]);
-    await runGuide(root, {
+    const stopped = await runGuide(root, {
       title: "Build an empty state",
       workflow: "feature",
       agents: false,
-      model: fake.model,
-    });
-    await runGuide(root, { answer: "people tracking expenses", model: fake.model });
-    const stopped = await runGuide(root, {
-      answer: "an empty list shows a message",
       model: fake.model,
     });
     expect(stopped.stdout.startsWith("Stopped.")).toBe(true);
@@ -259,21 +252,24 @@ describe("runGuide", () => {
     /** Runs the feature stage up to its draft call, with these model replies. */
     async function draftWith(replies: unknown[]) {
       const root = await emptyDir();
-      const fake = model(replies);
-      await runGuide(root, {
+      const fake = model([
+        ...replies,
+        { kind: "question", text: "Which module owns this change?" },
+      ]);
+      const result = await runGuide(root, {
         title: "Build an empty state",
         workflow: "feature",
         agents: false,
         model: fake.model,
       });
-      await runGuide(root, { answer: "people tracking expenses", model: fake.model });
-      const result = await runGuide(root, {
-        answer: "an empty list shows a message",
-        model: fake.model,
-      });
       const changeId = (await readFile(join(root, "changes/.active"), "utf8")).trim();
       const file = join(root, "changes", changeId, "feature.md");
-      return { root, fake, result, file };
+      // The run goes on to later stages. These tests look at the intent stage only.
+      const intent = {
+        ...fake,
+        prompts: fake.prompts.filter((prompt) => prompt.includes("Stage: intent")),
+      };
+      return { root, fake: intent, result, file };
     }
 
     const unknown = {
@@ -320,15 +316,10 @@ describe("runGuide", () => {
           throw new Error("offline");
         },
       };
-      await runGuide(root, {
+      const result = await runGuide(root, {
         title: "Build an empty state",
         workflow: "feature",
         agents: false,
-        model: broken,
-      });
-      await runGuide(root, { answer: "people tracking expenses", model: broken });
-      const result = await runGuide(root, {
-        answer: "an empty list shows a message",
         model: broken,
       });
       expect(calls).toBe(1);

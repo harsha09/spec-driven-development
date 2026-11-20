@@ -240,6 +240,9 @@ stages:
       ],
       gates: {},
       verify_results: {},
+      backport_targets: [],
+      backport_allowed_differences: [],
+      backports: [],
     } satisfies ChangeMeta;
     expect(nextStageId(wf, meta)).toBe("tasks");
   });

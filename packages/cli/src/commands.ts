@@ -12,6 +12,7 @@ import {
   countOutdated,
   createChange,
   describeKept,
+  formatBackportPlanningLines,
   formatGateStatus,
   formatJsonSummary,
   formatStatus,
@@ -52,6 +53,7 @@ import {
   startGreenfield,
   storyIdTaken,
   switchWorkflow,
+  unconfirmedClarifyLine,
   writeAgentHandoff,
   writeRefineBrief,
 } from "@structured-vibe-coding/core";
@@ -61,6 +63,7 @@ import {
 import { defineCommand } from "citty";
 import { consola } from "consola";
 import pc from "picocolors";
+import { backportCmd } from "./backport-cmd.js";
 import { checkCmd } from "./check-cmd.js";
 import { decisionCmd } from "./decision-cmd.js";
 import { factCmd } from "./fact-cmd.js";
@@ -362,6 +365,8 @@ const status = defineCommand({
       const id = await resolveChangeId(root, config, args.change);
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
+      const planning = await formatBackportPlanningLines(ctx);
+      if (planning.length) consola.log(planning.join("\n"));
       const metrics = await readChangeMetrics(root, config, id);
       if (metrics.phases.length) {
         consola.log(pc.bold("Phase times (local):"));
@@ -560,6 +565,8 @@ const gate = defineCommand({
         consola.success(`Gate ${past[action]} on ${stageId}`);
       }
       consola.log(formatStatus(ctx));
+      const unconfirmed = await unconfirmedClarifyLine(ctx.path);
+      if (unconfirmed) consola.warn(unconfirmed);
       consola.log("");
       const launch = await launchConfiguredAgent({
         projectRoot: root,
@@ -1794,6 +1801,8 @@ async function runGo(
   input: {
     title?: string;
     answer?: string;
+    acceptDefault?: boolean;
+    noClarify?: boolean;
     workflow?: string;
     agents: false | Awaited<ReturnType<typeof selectIntegration>>;
     interactive: boolean;
@@ -1801,10 +1810,13 @@ async function runGo(
 ): Promise<void> {
   let title = input.title;
   let answer = input.answer;
+  let acceptDefault = input.acceptDefault;
   for (;;) {
     const result = await runGuide(root, {
       title,
       answer,
+      acceptDefault,
+      noClarify: input.noClarify,
       workflow: input.workflow,
       agents: input.agents,
       model: modelFromEnv(process.env),
@@ -1812,13 +1824,18 @@ async function runGo(
     writeGuide(result);
     if (result.exitCode !== 0) process.exit(result.exitCode);
     if (!input.interactive || !result.stdout.startsWith("Question:")) return;
-    const picked = await consola.prompt("Answer:", { type: "text" });
-    if (typeof picked !== "string" || !picked.trim()) {
+    const hasDefault = result.stdout.includes("\nDefault: ");
+    const picked = await consola.prompt(
+      hasDefault ? "Answer (Enter accepts the default):" : "Answer:",
+      { type: "text" },
+    );
+    if (typeof picked !== "string" || (!picked.trim() && !hasDefault)) {
       process.stdout.write("Stopped.\n");
       return;
     }
     title = undefined;
-    answer = picked.trim();
+    answer = picked.trim() || undefined;
+    acceptDefault = answer === undefined;
   }
 }
 
@@ -1830,6 +1847,16 @@ const go = defineCommand({
   args: {
     title: { type: "positional", description: "What you want to build", required: false },
     answer: { type: "string", description: "Answer the question the current role asked" },
+    "accept-default": {
+      type: "boolean",
+      description: "Accept the proposed default of the question that is waiting",
+      default: false,
+    },
+    "no-clarify": {
+      type: "boolean",
+      description: "Skip the gap check for this run. The skip is recorded",
+      default: false,
+    },
     workflow: {
       type: "string",
       description: "Workflow for a new change. Default feature",
@@ -1858,6 +1885,8 @@ const go = defineCommand({
       await runGo(root, {
         title,
         answer: guideText(args.answer),
+        acceptDefault: args["accept-default"] === true,
+        noClarify: args["no-clarify"] === true || (args as { clarify?: unknown }).clarify === false,
         workflow,
         agents,
         interactive,
@@ -1894,11 +1923,12 @@ export const commands = {
   team: teamCmd,
   fact: factCmd,
   decision: decisionCmd,
-  check: checkCmd,
   models: modelsCmd,
   graph: graphCmd,
   branch: branchCmd,
   pr: prCmd,
+  backport: backportCmd,
+  check: checkCmd,
   checkout: useChange,
   context: contextCmd,
   search: searchCmd,

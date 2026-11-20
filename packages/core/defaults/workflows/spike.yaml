@@ -5,6 +5,9 @@ recommendation:
   priority: 8
   when:
     keywords: [spike, explore, prototype, poc, research]
+clarify:
+  max_questions: 3
+
 stages:
   - id: intent
     title: Spike intent

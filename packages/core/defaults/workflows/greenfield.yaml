@@ -8,6 +8,9 @@ recommendation:
   when:
     keywords: [greenfield, product, mvp, startup, new app, from scratch, build an app]
     min_complexity: medium
+clarify:
+  max_questions: 5
+
 stages:
   - id: vision
     title: Product vision
