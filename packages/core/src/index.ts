@@ -79,3 +79,20 @@ export * from "./role/index.js";
 export * from "./sandbox/profile.js";
 export * from "./sandbox/record.js";
 export * from "./stories.js";
+export {
+  addDecision,
+  checkDecisionReferences,
+  extractDecisionRefs,
+  formatDecisionRecord,
+  isValidDecisionId,
+  listDecisionIds,
+  listDecisions,
+  loadDecisionRecord,
+  resolveDecisionRefsInText,
+  runDecisionCheck,
+  showDecision,
+  showDecisionResolved,
+  DecisionHistoryEntrySchema,
+  DecisionRecordSchema,
+} from "./decisions.js";
+export type { DecisionCheckResult, DecisionHistoryEntry, DecisionRecord } from "./decisions.js";
