@@ -5,7 +5,7 @@ import { defaultTeamsDir } from "../defaults.js";
 import { listDirs, listFiles, pathExists, readText, writeText } from "../fs.js";
 import { recordManifestFiles } from "../generated.js";
 import { checkModels } from "./models/schema.js";
-import { createRole, parseRoleDocument, roleFilePath } from "./profile.js";
+import { canonicalRoleName, createRole, parseRoleDocument, roleFilePath } from "./profile.js";
 import { type TeamConfig, TeamSchema, formatTeamError } from "./schema.js";
 import type { RoleCommandResult } from "./types.js";
 
@@ -284,8 +284,13 @@ export async function createRoleFromTemplate(
     goals: parsed.goals,
   });
   if (created.exitCode !== 0) return created;
-  await recordManifestFiles(root, [
-    { path: `.sdd/roles/${input.name.trim()}.md`, content: resolved.raw },
-  ]);
+  // Record the file that was written. createRole renders its own document, so the template text
+  // would never match it and a fresh role would show as customized.
+  const name = canonicalRoleName(input.name);
+  if (name) {
+    await recordManifestFiles(root, [
+      { path: `.sdd/roles/${name}.md`, content: await readText(roleFilePath(root, name)) },
+    ]);
+  }
   return created;
 }

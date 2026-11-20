@@ -6,6 +6,7 @@ import {
   classifyGeneratedFile,
   collectTemplateStatus,
   contentHash,
+  createRoleFromTemplate,
   defaultTemplatesDir,
   initProject,
   loadGeneratedManifest,
@@ -101,6 +102,25 @@ describe("collectTemplateStatus", () => {
     const row = report.files.find((f) => f.path === ".sdd/roles/custom.md");
     expect(row?.state).toBe("unknown");
     expect(row?.kind).toBe("role");
+  });
+
+  it("reports stock for a role created from a template, and customized once it is edited", async () => {
+    const root = await freshProject();
+    const created = await createRoleFromTemplate(root, {
+      name: "checker",
+      template: "software/qa",
+      label: "Checker",
+    });
+    expect(created.exitCode).toBe(0);
+    const path = ".sdd/roles/checker.md";
+    const manifest = await loadGeneratedManifest(join(root, ".sdd/.generated.json"));
+    expect(manifest.files[path]).toBe(contentHash(await readFile(join(root, path), "utf8")));
+    const fresh = await collectTemplateStatus(root);
+    expect(fresh.files.find((f) => f.path === path)?.state).toBe("stock");
+
+    await writeFile(join(root, path), `${await readFile(join(root, path), "utf8")}\n- edited\n`);
+    const edited = await collectTemplateStatus(root);
+    expect(edited.files.find((f) => f.path === path)?.state).toBe("customized");
   });
 
   it("prints stable JSON field order", async () => {
