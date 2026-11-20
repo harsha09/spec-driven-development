@@ -171,6 +171,19 @@ gate:
 
 `items_from: tasks/T-*.md` writes one row to `items.yaml` for each matching file when that stage starts. The row id is the file name without its extension. A later sync keeps `done` on the same id. `team-software` sets this on implement, and the plan stage writes `tasks/T-001.md`. Every `team-software` stage is a hard gate whose approver is `human`, so `sdd next` waits for `sdd team signoff` on that commit. Merge stays a person action after `po_signoff`.
 
+## Merge gates
+
+`required_gates` lists the verdicts `sdd merge` demands for this change type. Each name needs a fresh `pass` or `pass-with-notes` on the current commit. A workflow that omits the list has no merge gates.
+
+```yaml
+required_gates:
+  - review
+  - qa
+  - domain
+```
+
+`sdd gate record` stores the verdict, the reviewer, the exact commit SHA, the time, and evidence links. `sdd gate status` marks a verdict stale when HEAD is no longer that SHA. `sdd merge` then refuses. See [CLI reference](./cli).
+
 ## Per-change controls
 
 ```bash

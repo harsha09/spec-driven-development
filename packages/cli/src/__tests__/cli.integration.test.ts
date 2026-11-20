@@ -1162,6 +1162,123 @@ stages:
     expect(JSON.parse(stored).requests).toHaveLength(1);
   });
 
+  it("pins gate verdicts to the head SHA and blocks a stale merge", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-gates-"));
+    temps.push(root);
+    const head = "a".repeat(40);
+    const next = "b".repeat(40);
+    const headFile = join(root, "head-sha");
+    const ghLog = join(root, "gh-args");
+    const fakeBin = join(root, "fake-bin");
+    await mkdir(fakeBin);
+    await writeFile(
+      join(fakeBin, "git"),
+      '#!/bin/sh\nif [ "$1" = "rev-parse" ]; then\n  cat "$SDD_HEAD_FILE"\n  exit 0\nfi\necho unexpected >&2\nexit 1\n',
+      "utf8",
+    );
+    await writeFile(
+      join(fakeBin, "gh"),
+      "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$SDD_GH_LOG\"\nprintf 'merged\\n'\nexit 0\n",
+      "utf8",
+    );
+    await chmod(join(fakeBin, "git"), 0o755);
+    await chmod(join(fakeBin, "gh"), 0o755);
+    await writeFile(headFile, `${head}\n`, "utf8");
+    const env = {
+      PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
+      SDD_HEAD_FILE: headFile,
+      SDD_GH_LOG: ghLog,
+    };
+
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    await writeFile(
+      join(root, ".sdd/workflows/gated.yaml"),
+      [
+        "name: gated",
+        "version: 1",
+        "stages:",
+        "  - id: intent",
+        "    gate:",
+        "      type: none",
+        "required_gates:",
+        "  - review",
+        "  - qa",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const created = runSdd(root, ["new", "Pin the gates", "-w", "gated", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    await mkdir(join(root, ".git"));
+    const changeId = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+
+    const missingSha = runSdd(
+      root,
+      [
+        "gate",
+        "record",
+        "review",
+        "--verdict",
+        "pass",
+        "--reviewer",
+        "Ada Lovelace",
+        "--evidence",
+        "evidence/qa.log",
+      ],
+      env,
+    );
+    expect(missingSha.status, missingSha.stderr + missingSha.stdout).toBe(1);
+    expect(missingSha.stderr + missingSha.stdout).toContain("A pass verdict needs the commit SHA.");
+
+    const record = (gate: string) =>
+      runSdd(
+        root,
+        [
+          "gate",
+          "record",
+          gate,
+          "--verdict",
+          "pass",
+          "--reviewer",
+          "Ada Lovelace",
+          "--sha",
+          head,
+          "--evidence",
+          "evidence/qa.log",
+        ],
+        env,
+      );
+    expect(record("review").status).toBe(0);
+    expect(record("qa").status).toBe(0);
+    const fresh = runSdd(root, ["gate", "status", changeId], env);
+    expect(fresh.status, fresh.stderr + fresh.stdout).toBe(0);
+    expect(fresh.stdout).toContain(`review fresh pass ${head}`);
+    expect(fresh.stdout).toContain("ready");
+    expect(fresh.stdout).not.toContain(root);
+
+    await writeFile(headFile, `${next}\n`, "utf8");
+    const stale = runSdd(root, ["gate", "status"], env);
+    expect(stale.status, stale.stderr + stale.stdout).toBe(1);
+    expect(stale.stdout).toContain(`review stale pass ${head}`);
+    expect(stale.stdout).toContain(`qa stale pass ${head}`);
+    const blocked = runSdd(root, ["merge", "--check"], env);
+    expect(blocked.status, blocked.stderr + blocked.stdout).toBe(1);
+    expect(blocked.stdout).toContain("Merge blocked: review stale, qa stale.");
+    expect(await exists(ghLog)).toBe(false);
+
+    await writeFile(headFile, `${head}\n`, "utf8");
+    const metaPath = join(root, "changes", changeId, "meta.yaml");
+    await writeFile(
+      metaPath,
+      `${await readFile(metaPath, "utf8")}pr:\n  number: 12\n  url: https://example.com/pull/12\n`,
+      "utf8",
+    );
+    const merged = runSdd(root, ["merge"], env);
+    expect(merged.status, merged.stderr + merged.stdout).toBe(0);
+    expect(merged.stdout).toContain("merged");
+    expect(await readFile(ghLog, "utf8")).toContain(`pr merge 12 --match-head-commit ${head}`);
+  });
+
   describe("sdd go gap check", () => {
     async function gapModel(): Promise<string> {
       const dir = await mkdtemp(join(tmpdir(), "sdd-cli-gap-model-"));
