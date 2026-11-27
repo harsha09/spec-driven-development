@@ -11,7 +11,7 @@ Shipped under `.sdd/workflows/` after `sdd init` (from package defaults). List a
 sdd workflows
 ```
 
-The same command prints a cl100k token count for each workflow file and for each artifact template. When a change is active, it also counts that change's artifact files. It does not print a dollar cost.
+The list is the id, a one-line description, and the stage count. Hotfix is a tiny fix, patch is a small bug, and feature is a normal change. `sdd workflows --tokens` prints a cl100k token count for each workflow file and for each artifact template. When a change is active, it also counts that change's artifact files. It does not print a dollar cost.
 
 A project initialized by an older `sdd` may be missing packs this CLI ships. `sdd workflows` names those under `Not copied yet`. Copy them with `sdd init --here --force`. That command leaves a file alone when its bytes differ from the bundled file. A file that still matches is recorded, so a later upgrade can refresh it.
 
@@ -183,6 +183,20 @@ required_gates:
 ```
 
 `sdd gate record` stores the verdict, the reviewer, the exact commit SHA, the time, and evidence links. `sdd gate status` marks a verdict stale when HEAD is no longer that SHA. `sdd merge` then refuses. See [CLI reference](./cli).
+
+## Verify commands
+
+`sdd verify` runs the current stage's `verify.commands`. Each entry is an object. `name` is the label printed for that command, `run` is the shell command, and `required: true` blocks leaving the stage until that command exits 0. A plain string is not an entry.
+
+```yaml
+verify:
+  commands:
+    - name: test
+      run: "npm test"
+      required: true
+```
+
+With `commands: []`, `sdd verify` says **NOT RUN** and exits 1. That means nothing was checked.
 
 ## Per-change controls
 

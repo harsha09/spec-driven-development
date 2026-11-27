@@ -6,7 +6,7 @@ import { type SearchRunOptions, openMcpSearchProvider } from "./mcp-provider.js"
 import { packHits } from "./pack.js";
 import { attachSummaries, readPackedCache, writePackedCache } from "./result-cache.js";
 import { mergeRankedHits } from "./rrf.js";
-import type { RawHit, SearchProvider, SearchQuery, SearchResult, SearchScope } from "./types.js";
+import type { RawHit, RequestedScope, SearchProvider, SearchQuery, SearchResult } from "./types.js";
 
 const extra = new Map<string, SearchProvider>();
 
@@ -169,7 +169,7 @@ export async function executeSearch(
   projectRoot: string,
   config: Config,
   query: string,
-  scope: SearchScope,
+  scope: RequestedScope,
   budget: number | undefined,
   run?: SearchRunOptions,
 ): Promise<SearchResult> {

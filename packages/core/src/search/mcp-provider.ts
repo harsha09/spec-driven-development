@@ -4,13 +4,14 @@ import type { McpSource } from "../mcp/types.js";
 import type { SearchConfig } from "./config.js";
 import { loadExcluder } from "./exclude.js";
 import { packHits, searchPreamble } from "./pack.js";
-import type {
-  IndexStats,
-  RawHit,
-  SearchProvider,
-  SearchQuery,
-  SearchResult,
-  SearchScope,
+import {
+  type IndexStats,
+  type RawHit,
+  SEARCH_SCOPES,
+  type SearchProvider,
+  type SearchQuery,
+  type SearchResult,
+  type SearchScope,
 } from "./types.js";
 
 export interface McpToolResult {
@@ -208,13 +209,20 @@ export function openMcpSearchProvider(input: {
     },
     async search(query: string, options: SearchQuery): Promise<SearchResult> {
       const session = await load();
-      const args = { query, scope: options.scope };
-      const result = await withTimeout(
-        session.call({ sourceId: session.sourceId, tool: session.tool, args }),
-        timeoutMs,
-      );
-      if (!result.ok) throw new McpSearchError();
-      const hits = parseHits(result.text, options.scope, session.exclude);
+      const scopes: SearchScope[] = options.scope === "all" ? [...SEARCH_SCOPES] : [options.scope];
+      const hits: RawHit[] = [];
+      for (const scope of scopes) {
+        const result = await withTimeout(
+          session.call({
+            sourceId: session.sourceId,
+            tool: session.tool,
+            args: { query, scope },
+          }),
+          timeoutMs,
+        );
+        if (!result.ok) throw new McpSearchError();
+        hits.push(...parseHits(result.text, scope, session.exclude));
+      }
       const preamble = searchPreamble(query, options.scope, options.budget, false, "mcp");
       const packed = packHits({ preamble, hits, budget: options.budget });
       return {

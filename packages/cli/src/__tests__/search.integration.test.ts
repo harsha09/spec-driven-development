@@ -89,7 +89,11 @@ describe("sdd search", () => {
 
     const scope = runSdd(root, ["search", "function", "--scope", "no"]);
     expect(scope.status).toBe(1);
-    expect(scope.stderr.trim()).toBe("Search scope must be code, specs, or memory.");
+    expect(scope.stderr.trim()).toBe(
+      'Search scope must be code, specs, memory, or all. Add --scope code|specs|memory, for example: sdd search "todo" --scope code',
+    );
+    expect(scope.stderr).toContain("--scope");
+    expect(scope.stderr).toContain('sdd search "todo" --scope code');
 
     const budget = runSdd(root, ["search", "function", "--scope", "code", "--budget", "0"]);
     expect(budget.status).toBe(1);
@@ -98,6 +102,26 @@ describe("sdd search", () => {
     const fraction = runSdd(root, ["search", "function", "--scope", "code", "--budget", "1.5"]);
     expect(fraction.status).toBe(1);
     expect(fraction.stderr.trim()).toBe("Budget must be a positive integer.");
+  });
+
+  it("searches every scope when --scope is omitted and documents the default (#184)", async () => {
+    const root = await project();
+    const result = runSdd(root, ["search", "function"]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Scope: all");
+    expect(result.stdout).toContain("`src/budget.ts`");
+    expect(result.stderr).not.toContain("Search scope must be");
+
+    const explicit = runSdd(root, ["search", "function", "--scope", "all", "--budget", "200"]);
+    expect(explicit.status, explicit.stderr).toBe(0);
+    expect(explicit.stdout).toContain("Scope: all");
+    expect(countTokens(explicit.stdout)).toBeLessThanOrEqual(200);
+
+    const help = runSdd(root, ["search", "--help"]);
+    const helpOut = help.stdout + help.stderr;
+    expect(help.status, helpOut).toBe(0);
+    expect(helpOut).toContain("default: all");
+    expect(helpOut).toContain('sdd search "todo" --scope code');
   });
 
   it("prints search.yaml is invalid and falls back when the provider name is unknown", async () => {

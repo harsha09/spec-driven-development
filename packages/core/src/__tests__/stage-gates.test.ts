@@ -68,4 +68,28 @@ describe("canLeaveStage", () => {
     const check = await canLeaveStage(ctx, config);
     expect(check.ok).toBe(true);
   });
+
+  it("names the checklist, the sign-off command, and that a soft gate can be ignored", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-gate-soft-"));
+    temps.push(root);
+    await initProject({ projectRoot: root, agents: false });
+    const config = await loadConfig(root);
+    const ctx0 = await createChange({
+      projectRoot: root,
+      config,
+      title: "Unsigned soft gate",
+      workflowName: "hotfix",
+    });
+    await writeFile(
+      join(ctx0.path, "intent.md"),
+      "# Intent\n\nFix crash on empty expenses list by showing empty state. Success: no null deref on open.\n",
+      "utf8",
+    );
+    const ctx = await buildContext(root, config, ctx0.id);
+    const check = await canLeaveStage(ctx, config);
+    expect(check.ok).toBe(true);
+    expect(check.warnings).toContain(
+      'Soft gate checklist not signed off on "intent". Checklist: Problem and expected fix are clear. Sign off with: sdd gate approve -s intent -n "<note>". This warning can be ignored.',
+    );
+  });
 });
