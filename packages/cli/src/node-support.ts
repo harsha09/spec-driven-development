@@ -38,14 +38,9 @@ export function nodeRecommendedWarning(): string {
   return `Node ${MINIMUM_NODE_MAJOR}–${RECOMMENDED_NODE_MAJOR - 1} works but isn't recommended; Node ${RECOMMENDED_NODE_MAJOR} is recommended`;
 }
 
-/** Help and other lines for this unreleased CLI. */
+/** Help, README, and the tutorial. Same floor as engines.node. */
 export function nodeRequirementPhrase(): string {
-  return nodeRecommendedWarning();
-}
-
-/** Marked line for docs that still describe the released CLI 0.24.0 check. */
-export function nodeNextReleaseNote(): string {
-  return `Next release, not in CLI 0.24.0: ${nodeRecommendedWarning()}. Doctor warns on that range and fails only below Node ${MINIMUM_NODE_MAJOR}. engines.node becomes \`${nodeEnginesRange()}\`. The test suite runs on Node ${MINIMUM_NODE_MAJOR}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`;
+  return `Node ${MINIMUM_NODE_MAJOR}+ (${RECOMMENDED_NODE_MAJOR} recommended)`;
 }
 
 export function nodeDoctorDetail(version: string): string {

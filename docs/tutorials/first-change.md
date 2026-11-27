@@ -10,10 +10,10 @@ You install `sdd`, start one simulated change, write a short note in the project
 | | |
 |--|--|
 | **Time** | About 10 minutes |
-| **You need** | CLI 0.24.0: Node.js 24+ and a folder for an app (or an empty folder). Next release: Node 20–23 works but isn't recommended; Node 24 is recommended. |
+| **You need** | Node 20+ (24 recommended) and a folder for an app (or an empty folder). |
 | **You will do** | `setup` → `new` → write `intent.md` → `next` → `next` → write a result note → `verify` → `complete` |
 | **Install** | [`@structured-vibe-coding/cli`](https://www.npmjs.com/package/@structured-vibe-coding/cli) |
-| **Checked with** | CLI **0.24.0** on Node.js **24.22.2**, source `9e96194ee002d434cb9f19f1e7109fad57343fc5` |
+| **Checked with** | CLI **0.25.0** |
 
 This tutorial uses `--no-agent` the whole way, so no AI window opens. One path only: the commands below. `sdd go`, other hosts, and a build from source can wait.
 
@@ -37,6 +37,12 @@ npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-
 
 Current npm skips dependency install scripts unless you allow them. Search needs `better-sqlite3`, and embeddings need `onnxruntime-node`. `sdd doctor` loads both modules. If either is missing or not built, doctor prints that install command and exits 1.
 
+On Linux x64, `onnxruntime-node` also downloads an optional GPU archive. That archive can return 404. The CPU build is already in the package, and a failed GPU download does not stop this install. If doctor still reports `onnxruntime-node` missing, reinstall the CPU build:
+
+```bash
+ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
 To allow the same scripts for later global installs, then install again:
 
 ```bash
@@ -46,7 +52,7 @@ npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 Or, on its own, the release this page was checked against:
 
 ```bash
-npm install -g @structured-vibe-coding/cli@0.24.0
+npm install -g @structured-vibe-coding/cli@0.25.0
 ```
 
 The first command is also how you upgrade. Then:
@@ -56,11 +62,9 @@ sdd --version
 npm view @structured-vibe-coding/cli version
 ```
 
-During the check, `sdd --version` and `npm view` both printed `0.24.0`. A later release can make `npm view` print a different version. The snippets below were captured from CLI 0.24.0. If a line on your machine differs, trust `sdd --version` and `sdd <command> --help`.
+`npm view @structured-vibe-coding/cli version` prints the current npm release. This page matches CLI **0.25.0**. If a line on your machine differs, trust `sdd --version` and `sdd <command> --help`.
 
-**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`, so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, and that line passed. Replace this paragraph when a released CLI changes the check.
-
-Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20. CI runs that suite on Node 20 and Node 24.
+Node 20+ (24 recommended). `engines.node` is `>=20`. `sdd doctor` fails below Node 20. On Node 20–23 it warns and does not fail. Node 24 prints the version and no extra requirement text. A Node 20.19.5 warning line is `v20.19.5 (WARN: Node 20–23 works but isn't recommended; Node 24 is recommended)`. This is not long-term support for Node 20.
 
 If `sdd` is not on your PATH, use `npx @structured-vibe-coding/cli` wherever this page says `sdd`.
 
@@ -112,7 +116,7 @@ After setup, the v24.22.2 check printed this. The first line is `sdd doctor ·` 
 ```text
 sdd doctor · /tmp/sdd-first-change-QpyZEN
 
-  ✓ Node.js  v24.22.2 (24+ required)
+  ✓ Node.js  v24.22.2
   ✓ SDD init  .sdd/config.yaml found
   i AI host  none (no-agent setup; optional: sdd agents install --ai copilot)
   ✓ Active change  none — run: sdd new "My first change"
@@ -377,7 +381,7 @@ That line means there is no in-progress change. It is not the success check.
 |--------------|------------|
 | `sdd: command not found` | Install again, or use `npx @structured-vibe-coding/cli` |
 | `✗ better-sqlite3` or `✗ onnxruntime-node` from `sdd doctor` | The native install script did not run. Run `npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli`, or `npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user` and install again |
-| `✗ Node.js … (24+ required)` from `sdd doctor` | CLI 0.24.0 failed that line. This page was checked on v24.22.2 |
+| `✗ Node.js … (FAIL: Node 20+ required)` from `sdd doctor` | Install Node.js 20 or newer. Node 24 is recommended. Node 20–23 warns and still runs |
 | `next` says `intent.md` is incomplete | Paste the sample intent above |
 | Doctor before setup exits 1 on `SDD init` | Run `sdd setup --yes --no-agent`, then `sdd doctor` |
 | `Verify NOT RUN` and exit 1 | Expected on this hotfix. The result note should say NOT RUN |

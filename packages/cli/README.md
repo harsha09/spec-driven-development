@@ -16,10 +16,16 @@ npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-
 npx @structured-vibe-coding/cli --help
 ```
 
-Current npm skips dependency install scripts unless you allow them. `better-sqlite3` and `onnxruntime-node` need those scripts. `sdd doctor` loads both and, when one is missing or not built, prints:
+Current npm skips dependency install scripts unless you allow them. `better-sqlite3` and `onnxruntime-node` need those scripts. On Linux x64 the `onnxruntime-node` script also tries an optional GPU archive. A 404 from that archive does not stop this install; the CPU build is already in the package. `sdd doctor` loads both and, when one is missing or not built, prints:
 
 ```bash
 npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
+
+If doctor still reports `onnxruntime-node` missing, reinstall the CPU build:
+
+```bash
+ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
 ```
 
 To allow them for later global installs, then install again:
