@@ -2,7 +2,7 @@ import {
   loadPrices,
   reportAllChanges,
   reportChange,
-  resolveChangeId,
+  resolveStatusChange,
 } from "@structured-vibe-coding/core";
 import { defineCommand } from "citty";
 import { withProject } from "./project.js";
@@ -22,7 +22,9 @@ async function runCostReport(args: { change?: string; all?: boolean }): Promise<
       console.log(await reportAllChanges(root, config, prices, now));
       return;
     }
-    const changeId = await resolveChangeId(root, config, args.change);
+    const resolved = await resolveStatusChange(root, config, args.change);
+    if (resolved.note) console.log(resolved.note);
+    const changeId = resolved.id;
     const prices = await loadPrices(root);
     console.log(await reportChange({ projectRoot: root, config, changeId, prices, now }));
   });

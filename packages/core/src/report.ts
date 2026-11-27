@@ -2,7 +2,8 @@ import { join } from "pathe";
 import { parse as parseYaml } from "yaml";
 import "./zod-v3-messages.js";
 import { z } from "zod";
-import { listDirs, pathExists, readText } from "./fs.js";
+import { locateChangePack } from "./change-context.js";
+import { listDirs, pathExists, readText, readYaml } from "./fs.js";
 import {
   type ChangeMetrics,
   ChangeMetricsSchema,
@@ -10,7 +11,8 @@ import {
   emptyChangeMetrics,
 } from "./metrics.js";
 import { changePath, changesDir, sddRoot } from "./paths.js";
-import type { Config } from "./schemas.js";
+import { ChangeMetaSchema, type Config } from "./schemas.js";
+import { formatTaskProgressLines } from "./task-progress.js";
 
 const RATE_SCALE = 1_000_000_000n;
 const USD_DENOM = 1_000_000n * RATE_SCALE;
@@ -528,6 +530,19 @@ async function readReportMetrics(
   }
 }
 
+async function taskProgressSuffix(dir: string | null): Promise<string> {
+  if (!dir) return "";
+  const metaPath = join(dir, "meta.yaml");
+  if (!(await pathExists(metaPath))) return "";
+  try {
+    const meta = ChangeMetaSchema.parse(await readYaml(metaPath));
+    if (!meta.task_progress) return "";
+    return `\n${formatTaskProgressLines(meta.task_progress).join("\n")}`;
+  } catch {
+    return "";
+  }
+}
+
 /** One-change report. Reads metrics and, when unmeasured, the handoff. Writes nothing. */
 export async function reportChange(input: {
   projectRoot: string;
@@ -536,20 +551,22 @@ export async function reportChange(input: {
   prices: Prices | null;
   now: Date;
 }): Promise<string> {
-  const found = await readReportMetrics(
-    join(changePath(input.projectRoot, input.config, input.changeId), "metrics.json"),
-  );
+  const located = await locateChangePack(input.projectRoot, input.config, input.changeId);
+  const dir = located?.path ?? changePath(input.projectRoot, input.config, input.changeId);
+  const found = await readReportMetrics(join(dir, "metrics.json"));
   if (found.status === "invalid") throw new Error("metrics.json is invalid");
   const metrics = found.status === "ok" ? found.metrics : emptyChangeMetrics();
   const handoffCodePoints =
     metrics.requests.length === 0 ? await readHandoffCodePoints(input.projectRoot) : null;
-  return renderChangeReport({
-    changeId: input.changeId,
-    metrics,
-    prices: input.prices,
-    handoffCodePoints,
-    now: input.now,
-  });
+  return (
+    renderChangeReport({
+      changeId: input.changeId,
+      metrics,
+      prices: input.prices,
+      handoffCodePoints,
+      now: input.now,
+    }) + (await taskProgressSuffix(located?.path ?? null))
+  );
 }
 
 /** Every direct child that has metrics.json, or the empty-result sentence. Writes nothing. */

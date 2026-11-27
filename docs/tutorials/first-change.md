@@ -245,11 +245,14 @@ Stages:
   [●] implement — Implement
   [ ] local_verify — Local smoke
 
+Tasks: 0 checked, 0 unchecked
+Verify checklist: 0 ticked, 1 unticked
+
 ℹ Handoff: .sdd/handoff.md
 ℹ No AI host configured (no-agent setup) — nothing launched. Add one: sdd agents install --ai copilot|claude|grok|ollama|kilo
 ```
 
-Exit code 0. The command also reprints the change id and title. A soft gate prints this warning when its checklist is unsigned and still lets you move. You can ignore the warning, or sign the checklist with `sdd gate approve -s intent -n "scope is clear"`. A hard gate does not let you move until that approve command, or until `sdd team signoff` when the approver is a person.
+Exit code 0. The command also reprints the change id and title. A soft gate prints this warning when its checklist is unsigned and still lets you move. You can ignore the warning, or sign the checklist with `sdd gate approve -s intent -n "scope is clear"`. A hard gate does not let you move until that approve command, or until `sdd team signoff` when the approver is a person. The task lines stay at zero on a hotfix, which has no `tasks.md`. The verify checklist stays unticked until you mark it.
 
 The handoff stage goal is now "Make the minimal code change". On a real app you would change the code now. This folder has no application. Leave it unchanged.
 
@@ -271,9 +274,12 @@ Stages:
   [✓] intent — Intent
   [✓] implement — Implement
   [●] local_verify — Local smoke
+
+Tasks: 0 checked, 0 unchecked
+Verify checklist: 0 ticked, 1 unticked
 ```
 
-Exit code 0. The same handoff lines follow. The stage goal is now "Quick local check that the fix works". That sentence is the local_verify summary. This folder still has no product change.
+Exit code 0. The same handoff lines follow. Leaving implement with a clean git worktree also prints a warning. This folder is not a git repo, so that warning is skipped. The stage goal is now "Quick local check that the fix works". That sentence is the local_verify summary. This folder still has no product change.
 
 `changes/<your-id>/local-test-results.md` is created from the template, including a `PASS / FAIL` placeholder. Replace that file with an honest note before you verify:
 
@@ -342,7 +348,13 @@ Another `sdd next --no-agent` from here exits 0 and says there is nothing furthe
 sdd complete --no-agent
 ```
 
-Checked output:
+That exits 1. The verify checklist item `Smoke-checked locally` is still unticked, and the message names `--allow-unchecked`. This folder has no app to smoke-check, so the learning path records that and continues:
+
+```bash
+sdd complete --no-agent --allow-unchecked
+```
+
+Checked output includes the unticked item, `Continuing because --allow-unchecked was set.`, then:
 
 ```text
 ✔ Completed 2026-11-08-simulated-empty-list-note
@@ -351,7 +363,7 @@ Checked output:
 ℹ No AI host configured (no-agent setup) — nothing launched. Add one: sdd agents install --ai copilot|claude|grok|ollama|kilo
 ```
 
-Exit code 0. Complete is allowed on this hotfix because the gate is soft and no verify command is required. The completed change still has `verify_results` of `not_run`.
+Exit code 0. Empty `verify.commands` do not block completion once the checklist override is set. The completed change still has `verify_results` of `not_run`. Tick `- [x] Smoke-checked locally` in the results file instead when you did run the check.
 
 ### Success check
 
@@ -372,17 +384,20 @@ Stages:
   [✓] intent — Intent
   [✓] implement — Implement
   [●] local_verify — Local smoke
+
+Tasks: 0 checked, 0 unchecked
+Verify checklist: 0 ticked, 1 unticked
 ```
 
-`Status: completed` is the success line. `[●]` stays on `local_verify` because that is the stage pointer. Phase times follow, in the local clock, and they are not part of the check.
+`Status: completed` is the success line. `[●]` stays on `local_verify` because that is the stage pointer. The checklist count stays unticked when you used `--allow-unchecked` without marking the box. Phase times follow, in the local clock, and they are not part of the check.
 
-`sdd status` with no `--change` then exits 1:
+`sdd status` with no `--change` also exits 0. It names the last completed change and tells you how to list the rest:
 
 ```text
- ERROR  No active change. Pass --change <id> or run sdd new.
+ℹ No active change. Showing last completed change 2026-11-08-simulated-empty-list-note. Run `sdd list` to see every change.
 ```
 
-That line means there is no in-progress change. It is not the success check.
+`Status: completed` is on the following lines. `sdd list` prints the id, `completed`, and the title. `sdd report` uses the same fallback. The line is not the success check; `sdd status --change <id>` is.
 
 ---
 

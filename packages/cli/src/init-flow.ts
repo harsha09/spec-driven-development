@@ -417,8 +417,9 @@ async function runNoAgentInit(
   });
   for (const warning of result.warnings) p.log.warn(warning);
   reportKeptFiles(result.kept);
-  // Shared playbook + live-task file (both under .sdd/; not host files)
-  await refreshActiveAgentContext(projectRoot);
+  // Shared playbook + live-task file (both under .sdd/; not host files).
+  // Only --force rewrites a protocol.md that is already there.
+  await refreshActiveAgentContext(projectRoot, { rewriteGenerated: force });
   s.stop("Shared infrastructure ready");
 
   const workflows = await listWorkflowNames(projectRoot);

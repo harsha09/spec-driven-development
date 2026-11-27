@@ -628,6 +628,11 @@ stages:
     const noRun = runSdd(root, ["verify", "--no-run"]);
     expect(noRun.status, noRun.stderr + noRun.stdout).toBe(1);
 
+    // The verify report leaves the checklist unticked. Tick it so this test
+    // still shows that empty verify.commands do not block completion.
+    const reported = await readFile(join(changePath, "local-test-results.md"), "utf8");
+    await writeFile(join(changePath, "local-test-results.md"), reported.replace("- [ ]", "- [x]"));
+
     // No required commands → the gate does not block completion
     const done = runSdd(root, ["complete", "--no-agent"]);
     expect(done.status, done.stderr + done.stdout).toBe(0);
@@ -1467,6 +1472,239 @@ stages:
     const cmd = runSdd(process.cwd(), ["stauts"]);
     expect(cmd.status).toBe(2);
     expect(cmd.stderr).toContain('Unknown command "stauts"');
+  });
+
+  it("blocks open tasks and an unticked verify checklist unless overridden", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-unchecked-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Add a note field", "-w", "feature", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const id = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const changeDir = join(root, "changes", id);
+    await writeFile(
+      join(changeDir, "feature.md"),
+      "# Feature\n\nPeople need a note field on the record. Out of scope: attachments. Success: the note saves and shows on reload.\n",
+    );
+    expect(runSdd(root, ["skip", "clarify_intent", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["skip", "brainstorm", "-r", "one way", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+    await writeFile(
+      join(changeDir, "design.md"),
+      "# Design\n\nStore the note as a string on the record and render it under the title. Risk: a very long note. Cap the field at 500 characters.\n",
+    );
+    expect(runSdd(root, ["skip", "clarify_design", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["skip", "clarify_tasks", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+
+    const tasksPath = join(changeDir, "tasks.md");
+    const openTasks = [
+      "# Tasks",
+      "",
+      "- [ ] Add the note field to the record form",
+      "- [ ] Save the note with the record",
+      "- [ ] Show the saved note after reload",
+      "",
+    ].join("\n");
+    await writeFile(tasksPath, openTasks);
+    const blocked = runSdd(root, ["next", "--no-agent"]);
+    const blockedOut = blocked.stderr + blocked.stdout;
+    expect(blocked.status, blockedOut).toBe(1);
+    expect(blockedOut).toContain("3 of 3 tasks are unchecked");
+    expect(blockedOut).toContain("--allow-unchecked");
+
+    await writeFile(tasksPath, openTasks.replaceAll("- [ ]", "- [x]"));
+    const moved = runSdd(root, ["next", "--no-agent"]);
+    expect(moved.status, moved.stderr + moved.stdout).toBe(0);
+    expect(moved.stderr + moved.stdout).not.toContain("tasks are unchecked");
+
+    await writeFile(tasksPath, (await readFile(tasksPath, "utf8")).replace("- [x]", "- [ ]"));
+    const blockedImplement = runSdd(root, ["next", "--no-agent"]);
+    expect(blockedImplement.status, blockedImplement.stderr + blockedImplement.stdout).toBe(1);
+    expect(blockedImplement.stderr + blockedImplement.stdout).toContain(
+      "1 of 3 tasks are unchecked",
+    );
+
+    const allowed = runSdd(root, ["next", "--allow-unchecked", "--no-agent"]);
+    const allowedOut = allowed.stderr + allowed.stdout;
+    expect(allowed.status, allowedOut).toBe(0);
+    expect(allowedOut).toContain("Continuing because --allow-unchecked was set.");
+    expect(allowedOut).toContain("1 of 3 tasks are unchecked");
+
+    const early = runSdd(root, ["complete", "--no-agent"]);
+    const earlyOut = early.stderr + early.stdout;
+    expect(early.status, earlyOut).toBe(1);
+    expect(earlyOut).toContain("tasks are unchecked");
+    expect(earlyOut).toContain("verify checklist");
+    expect(earlyOut).toContain("Happy path verified locally");
+
+    await writeFile(tasksPath, (await readFile(tasksPath, "utf8")).replaceAll("- [ ]", "- [x]"));
+    await writeFile(
+      join(changeDir, "local-test-plan.md"),
+      "# Local test plan\n\nOpen a record, type a note, reload, and confirm the note is still there.\n",
+    );
+    await writeFile(
+      join(changeDir, "local-test-results.md"),
+      [
+        "# Local test results",
+        "",
+        "Reloaded the record and the note was still there.",
+        "",
+        "- [x] Happy path verified locally",
+        "- [x] Key edge cases covered or waived with notes",
+        "",
+      ].join("\n"),
+    );
+    const done = runSdd(root, ["complete", "--no-agent"]);
+    expect(done.status, done.stderr + done.stdout).toBe(0);
+
+    const status = runSdd(root, ["status"]);
+    const statusOut = status.stderr + status.stdout;
+    expect(status.status, statusOut).toBe(0);
+    expect(statusOut).toContain(`Showing last completed change ${id}`);
+    expect(statusOut).toContain("Status: completed");
+    expect(statusOut).toContain("sdd list");
+    expect(statusOut).toContain("0 unchecked");
+
+    const listed = runSdd(root, ["list"]);
+    expect(listed.status, listed.stderr + listed.stdout).toBe(0);
+    expect(listed.stdout).toContain(`${id}  completed  Add a note field`);
+    const filtered = runSdd(root, ["list", "--status", "in_progress"]);
+    expect(filtered.stdout).toContain("No changes.");
+    const bad = runSdd(root, ["list", "--status", "nope"]);
+    expect(bad.status).toBe(1);
+    expect(bad.stderr + bad.stdout).toContain("--status must be one of");
+
+    const report = runSdd(root, ["report"]);
+    const reportOut = report.stderr + report.stdout;
+    expect(report.status, reportOut).toBe(0);
+    expect(reportOut).toContain(`Showing last completed change ${id}`);
+    expect(reportOut).toContain("Tasks:");
+    expect(reportOut).toContain("Verify checklist:");
+  });
+
+  it("warns instead of blocking when task checks are set to warn", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-task-warn-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const configPath = join(root, ".sdd/config.yaml");
+    const config = await readFile(configPath, "utf8");
+    expect(config).toContain("task_checks: strict");
+    await writeFile(configPath, config.replace("task_checks: strict", "task_checks: warn"));
+    expect(runSdd(root, ["new", "Warn on tasks", "-w", "feature", "-y", "--no-agent"]).status).toBe(
+      0,
+    );
+    const id = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    const changeDir = join(root, "changes", id);
+    await writeFile(
+      join(changeDir, "feature.md"),
+      "# Feature\n\nPeople need a note field on the record. Success: the note saves and shows on reload.\n",
+    );
+    expect(runSdd(root, ["skip", "clarify_intent", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["skip", "brainstorm", "-r", "one way", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+    await writeFile(
+      join(changeDir, "design.md"),
+      "# Design\n\nStore the note as a string on the record. Cap the field at 500 characters so a long note cannot fill the page.\n",
+    );
+    expect(runSdd(root, ["skip", "clarify_design", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["skip", "clarify_tasks", "-r", "clear", "--no-agent"]).status).toBe(0);
+    expect(runSdd(root, ["next", "--no-agent"]).status).toBe(0);
+    await writeFile(
+      join(changeDir, "tasks.md"),
+      [
+        "# Tasks",
+        "",
+        "- [ ] Add the note field to the record form",
+        "- [ ] Save the note with the record",
+        "- [ ] Show the saved note after reload",
+        "",
+      ].join("\n"),
+    );
+    const warned = runSdd(root, ["next", "--no-agent"]);
+    const warnedOut = warned.stderr + warned.stdout;
+    expect(warned.status, warnedOut).toBe(0);
+    expect(warnedOut).toContain("3 of 3 tasks are unchecked");
+    const strict = runSdd(root, ["next", "--strict", "--no-agent"]);
+    expect(strict.status, strict.stderr + strict.stdout).toBe(1);
+  });
+
+  it("does not rewrite a tracked protocol.md on new or next", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-protocol-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    await mkdir(join(root, ".sdd/roles"), { recursive: true });
+    await writeFile(join(root, ".sdd/roles/qa.md"), "not a role\n");
+    const protocolPath = join(root, ".sdd/protocol.md");
+    const before = await readFile(protocolPath, "utf8");
+    const git = (args: string[]) =>
+      spawnSync("git", args, {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: "Dev",
+          GIT_AUTHOR_EMAIL: "dev@example.com",
+          GIT_COMMITTER_NAME: "Dev",
+          GIT_COMMITTER_EMAIL: "dev@example.com",
+        },
+      });
+    expect(git(["init"]).status).toBe(0);
+    expect(git(["add", "-A"]).status).toBe(0);
+    expect(git(["commit", "-m", "start"]).status).toBe(0);
+
+    const created = runSdd(root, ["new", "Leave the playbook", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    expect(await readFile(protocolPath, "utf8")).toBe(before);
+    const id = (await readdir(join(root, "changes"))).find((name) => !name.startsWith("."))!;
+    await writeFile(
+      join(root, "changes", id, "intent.md"),
+      "# Intent\n\nThe heading is wrong. Change that heading and leave the rest of the page alone.\n",
+    );
+    const moved = runSdd(root, ["next", "--no-agent"]);
+    expect(moved.status, moved.stderr + moved.stdout).toBe(0);
+    expect(await readFile(protocolPath, "utf8")).toBe(before);
+    const porcelain = git(["status", "--porcelain"]).stdout;
+    expect(porcelain).not.toContain("protocol.md");
+  });
+
+  it("compares the installed build with .sdd/sdd-pin.yaml", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-pin-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const plain = runSdd(root, ["--version"]);
+    expect(plain.status).toBe(0);
+    const installed = plain.stdout.trim();
+    expect(installed).not.toContain("sdd-pin.yaml");
+
+    await writeFile(join(root, ".sdd/sdd-pin.yaml"), `version: ${installed}\n`);
+    const match = runSdd(root, ["--version"]);
+    expect(match.stdout.trim()).toBe(installed);
+    const matched = runSdd(root, ["doctor"]);
+    expect(matched.stdout).toContain(`${installed} matches .sdd/sdd-pin.yaml`);
+
+    await writeFile(join(root, ".sdd/sdd-pin.yaml"), "version: 0.0.1\n");
+    const differed = runSdd(root, ["--version"]);
+    expect(differed.status).toBe(0);
+    expect(differed.stdout).toContain(installed);
+    expect(differed.stdout).toContain(
+      "Pinned build 0.0.1 in .sdd/sdd-pin.yaml does not match this install.",
+    );
+    expect(differed.stdout).toContain("npm install -g @structured-vibe-coding/cli@0.0.1");
+
+    const warned = runSdd(root, ["doctor"]);
+    const warnedOut = warned.stdout + warned.stderr;
+    expect(warnedOut).toContain("installed");
+    expect(warnedOut).toContain("pin 0.0.1");
+    expect(warnedOut).toContain("npm install -g @structured-vibe-coding/cli@0.0.1");
+    const nodeLevel = nodeSupportLevel(process.versions.node);
+    expect(warned.status, warnedOut).toBe(nodeLevel === "fail" ? 1 : 0);
+
+    const strict = runSdd(root, ["doctor", "--strict"]);
+    expect(strict.status).toBe(1);
+    expect(strict.stdout + strict.stderr).toContain(
+      "npm install -g @structured-vibe-coding/cli@0.0.1",
+    );
   });
 
   it("names --label when a role is created without one", async () => {

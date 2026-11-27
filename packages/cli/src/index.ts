@@ -1,6 +1,8 @@
 import { defineCommand, runMain } from "citty";
 import { unknownArgProblem } from "./argv.js";
 import { commands } from "./commands.js";
+import { projectRoot } from "./project.js";
+import { formatCliVersion } from "./version-report.js";
 import { SDD_VERSION } from "./version.js";
 
 const main = defineCommand({
@@ -13,10 +15,16 @@ const main = defineCommand({
   subCommands: commands,
 });
 
-const problem = await unknownArgProblem(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const problem = await unknownArgProblem(argv);
 if (problem) {
   process.stderr.write(`${problem}\n`);
   process.exit(2);
+}
+
+if (argv.some((arg) => arg === "--version" || arg === "-v")) {
+  process.stdout.write(`${await formatCliVersion(projectRoot())}\n`);
+  process.exit(0);
 }
 
 // Handoff refresh runs while the change is being saved, before a command reads

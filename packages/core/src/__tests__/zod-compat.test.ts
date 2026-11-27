@@ -38,9 +38,12 @@ describe("zod 4 validation keeps the previous sentences", () => {
         archive_on_complete: false,
         domain_sync: { mode: "never", anchored_domains: [] },
       },
-      policy: { gates: "soft" },
+      policy: { gates: "soft", task_checks: "strict" },
     });
-    expect(ConfigSchema.parse({ policy: {} }).policy).toEqual({ gates: "soft" });
+    expect(ConfigSchema.parse({ policy: {} }).policy).toEqual({
+      gates: "soft",
+      task_checks: "strict",
+    });
     expect(ConfigSchema.parse({ extra: true }).memory_path).toBe("memory");
   });
 

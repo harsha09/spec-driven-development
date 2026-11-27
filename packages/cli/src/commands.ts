@@ -14,6 +14,7 @@ import {
   createChange,
   describeKept,
   formatBackportPlanningLines,
+  formatChangeList,
   formatGateStatus,
   formatJsonSummary,
   formatStatus,
@@ -28,6 +29,7 @@ import {
   isMergeMethod,
   listBacklogFeatures,
   listBundledWorkflowNames,
+  listChangeRecords,
   listChanges,
   listWorkflowNames,
   loadConfig,
@@ -41,11 +43,13 @@ import {
   parseStoryDraft,
   prepareGuide,
   readChangeMetrics,
+  readSddPin,
   readSetupStatus,
   recommendWorkflow,
   recordGateVerdict,
   refreshActiveAgentContext,
   resolveChangeId,
+  resolveStatusChange,
   runGuide,
   runLocalVerify,
   runSetupStep,
@@ -83,8 +87,11 @@ import { sandboxCmd } from "./sandbox-cmd.js";
 import { parsePositiveInt, searchCmd } from "./search-cmd.js";
 import { asStringList, noAgentArg, noAgentRequested, noRunRequested } from "./shared.js";
 import { branchCmd, graphCmd, prCmd } from "./story-cmd.js";
+import { enforceTaskProgress } from "./task-guard.js";
 import { teamCmd } from "./team-cmd.js";
 import { templatesCmd } from "./templates-cmd.js";
+import { pinInstallCommand } from "./version-report.js";
+import { SDD_VERSION } from "./version.js";
 
 /** Repo-relative path for command output. Falls back when the path is outside the project. */
 function displayRepoPath(projectRoot: string, absolutePath: string): string {
@@ -329,10 +336,30 @@ const newCmd = defineCommand({
   },
 });
 
+const list = defineCommand({
+  meta: {
+    name: "list",
+    description: "List change ids, titles, and status",
+  },
+  args: {
+    status: {
+      type: "string",
+      description: "Filter: in_progress, completed, blocked, or abandoned",
+    },
+  },
+  async run({ args }) {
+    await withProject(async ({ root, config }) => {
+      const rows = await listChangeRecords(root, config, args.status);
+      process.stdout.write(formatChangeList(rows));
+    });
+  },
+});
+
 const status = defineCommand({
   meta: {
     name: "status",
-    description: "Show active change status (does not launch the AI agent)",
+    description:
+      "Show the active change, or the last completed change (does not launch the AI agent)",
   },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
@@ -364,7 +391,9 @@ const status = defineCommand({
         }
         return;
       }
-      const id = await resolveChangeId(root, config, args.change);
+      const resolved = await resolveStatusChange(root, config, args.change);
+      if (resolved.note) consola.info(resolved.note);
+      const id = resolved.id;
       const ctx = await buildContext(root, config, id);
       consola.log(formatStatus(ctx));
       const planning = await formatBackportPlanningLines(ctx);
@@ -397,11 +426,29 @@ const next = defineCommand({
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
     force: { type: "boolean", description: "Skip gate/artifact checks", default: false },
+    "allow-unchecked": {
+      type: "boolean",
+      description: "Continue even when tasks are unchecked",
+      default: false,
+    },
+    strict: {
+      type: "boolean",
+      description: "Stop when tasks are unchecked, even if task checks are set to warn",
+      default: false,
+    },
     "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
+      await enforceTaskProgress({
+        root,
+        config,
+        changeId: id,
+        action: "next",
+        allowUnchecked: args["allow-unchecked"] === true,
+        strict: args.strict === true,
+      });
       const result = await advanceStage(root, config, id, { force: args.force });
       for (const w of result.warnings) consola.warn(w);
       if (result.to) {
@@ -699,11 +746,29 @@ const complete = defineCommand({
   },
   args: {
     change: { type: "string", description: "Change id", alias: "c" },
+    "allow-unchecked": {
+      type: "boolean",
+      description: "Complete even when tasks or the verify checklist are unticked",
+      default: false,
+    },
+    strict: {
+      type: "boolean",
+      description: "Stop when tasks or the verify checklist are unticked",
+      default: false,
+    },
     "no-agent": noAgentArg,
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
       const id = await resolveChangeId(root, config, args.change);
+      await enforceTaskProgress({
+        root,
+        config,
+        changeId: id,
+        action: "complete",
+        allowUnchecked: args["allow-unchecked"] === true,
+        strict: args.strict === true,
+      });
       // Handoff while change still under changes/
       const before = await buildContext(root, config, id);
       await writeAgentHandoff(root, config, id);
@@ -1052,7 +1117,7 @@ const agentsRefresh = defineCommand({
   },
   async run({ args }) {
     await withProject(async ({ root, config }) => {
-      const path = await refreshActiveAgentContext(root);
+      const path = await refreshActiveAgentContext(root, { rewriteGenerated: true });
       consola.success(path ? `Updated ${path}` : "SDD not ready");
       const launch = await launchConfiguredAgent({
         projectRoot: root,
@@ -1360,7 +1425,14 @@ const doctor = defineCommand({
     name: "doctor",
     description: "Check local setup (Node, native modules, init, AI host, active change)",
   },
-  async run() {
+  args: {
+    strict: {
+      type: "boolean",
+      description: "Exit non-zero when the installed build does not match .sdd/sdd-pin.yaml",
+      default: false,
+    },
+  },
+  async run({ args }) {
     const root = projectRoot();
     let ok = true;
     const line = (label: string, fine: boolean, detail: string) => {
@@ -1437,6 +1509,22 @@ const doctor = defineCommand({
       }
     }
 
+    const pin = await readSddPin(root);
+    if (pin.state === "ok" && pin.version === SDD_VERSION) {
+      line("SDD pin", true, `${pin.version} matches .sdd/sdd-pin.yaml`);
+    } else if (pin.state === "ok") {
+      const detail = `installed ${SDD_VERSION}, pin ${pin.version} in .sdd/sdd-pin.yaml`;
+      if (args.strict === true) line("SDD pin", false, detail);
+      else consola.log(`  ${pc.yellow("!")} ${pc.bold("SDD pin")}  ${pc.dim(detail)}`);
+      consola.log(
+        `    ${pc.dim("Fix:")} ${pc.cyan(pinInstallCommand(pin.version, pin.packageName))}`,
+      );
+    } else if (pin.state === "invalid") {
+      const detail = `.sdd/sdd-pin.yaml could not be read (${pin.message})`;
+      if (args.strict === true) line("SDD pin", false, detail);
+      else consola.log(`  ${pc.yellow("!")} ${pc.bold("SDD pin")}  ${pc.dim(detail)}`);
+    }
+
     consola.log("");
     if (ok) {
       consola.success('Looks good. Try: sdd status  or  sdd new "…"');
@@ -1470,6 +1558,7 @@ const help = defineCommand({
     consola.log("");
     consola.log(pc.bold("Everyday:"));
     consola.log(`  ${pc.cyan("sdd status")}            where am I?`);
+    consola.log(`  ${pc.cyan("sdd list")}              change ids, titles, and status`);
     consola.log(`  ${pc.cyan("sdd next")}              next step (often opens your AI)`);
     consola.log(`  ${pc.cyan("sdd verify")}            check the work`);
     consola.log(`  ${pc.cyan("sdd complete")}          mark done`);
@@ -1941,6 +2030,7 @@ export const commands = {
   backlog,
   feature,
   status,
+  list,
   next,
   skip,
   use,

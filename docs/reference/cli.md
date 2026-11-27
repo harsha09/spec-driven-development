@@ -55,6 +55,7 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | See product backlog | `sdd backlog list` |
 | Build backlog item | `sdd backlog start F-001` |
 | See where I am | `sdd status` |
+| List changes | `sdd list` |
 | Sync recorded checks to local HEAD | `sdd sync <change>` |
 | See measured token usage (sessions found automatically) | `sdd metrics` |
 | Import one session log by hand | `sdd metrics import <path>` |
@@ -86,15 +87,19 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd backlog list` | Show F-001… product backlog | After greenfield |
 | `sdd backlog start F-001` | Start work from backlog id | Build product items |
 | `sdd feature list\|start` | **Alias** for `sdd backlog …` (compat) | Old scripts |
-| `sdd status` | Progress (**no** AI) | Anytime |
+| `sdd status` | Progress for the active change. With no active change, shows the last completed change and says to run `sdd list` (**no** AI) | Anytime |
 | `sdd status --list` | All open changes | Several PRs |
+| `sdd list` | Ids, titles, and status for open and archived changes | Find an id |
+| `sdd list --status completed` | Only changes in that status (`in_progress`, `completed`, `blocked`, `abandoned`) | Filter |
 | `sdd sync <change>` | Update recorded verification SHAs to local `git rev-parse HEAD` | After a new commit |
 | `sdd metrics` | Find agent session logs for this project in each host's default location (Claude Code `~/.claude/projects/`, Codex `~/.codex/sessions/`, Grok `~/.grok/sessions/`), import only new usage, then print the change report. Matches logs to this repo by working directory and to a change by a recorded session or launch window, then by phase time. Running it twice gives the same totals. `--change <id>` limits it to one change; `--all` covers every change. When nothing is found it lists every place searched. Only usage fields (model, token counts, timestamps, session id) are read; prompt and response text is never read into storage. | Review token use |
 | `sdd metrics import <session-log>` | Import measured Claude Code or Codex JSONL, a Grok `usage.json`, or a Grok session directory into the active change; use `--change <id>` for another change | Review token use |
 | `sdd report` | Print active time, human wait, measured tokens, and cost for the active change. Use `--change <id>` to select one change. | After metrics exist |
 | `sdd report --all` | Print that report for every change that has a metrics.json, sorted by first phase start. | Compare changes |
 | `sdd cost` | Print the same one-change report as `sdd report`, including the same cost figures. Use `--change <id>` to select one change. | Check cost |
-| `sdd next` | Advance one stage | Step done |
+| `sdd next` | Advance one stage. Leaving `tasks` or `implement` stops when `tasks.md` still has open boxes | Step done |
+| `sdd next --allow-unchecked` | Advance anyway, and print the open-task counts | Override |
+| `sdd next --strict` | Stop on open tasks even when `.sdd/config.yaml` sets `policy.task_checks: warn` | CI |
 | `sdd next --force` | Bypass checks | Emergency only |
 | `sdd skip <stage> -r "…"` | Skip a stage | Not needed |
 | `sdd use <workflow>` | Switch path mid-flight | Scope changed |
@@ -105,7 +110,8 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd merge [--method merge\|squash\|rebase]` | Same check, then `gh pr merge` with that method (default `merge`) and a head-match guard | Merge the pull request |
 | `sdd verify` | Run the stage's `verify.commands`. Each entry is `{name, run, required}` (for example `- {name: test, run: "npm test", required: true}`). PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
 | `sdd verify --no-run` | Checklist only — records NOT RUN, exits 1 | Manual testing |
-| `sdd complete` | Mark done (greenfield also saves to `memory/`) | Finished |
+| `sdd complete` | Mark done (greenfield also saves to `memory/`). Stops when tasks are unchecked or the verify checklist is unticked | Finished |
+| `sdd complete --allow-unchecked` | Complete anyway, and print the open counts | Override |
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | Focused code slices under a token budget | Implement |
@@ -125,7 +131,8 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd checkout <id>` | Switch active change | Multi-PR |
 | `sdd workflows` | List project workflows by id and description, and name bundled workflows that are not copied yet. `sdd workflows --tokens` adds cl100k counts | Discover |
 | `sdd help` | Short overview | First run |
-| `sdd doctor` | Health check, including native modules (`better-sqlite3`, `onnxruntime-node`) | Stuck / setup |
+| `sdd doctor` | Health check, including native modules (`better-sqlite3`, `onnxruntime-node`) and `.sdd/sdd-pin.yaml` when that file exists | Stuck / setup |
+| `sdd doctor --strict` | Same check, but a pin that differs from this install exits non-zero | CI |
 
 ### Greenfield / backlog
 
@@ -141,7 +148,7 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 ## About the AI opening
 
 Most process commands refresh a short handoff and may open your AI.
-**Never open AI:** `status`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`, `gate status`, `gate record`, `merge`.
+**Never open AI:** `status`, `list`, `report`, `cost`, `search`, `init`, `workflows`, `context`, `backlog list`, `help`, `doctor`, `gate status`, `gate record`, `merge`.
 
 `sdd doctor` loads `better-sqlite3` and `onnxruntime-node`. Current npm skips their install scripts unless you allow them, so a global install can succeed while the native build is missing. When a module is missing or not built, doctor exits 1 and prints:
 
@@ -154,6 +161,17 @@ To allow the same scripts for later global installs, then install again:
 ```bash
 npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 ```
+
+`.sdd/sdd-pin.yaml` records the build this repo expects:
+
+```yaml
+# sdd --version and sdd doctor compare the installed build with this pin.
+version: 0.25.0
+```
+
+`sdd --version` adds one line when the pin differs, including the install command. `sdd doctor` prints the same mismatch as a warning. `sdd doctor --strict` exits non-zero on a mismatch. A missing pin is not an error.
+
+`sdd next` out of `tasks` or `implement`, and `sdd complete`, record task and verify-checklist counts on the change and in `sdd status` / `sdd report`. Open tasks or an unticked verify checklist stop the command. Set `policy.task_checks: warn` in `.sdd/config.yaml` to print the counts and continue. `--allow-unchecked` is the one-command override. A clean `git status` while leaving `implement` is a warning, and is skipped outside a git repo.
 
 Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`. The change is still saved and the handoff is still written. The search index is not rebuilt by walking every file, so the process exits once that save finishes. Run `sdd search` when you want a full index.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
