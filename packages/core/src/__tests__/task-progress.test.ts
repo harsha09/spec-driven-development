@@ -27,13 +27,17 @@ afterEach(async () => {
 
 describe("task progress", () => {
   it("counts checkbox lines and ignores blanks", () => {
-    const lines = checkboxLines("- [ ] One\n- [x] Two\n- [X] Three\n- [ ]\n* [ ] Four\n");
+    const lines = checkboxLines(
+      "- [ ] One\r\n- [x] Two\n- [X] Three\n- [ ]\n* [ ] Four\n  + [x]  Five   six  \n",
+    );
     expect(lines).toEqual([
       { checked: false, text: "One" },
       { checked: true, text: "Two" },
       { checked: true, text: "Three" },
       { checked: false, text: "Four" },
+      { checked: true, text: "Five six" },
     ]);
+    expect(checkboxLines(`* [ ] ${" ".repeat(20_000)}`)).toEqual([]);
   });
 
   it("blocks leaving tasks or implement while boxes are open, then clears when they are ticked", async () => {

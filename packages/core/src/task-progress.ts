@@ -4,8 +4,6 @@ import type { ChangeContext } from "./change-context.js";
 import { listFiles, pathExists, readText } from "./fs.js";
 import type { ChangeMeta } from "./schemas.js";
 
-const CHECKBOX = /^\s*[-*+]\s+\[([ xX])\]\s+(.*?)\s*$/;
-
 export interface CheckboxLine {
   checked: boolean;
   text: string;
@@ -26,15 +24,79 @@ export interface ProgressReport {
   warnings: string[];
 }
 
+function isSpace(code: number): boolean {
+  return (
+    code === 9 ||
+    code === 11 ||
+    code === 12 ||
+    code === 32 ||
+    code === 0xa0 ||
+    code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code === 0x2028 ||
+    code === 0x2029 ||
+    code === 0x202f ||
+    code === 0x205f ||
+    code === 0x3000 ||
+    code === 0xfeff
+  );
+}
+
+function textLines(markdown: string): string[] {
+  const lines: string[] = [];
+  let start = 0;
+  for (let i = 0; i <= markdown.length; i++) {
+    const atEnd = i === markdown.length;
+    if (!atEnd && markdown.charCodeAt(i) !== 10) continue;
+    let end = i;
+    if (end > start && markdown.charCodeAt(end - 1) === 13) end -= 1;
+    lines.push(markdown.slice(start, end));
+    start = i + 1;
+  }
+  return lines;
+}
+
+function collapseSpaces(value: string): string {
+  let out = "";
+  let pending = false;
+  for (let i = 0; i < value.length; i++) {
+    if (isSpace(value.charCodeAt(i))) {
+      pending = true;
+      continue;
+    }
+    if (pending && out.length > 0) out += " ";
+    pending = false;
+    out += value[i];
+  }
+  return out;
+}
+
+/** One markdown checkbox, or null. Walks the line once so a long run of spaces stays cheap. */
+function checkboxLine(line: string): CheckboxLine | null {
+  let i = 0;
+  while (i < line.length && isSpace(line.charCodeAt(i))) i += 1;
+  const marker = line[i];
+  if (marker !== "-" && marker !== "*" && marker !== "+") return null;
+  i += 1;
+  if (!isSpace(line.charCodeAt(i))) return null;
+  while (i < line.length && isSpace(line.charCodeAt(i))) i += 1;
+  if (line[i] !== "[") return null;
+  const mark = line[i + 1];
+  if ((mark !== " " && mark !== "x" && mark !== "X") || line[i + 2] !== "]") return null;
+  i += 3;
+  if (!isSpace(line.charCodeAt(i))) return null;
+  while (i < line.length && isSpace(line.charCodeAt(i))) i += 1;
+  const text = collapseSpaces(line.slice(i));
+  if (!text) return null;
+  return { checked: mark !== " ", text };
+}
+
 /** Checkbox lines in a markdown body. Blank labels are ignored. */
 export function checkboxLines(markdown: string): CheckboxLine[] {
   const lines: CheckboxLine[] = [];
-  for (const line of markdown.split(/\r?\n/)) {
-    const match = CHECKBOX.exec(line);
-    if (!match) continue;
-    const text = (match[2] ?? "").replace(/\s+/g, " ").trim();
-    if (!text) continue;
-    lines.push({ checked: match[1] !== " ", text });
+  for (const line of textLines(markdown)) {
+    const box = checkboxLine(line);
+    if (box) lines.push(box);
   }
   return lines;
 }
