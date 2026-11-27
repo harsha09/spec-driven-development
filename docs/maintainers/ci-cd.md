@@ -9,7 +9,7 @@ GitHub Actions pipelines for continuous integration and **manual-only npm releas
 
 ## Runtime
 
-- Root, core, and CLI `engines.node` are `>=20`. `sdd doctor` warns on Node.js 20–23 and fails only below 20. Node 20–23 works but isn't recommended; Node 24 is recommended. The test suite runs on Node 20 and Node 24. This is not long-term support for Node 20.
+- Root, core, and CLI `engines.node` are `>=20`. Node 20+ (24 recommended). `sdd doctor` warns on Node.js 20–23 and fails only below 20. Node 20–23 works but isn't recommended; Node 24 is recommended. The test suite runs on Node 20 and Node 24. This is not long-term support for Node 20. `onnxruntime-node` is not built during install: its Linux script downloads an optional GPU archive. The CPU build is already in the package.
 - **CI tests** run on Node.js 20 and Node.js 24. The docs site and the manual release workflow stay on Node.js 24.
 - Actions: `actions/setup-node@v5`, `actions/checkout@v5`, `upload-artifact@v5`, `softprops/action-gh-release@v3` (release and docs use the Node 24 runtime)
 - **pnpm**: `pnpm/action-setup@v4` **before** `setup-node`, with `package-manager-cache: false`  

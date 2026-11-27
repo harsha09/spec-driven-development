@@ -15,21 +15,22 @@
     "dist",
     "defaults",
     "vendor",
+    "scripts",
     "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/ensure-onnx-cpu.test.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "cd ../.. && biome check packages/core/src",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "postinstall": "node ./scripts/ensure-onnx-cpu.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
     "better-sqlite3": "12.8.0",
-    "fastembed": "3.0.0",
     "gpt-tokenizer": "4.0.3",
     "ignore": "7.0.12",
     "pathe": "^2.0.3",
@@ -38,6 +39,9 @@
     "web-tree-sitter": "0.27.1",
     "yaml": "^2.7.0",
     "zod": "4.6.6"
+  },
+  "optionalDependencies": {
+    "fastembed": "3.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

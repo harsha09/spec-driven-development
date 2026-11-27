@@ -8,7 +8,6 @@ import {
   isNodeVersionSupported,
   nodeDoctorDetail,
   nodeEnginesRange,
-  nodeNextReleaseNote,
   nodeRecommendedWarning,
   nodeRequirementPhrase,
   nodeSupportLevel,
@@ -66,15 +65,37 @@ describe("doctor version check", () => {
   });
 });
 
+function packageVersion(rel: string): string {
+  return (JSON.parse(readFileSync(join(repoRoot, rel), "utf8")) as { version: string }).version;
+}
+
 describe("Node rule is written once", () => {
   const phrase = nodeRequirementPhrase();
 
-  it("uses one warning sentence", () => {
-    expect(phrase).toBe(nodeRecommendedWarning());
-    expect(phrase).toBe("Node 20–23 works but isn't recommended; Node 24 is recommended");
-    expect(nodeNextReleaseNote()).toContain(phrase);
-    expect(nodeNextReleaseNote()).toContain("This is not long-term support for Node 20");
-    expect(nodeNextReleaseNote()).toContain("not in CLI 0.24.0");
+  it("uses one requirement line from the same majors as engines", () => {
+    expect(phrase).toBe(`Node ${MINIMUM_NODE_MAJOR}+ (${RECOMMENDED_NODE_MAJOR} recommended)`);
+    expect(phrase).toBe("Node 20+ (24 recommended)");
+    expect(nodeRecommendedWarning()).toBe(
+      "Node 20–23 works but isn't recommended; Node 24 is recommended",
+    );
+    expect(phrase).not.toContain("Next release");
+    expect(phrase).not.toContain("0.24.0");
+  });
+
+  it("matches the released CLI version from package.json", () => {
+    const version = packageVersion("packages/cli/package.json");
+    expect(packageVersion("package.json")).toBe(version);
+    expect(packageVersion("packages/core/package.json")).toBe(version);
+    const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
+    const tutorial = readFileSync(join(repoRoot, "docs/tutorials/first-change.md"), "utf8");
+    for (const text of [readme, tutorial]) {
+      expect(text).toContain(`CLI **${version}**`);
+      expect(text).toContain(`@structured-vibe-coding/cli@${version}`);
+      expect(text).not.toContain("Next release");
+      expect(text).not.toContain("not in CLI");
+      expect(text).not.toContain("0.24.0");
+      expect(text).not.toContain("24+ required");
+    }
   });
 
   it("matches every package engines field", () => {
@@ -88,28 +109,24 @@ describe("Node rule is written once", () => {
 
   it("matches the README requirement line and the other install lines", () => {
     const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
-    expect(readme).toContain(
-      `| **Needs** | CLI 0.24.0: Node 24+. Next release: ${phrase} · about 10 minutes for the first loop |`,
-    );
-    expect(readme).toContain(
-      "**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24.",
-    );
-    expect(readme).toContain(nodeNextReleaseNote());
+    expect(readme).toContain(`| **Needs** | ${phrase} · about 10 minutes for the first loop |`);
+    expect(readme).toContain(`\`engines.node\` is \`${nodeEnginesRange()}\``);
+    expect(readme).toContain(nodeRecommendedWarning());
+    expect(readme).toContain(`This is not long-term support for Node ${MINIMUM_NODE_MAJOR}`);
 
     const tutorial = readFileSync(join(repoRoot, "docs/tutorials/first-change.md"), "utf8");
     expect(tutorial).toContain(
-      `| **You need** | CLI 0.24.0: Node.js 24+ and a folder for an app (or an empty folder). Next release: ${phrase}. |`,
+      `| **You need** | ${phrase} and a folder for an app (or an empty folder). |`,
     );
-    expect(tutorial).toContain(
-      "so v20.19.5 prints `✗ Node.js  v20.19.5 (24+ required)`. This page's doctor run used v24.22.2, and that line passed.",
-    );
-    expect(tutorial).toContain(nodeNextReleaseNote());
+    expect(tutorial).toContain(nodeDoctorDetail("v24.22.2"));
+    expect(tutorial).toContain(nodeDoctorDetail("v20.19.5"));
+    expect(tutorial).toContain(`\`engines.node\` is \`${nodeEnginesRange()}\``);
 
     expect(readFileSync(join(repoRoot, "docs/index.md"), "utf8")).toContain(
-      `| **Node.js** | CLI 0.24.0: 24 or newer. Next release: ${phrase}. |`,
+      `| **Node.js** | ${phrase}. |`,
     );
     expect(readFileSync(join(repoRoot, "skills/README.md"), "utf8")).toContain(
-      `Next release: ${phrase}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`,
+      `${phrase}. This is not long-term support for Node ${MINIMUM_NODE_MAJOR}.`,
     );
     const maintainers = readFileSync(join(repoRoot, "docs/maintainers/ci-cd.md"), "utf8");
     expect(maintainers).toContain(`\`${nodeEnginesRange()}\``);

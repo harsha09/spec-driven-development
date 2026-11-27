@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   NATIVE_DEPS_CONFIG_COMMAND,
+  NATIVE_DEPS_CPU_INSTALL_COMMAND,
   NATIVE_DEPS_INSTALL_COMMAND,
   type NativeDependencyName,
   classifyNativeLoadError,
@@ -40,6 +41,7 @@ describe("native dependency check", () => {
     ]);
     expect(view.fix).toBeNull();
     expect(view.config).toBeNull();
+    expect(view.cpuFix).toBeNull();
   });
 
   it("names a missing module and an unbuilt module, and prints the install fix", () => {
@@ -63,7 +65,8 @@ describe("native dependency check", () => {
       {
         label: "onnxruntime-node",
         ok: false,
-        detail: "onnxruntime-node is not installed",
+        detail:
+          "onnxruntime-node is not installed. On Linux x64 the installer downloads an optional GPU archive that can return 404; reinstall the CPU build",
       },
     ]);
     expect(view.fix).toBe(NATIVE_DEPS_INSTALL_COMMAND);
@@ -74,6 +77,8 @@ describe("native dependency check", () => {
     expect(view.config).toBe(
       "npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user",
     );
+    expect(view.cpuFix).toBe(NATIVE_DEPS_CPU_INSTALL_COMMAND);
+    expect(view.cpuFix).toContain("ONNXRUNTIME_NODE_INSTALL_CUDA=skip");
     expect(JSON.stringify(view)).not.toContain("/tmp/");
     expect(JSON.stringify(view)).not.toContain("node_modules");
   });
@@ -114,6 +119,7 @@ describe("native dependency check", () => {
       },
     ]);
     expect(view.fix).toBe(NATIVE_DEPS_INSTALL_COMMAND);
+    expect(view.cpuFix).toBe(NATIVE_DEPS_CPU_INSTALL_COMMAND);
   });
 
   it("documents the same fix in the install guides", () => {
@@ -128,6 +134,11 @@ describe("native dependency check", () => {
       const text = readFileSync(join(repoRoot, rel), "utf8");
       expect(text, rel).toContain(NATIVE_DEPS_INSTALL_COMMAND);
       expect(text, rel).toContain(NATIVE_DEPS_CONFIG_COMMAND);
+    }
+    for (const rel of ["README.md", "docs/tutorials/first-change.md", "packages/cli/README.md"]) {
+      expect(readFileSync(join(repoRoot, rel), "utf8"), rel).toContain(
+        NATIVE_DEPS_CPU_INSTALL_COMMAND,
+      );
     }
   });
 });

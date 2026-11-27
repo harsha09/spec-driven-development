@@ -1391,6 +1391,9 @@ const doctor = defineCommand({
         `    ${pc.dim("Or persist the allow list, then install again:")} ${pc.cyan(native.config)}`,
       );
     }
+    if (native.cpuFix) {
+      consola.log(`    ${pc.dim("Linux CPU build:")} ${pc.cyan(native.cpuFix)}`);
+    }
 
     const initialized = await isInitialized(root);
     line("SDD init", initialized, initialized ? ".sdd/config.yaml found" : "run: sdd setup");
