@@ -544,7 +544,8 @@ const use = defineCommand({
 const gate = defineCommand({
   meta: {
     name: "gate",
-    description: "Approve, waive, or fail a stage gate, or record a verdict pinned to a commit SHA",
+    description:
+      'Approve, waive, or fail a stage gate, or record a verdict pinned to a commit SHA. Example: sdd gate approve -s intent -n "scope is clear"',
   },
   args: {
     action: {
@@ -721,6 +722,7 @@ const verify = defineCommand({
             "Add verify.commands to this stage in .sdd/workflows/<workflow>.yaml, or complete the checklist by hand.",
           ),
         );
+        consola.log(pc.dim('Example: - {name: test, run: "npm test", required: true}'));
         process.exitCode = 1;
       }
       consola.log("");
@@ -972,8 +974,20 @@ const feature = defineCommand({
 });
 
 const workflows = defineCommand({
-  meta: { name: "workflows", description: "List available workflow packs (no agent launch)" },
-  async run() {
+  meta: {
+    name: "workflows",
+    description:
+      "List workflow packs by id and description (no agent launch). Hotfix is a tiny fix, patch is a small bug, and feature is a normal change.",
+  },
+  args: {
+    tokens: {
+      type: "boolean",
+      description:
+        "Print cl100k token counts for each workflow file, its artifact templates, and the active change",
+      default: false,
+    },
+  },
+  async run({ args }) {
     await withProject(async ({ root, config }) => {
       const names = await listWorkflowNames(root);
       for (const name of names) {
@@ -982,13 +996,18 @@ const workflows = defineCommand({
           `${pc.cyan(name)}  ${pc.dim(wf.description ?? "")}  ${pc.dim(`(${wf.stages.length} stages)`)}`,
         );
       }
+      consola.log(
+        "Choose hotfix for a tiny fix, patch for a small bug, or feature for a normal change.",
+      );
       const missing = await missingBundledWorkflows(root);
       if (missing.length > 0) {
         const copy = "Run `sdd init --here --force` to copy new defaults.";
         consola.log(`${pc.yellow("Not copied yet:")} ${missing.join(", ")}. ${copy}`);
       }
-      console.log("");
-      console.log(await formatTokenInventory(root, config));
+      if (args.tokens) {
+        console.log("");
+        console.log(await formatTokenInventory(root, config));
+      }
     });
   },
 });
@@ -1443,6 +1462,9 @@ const doctor = defineCommand({
       consola.log(
         `    ${pc.dim("Or persist the allow list, then install again:")} ${pc.cyan(native.config)}`,
       );
+    }
+    if (native.cpuFix) {
+      consola.log(`    ${pc.dim("Linux CPU build:")} ${pc.cyan(native.cpuFix)}`);
     }
 
     const initialized = await isInitialized(root);

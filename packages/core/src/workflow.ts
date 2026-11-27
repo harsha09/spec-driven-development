@@ -1,4 +1,5 @@
-import { join } from "pathe";
+import { join, relative } from "pathe";
+import type { ZodError } from "zod";
 import { defaultWorkflowsDir } from "./defaults.js";
 import { listFiles, pathExists, readYaml } from "./fs.js";
 import { workflowsDir } from "./paths.js";
@@ -10,6 +11,78 @@ import {
   type Workflow,
   WorkflowSchema,
 } from "./schemas.js";
+
+const VERIFY_COMMAND_EXAMPLE = '- {name: test, run: "npm test", required: true}';
+
+function stageIdAt(raw: unknown, index: number): string | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const stages = (raw as { stages?: unknown }).stages;
+  if (!Array.isArray(stages)) return undefined;
+  const stage = stages[index];
+  if (!stage || typeof stage !== "object") return undefined;
+  const id = (stage as { id?: unknown }).id;
+  return typeof id === "string" && id.trim() ? id : undefined;
+}
+
+function workflowDisplayPath(projectRoot: string, path: string): string {
+  const rel = relative(projectRoot, path);
+  if (!rel || rel.startsWith("..") || rel.startsWith("/")) return path;
+  return rel;
+}
+
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function verifyCommandsAt(path: readonly PropertyKey[]): number | undefined {
+  const verifyAt = path.indexOf("verify");
+  if (verifyAt < 0 || path[verifyAt + 1] !== "commands") return undefined;
+  const index = path[verifyAt + 2];
+  return typeof index === "number" ? index : undefined;
+}
+
+function isVerifyCommandsIssue(path: readonly PropertyKey[]): boolean {
+  const verifyAt = path.indexOf("verify");
+  return verifyAt >= 0 && path[verifyAt + 1] === "commands";
+}
+
+/**
+ * One sentence for a workflow file that failed schema checks.
+ * Names the file, the stage id when the path has one, and a copy-paste command entry.
+ */
+export function formatWorkflowError(file: string, raw: unknown, error: ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return `${file}: workflow YAML is invalid`;
+  const stageIndex =
+    issue.path[0] === "stages" && typeof issue.path[1] === "number" ? issue.path[1] : undefined;
+  const stageId = stageIndex === undefined ? undefined : stageIdAt(raw, stageIndex);
+  const stageLabel = stageId
+    ? `stage "${stageId}"`
+    : stageIndex === undefined
+      ? ""
+      : `stages[${stageIndex}]`;
+  if (isVerifyCommandsIssue(issue.path)) {
+    const index = verifyCommandsAt(issue.path);
+    const field = index === undefined ? "verify.commands" : `verify.commands[${index}]`;
+    const where = stageLabel ? `${stageLabel} ${field}` : field;
+    if (issue.message.startsWith("Expected object")) {
+      return oneLine(
+        `${file}: ${where} must be an object with name, run, required (e.g. ${VERIFY_COMMAND_EXAMPLE})`,
+      );
+    }
+    const rest = issue.path.slice(issue.path.indexOf("commands") + (index === undefined ? 1 : 2));
+    const detail = rest.length ? `${where}.${rest.map(String).join(".")}` : where;
+    return oneLine(
+      `${file}: ${detail} ${issue.message}. Each entry is an object with name, run, required (e.g. ${VERIFY_COMMAND_EXAMPLE})`,
+    );
+  }
+  const rest =
+    issue.path[0] === "stages" && typeof issue.path[1] === "number"
+      ? issue.path.slice(2).map(String).join(".")
+      : issue.path.map(String).join(".");
+  const where = stageLabel ? (rest ? `${stageLabel} ${rest}` : stageLabel) : rest || "workflow";
+  return oneLine(`${file}: ${where} ${issue.message}`);
+}
 
 function workflowNamesIn(files: string[]): string[] {
   return files
@@ -52,11 +125,16 @@ export async function loadWorkflow(projectRoot: string, name: string): Promise<W
     const path = join(dir, file);
     if (await pathExists(path)) {
       const raw = await readYaml(path);
-      const workflow = WorkflowSchema.parse(raw);
-      if (workflow.name !== name) {
+      const parsed = WorkflowSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new Error(
+          formatWorkflowError(workflowDisplayPath(projectRoot, path), raw, parsed.error),
+        );
+      }
+      if (parsed.data.name !== name) {
         // allow filename to be source of truth when name mismatches slightly
       }
-      return workflow;
+      return parsed.data;
     }
   }
   const available = await listWorkflowNames(projectRoot);

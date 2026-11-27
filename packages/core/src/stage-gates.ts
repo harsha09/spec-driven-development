@@ -122,7 +122,15 @@ export async function canLeaveStage(
     }
   } else if (effectiveGate === "soft" && stage.gate?.checklist?.length) {
     if (!gateState || gateState.status === "pending") {
-      warnings.push(`Soft gate checklist not signed off on "${stage.id}" (proceeding allowed).`);
+      const checklist = stage.gate.checklist.join("; ");
+      warnings.push(
+        [
+          `Soft gate checklist not signed off on "${stage.id}".`,
+          `Checklist: ${checklist}.`,
+          `Sign off with: sdd gate approve -s ${stage.id} -n "<note>".`,
+          "This warning can be ignored.",
+        ].join(" "),
+      );
     }
   }
 

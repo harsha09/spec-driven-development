@@ -108,14 +108,14 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd gate record --verdict pass --reviewer "Ada Lovelace" --sha aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --evidence evidence/qa.log review` | Record a verdict pinned to that commit. `pass` and `pass-with-notes` need the SHA and an evidence link | After review or QA |
 | `sdd merge --check` | Refuse unless every required gate is a fresh pass on this HEAD. Does not merge | CI |
 | `sdd merge [--method merge\|squash\|rebase]` | Same check, then `gh pr merge` with that method (default `merge`) and a head-match guard | Merge the pull request |
-| `sdd verify` | Run the stage's `verify.commands`; PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
+| `sdd verify` | Run the stage's `verify.commands`. Each entry is `{name, run, required}` (for example `- {name: test, run: "npm test", required: true}`). PASS (exit 0) only if at least one ran and all exited 0. FAIL (exit 1) if any failed. NOT RUN (exit 1) on a stage without a verify step or with `commands: []` | Before complete |
 | `sdd verify --no-run` | Checklist only — records NOT RUN, exits 1 | Manual testing |
 | `sdd complete` | Mark done (greenfield also saves to `memory/`). Stops when tasks are unchecked or the verify checklist is unticked | Finished |
 | `sdd complete --allow-unchecked` | Complete anyway, and print the open counts | Override |
 | `sdd refine [stage]` | Improve notes | Spec quality |
 | `sdd refine --analyze` | Report only | Audit |
 | `sdd context` | Focused code slices under a token budget | Implement |
-| `sdd search "<query>"` | Keyword search (`--scope code\|specs\|memory`, optional `--budget`). `provider: mcp` asks one MCP source and falls back to this keyword search. | Find a symbol without opening AI |
+| `sdd search "<query>"` | Keyword search. `--scope` is `code`, `specs`, `memory`, or `all` (default: all three, packed into one answer). Example: `sdd search "todo" --scope code`. Optional `--budget`. `provider: mcp` asks one MCP source and falls back to this keyword search. | Find a symbol without opening AI |
 | `sdd mcp sources list/add/test/remove` | External MCPs **sdd calls** | Design system / AST / org lib |
 | `sdd mcp fetch` | Pull matching sources for current stage | Enrich handoff / implement |
 | `sdd agent` | Refresh brief + open AI | Anytime |
@@ -129,7 +129,7 @@ The `ask_human_when` entries in a role file are triggers, not questions. `sdd go
 | `sdd branch <name>` | Create that story branch from `main` | Start one story |
 | `sdd pr` | Push the change branch and open a pull request | Story is ready |
 | `sdd checkout <id>` | Switch active change | Multi-PR |
-| `sdd workflows` | List project workflows, name bundled workflows that are not copied yet, and print cl100k token counts for each workflow file and artifact | Discover |
+| `sdd workflows` | List project workflows by id and description, and name bundled workflows that are not copied yet. `sdd workflows --tokens` adds cl100k counts | Discover |
 | `sdd help` | Short overview | First run |
 | `sdd doctor` | Health check, including native modules (`better-sqlite3`, `onnxruntime-node`) and `.sdd/sdd-pin.yaml` when that file exists | Stuck / setup |
 | `sdd doctor --strict` | Same check, but a pin that differs from this install exits non-zero | CI |
@@ -173,7 +173,7 @@ version: 0.25.0
 
 `sdd next` out of `tasks` or `implement`, and `sdd complete`, record task and verify-checklist counts on the change and in `sdd status` / `sdd report`. Open tasks or an unticked verify checklist stop the command. Set `policy.task_checks: warn` in `.sdd/config.yaml` to print the counts and continue. `--allow-unchecked` is the one-command override. A clean `git status` while leaving `implement` is a warning, and is skipped outside a git repo.
 
-Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
+Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`. The change is still saved and the handoff is still written. The search index is not rebuilt by walking every file, so the process exits once that save finishes. Run `sdd search` when you want a full index.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
 
 Phase timing and token metrics are enabled by default. Disable collection in `.sdd/config.yaml`:
@@ -202,15 +202,19 @@ If a change has no measured requests, the report adds one `estimated (handoff co
 
 Search, context packing, and the handoff retrieved section count tokens with `cl100k_base`. That count is separate from the report estimate.
 
-`sdd workflows` prints those same cl100k counts for every copied workflow. The workflow line counts the workflow file. Each artifact line counts the template that stage copies. A missing template prints `missing`. When a change is active, a `Change` section counts the artifact files in that change. A file that has not been written prints `not written`. This view has no dollar amount.
+`sdd workflows --tokens` prints those same cl100k counts for every copied workflow. The workflow line counts the workflow file. Each artifact line counts the template that stage copies. A missing template prints `missing`. When a change is active, a `Change` section counts the artifact files in that change. A file that has not been written prints `not written`. This view has no dollar amount. Without `--tokens`, `sdd workflows` prints only the id, description, and stage count.
 
 Embeddings are off by default. Set `embeddings: true` in `.sdd/search.yaml` to download `BAAI/bge-small-en-v1.5` once into `.sdd/models/` and rank with hybrid fusion. A missing model falls back to keyword search.
 
-`provider: mcp` is also off unless you set it. `sdd search` then calls one source from `.sdd/mcp.yaml` with the query and the scope. A missing or broken source falls back to keyword search. Handoff stays on the built-in index. The language matrix is [Search providers](./search-providers).
+`provider: mcp` is also off unless you set it. `sdd search` then calls one source from `.sdd/mcp.yaml` with the query and the scope. Omitting `--scope` searches code, specs, and memory and packs them into one answer. A missing or broken source falls back to keyword search. Handoff stays on the built-in index. The language matrix is [Search providers](./search-providers).
 
 Related change specs and memory pages can be packed as a short extractive summary. The active change and code stay full. The keyword index is unchanged. Repeated searches are cached in `.sdd/index.db`, and search text does not gain a cache banner.
 
 `sdd sync <change>` only updates local change metadata and SDD-marked verification output. It does not create a commit or update a hosted PR body; verify checks recorded SHA/count references before reporting PASS. Run the relevant checks on the new commit before treating a sync as fresh test evidence.
+
+## Stage gates
+
+A soft gate warns when its checklist is unsigned and still lets `sdd next` continue. You can ignore that warning, or sign off with `sdd gate approve -s intent -n "scope is clear"`. A hard gate stops `sdd next` until the same approve command, or until `sdd team signoff` when the approver is a person.
 
 ## Merge gates
 

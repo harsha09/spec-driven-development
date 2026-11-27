@@ -6,6 +6,7 @@ import { dirname, join } from "pathe";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type SearchScope,
+  buildRetrievedInner,
   clearRegisteredSearchProviders,
   countTokens,
   createBuiltinProvider,
@@ -126,7 +127,7 @@ async function project(opts?: { nestCode?: boolean; excludePrivate?: boolean }):
   return root;
 }
 
-async function search(root: string, query: string, scope: SearchScope, budget: number) {
+async function search(root: string, query: string, scope: SearchScope | "all", budget: number) {
   const config = await loadConfig(root);
   return executeSearch(root, config, query, scope, budget);
 }
@@ -210,6 +211,19 @@ describe("search S1", () => {
     expect(py.text).toContain("`src/notes.py` · `alpha_symbol`");
     expect(py.text).toContain("`src/notes.rs` · `alpha_symbol`");
     expect(countTokens(py.text)).toBeLessThanOrEqual(200);
+  });
+
+  it("merges code, specs, and memory under one budget when the scope is all", async () => {
+    const root = await project();
+    const result = await search(root, "function MemoryAlphaBody", "all", 2000);
+    expect(result.scope).toBe("all");
+    expect(result.text).toContain("Scope: all");
+    expect(result.text).toContain("`src/budget.ts`");
+    expect(result.text).toContain("`memory/product.md`");
+    expect(countTokens(result.text)).toBeLessThanOrEqual(2000);
+
+    const tight = await search(root, "function MemoryAlphaBody", "all", 40);
+    expect(countTokens(tight.text)).toBeLessThanOrEqual(40);
   });
 
   it("packs the spec heading and the memory heading", async () => {
@@ -315,6 +329,28 @@ describe("search S1", () => {
     expect(hidden.text.split("\n").some((line) => line.startsWith("###"))).toBe(false);
     expect(hidden.text).not.toContain("packages/secret-nest/hidden.ts");
     expect(withoutQuery(hidden.text)).not.toContain("nestedHidden");
+  });
+
+  it("does not walk the tree when a full index is declined", async () => {
+    const root = await project();
+    const config = await loadConfig(root);
+    const provider = createBuiltinProvider(root, config);
+    const skipped = await provider.index(undefined, { full: false });
+    expect(skipped.files).toBe(0);
+    expect(skipped.lastIndexFilesConsidered).toBe(0);
+
+    const previous = process.env.SDD_NO_AGENT;
+    process.env.SDD_NO_AGENT = "1";
+    try {
+      await buildRetrievedInner(root, config, "function", "intent", 200);
+    } finally {
+      // Empty string is not "1" or "true". Assigning keeps the delete operator out of this test.
+      process.env.SDD_NO_AGENT = previous ?? "";
+    }
+    expect((await provider.stats()).files).toBe(0);
+
+    const full = await provider.index();
+    expect(full.files).toBeGreaterThan(0);
   });
 
   it("reindexes one changed file and does not rewrite a path outside the list", async () => {

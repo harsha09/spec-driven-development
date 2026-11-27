@@ -150,6 +150,7 @@ stages:
         - "Critical edge cases from stories covered or waived"
         - "Failures fixed or filed before complete"
     verify:
+      # - {name: test, run: "npm test", required: true}
       commands: []
 
 on_complete:

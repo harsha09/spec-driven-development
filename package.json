@@ -67,6 +67,9 @@
       "@anush008/tokenizers": "0.6.0",
       "body-parser": "^2.4.0",
       "vue": "^3.5.42"
-    }
+    },
+    "neverBuiltDependencies": [
+      "onnxruntime-node"
+    ]
   }
 }

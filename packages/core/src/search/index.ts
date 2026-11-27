@@ -34,7 +34,9 @@ export {
 } from "./registry.js";
 export { openMcpSearchProvider } from "./mcp-provider.js";
 export type { McpSearchCall, McpToolResult, SearchRunOptions } from "./mcp-provider.js";
+export { SEARCH_SCOPES } from "./types.js";
 export type {
+  RequestedScope,
   SearchScope,
   SearchQuery,
   SearchHit,

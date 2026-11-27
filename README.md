@@ -11,9 +11,9 @@ sdd keeps a short note in the project, so the reason for a change is a file you 
 | **Start here** | [First change](docs/tutorials/first-change.md) — one loop, about 10 minutes |
 | **Docs site** | https://harsha09.github.io/spec-driven-development/ |
 | **npm** | https://www.npmjs.com/package/@structured-vibe-coding/cli |
-| **Needs** | CLI 0.24.0: Node 24+. Next release: Node 20–23 works but isn't recommended; Node 24 is recommended · about 10 minutes for the first loop |
+| **Needs** | Node 20+ (24 recommended) · about 10 minutes for the first loop |
 
-This page was checked against CLI **0.24.0** (`sdd --version`) on Node.js **24.22.2**, from source `9e96194ee002d434cb9f19f1e7109fad57343fc5`. `npm view @structured-vibe-coding/cli version` prints the current npm release. During the check it printed `0.24.0`. A later release can change that number.
+This page matches CLI **0.25.0** (`sdd --version`). `npm view @structured-vibe-coding/cli version` prints the current npm release.
 
 ## Install and check the version
 
@@ -21,9 +21,7 @@ This page was checked against CLI **0.24.0** (`sdd --version`) on Node.js **24.2
 node --version
 ```
 
-**CLI 0.24.0, checked here.** `engines.node` is `>=24`. `sdd doctor` fails the Node line when the major is below 24. The detail is `v<version> (24+ required)`. Node.js v24.22.2 passed that line. Replace this paragraph when a released CLI changes the check.
-
-Next release, not in CLI 0.24.0: Node 20–23 works but isn't recommended; Node 24 is recommended. Doctor warns on that range and fails only below Node 20. engines.node becomes `>=20`. The test suite runs on Node 20. This is not long-term support for Node 20. CI runs that suite on Node 20 and Node 24.
+Node 20+ (24 recommended). `engines.node` is `>=20`. `sdd doctor` fails below Node 20. On Node 20–23 it warns and does not fail: Node 20–23 works but isn't recommended; Node 24 is recommended. This is not long-term support for Node 20. CI runs the test suite on Node 20 and Node 24.
 
 Install once. This command follows the current npm release and is also the upgrade.
 
@@ -32,6 +30,12 @@ npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-
 ```
 
 Current npm skips dependency install scripts unless you allow them. Search needs `better-sqlite3`, and embeddings need `onnxruntime-node`. Without those scripts the packages install, but the native build is missing, and later commands fail with an error that does not mention npm. `sdd doctor` loads both modules and prints this install command when either one is missing or not built.
+
+On Linux x64, `onnxruntime-node` also runs an installer that downloads an optional GPU archive. That archive can return 404. The CPU build is already in the package, and a failed GPU download does not stop this install. If `sdd doctor` still reports `onnxruntime-node` missing, reinstall the CPU build:
+
+```bash
+ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli
+```
 
 To allow the same scripts for later global installs, then install again:
 
@@ -42,7 +46,7 @@ npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 The release this page was checked against:
 
 ```bash
-npm install -g @structured-vibe-coding/cli@0.24.0
+npm install -g @structured-vibe-coding/cli@0.25.0
 ```
 
 Then confirm what you have, and what the registry currently marks as latest:

@@ -31,16 +31,18 @@ import {
   resolveActiveDirectory,
   writePackedCache,
 } from "./result-cache.js";
-import { fuseHits } from "./rrf.js";
+import { fuseHits, mergeRankedHits } from "./rrf.js";
 import { ADD_CHUNK_HASH_SQL, SEARCH_SCHEMA_SQL } from "./schema.js";
 import { countTokens, ftsTokens } from "./tokenize.js";
-import type {
-  IndexStats,
-  RawHit,
-  SearchProvider,
-  SearchQuery,
-  SearchResult,
-  SearchScope,
+import {
+  type IndexOptions,
+  type IndexStats,
+  type RawHit,
+  SEARCH_SCOPES,
+  type SearchProvider,
+  type SearchQuery,
+  type SearchResult,
+  type SearchScope,
 } from "./types.js";
 import {
   type VectorBlob,
@@ -711,12 +713,28 @@ export function createBuiltinProvider(
 
   return {
     id: "builtin",
-    async index(changed) {
+    async index(changed, options?: IndexOptions) {
       const rels = changed?.map((entry) => assertRepoRelative(entry));
+      const allowFull = options?.full !== false;
       const search = await loadSearchConfig(projectRoot);
-      const embedder = await resolveEmbedder(projectRoot, search.embeddings, runtime);
       const db = await ensureDb(projectRoot);
       try {
+        let head: string | null = null;
+        let delta: { candidates: string[]; deletions: string[] } | null = null;
+        if (!rels) {
+          head = await safeHead(projectRoot);
+          const cursor = metaString(db, "indexed_commit");
+          delta =
+            head && isCommitSha(cursor)
+              ? await readGitDelta(projectRoot, cursor.toLowerCase())
+              : null;
+          // No cursor means the next step is a full tree walk. Callers that
+          // already saved their work (for example --no-agent) must be able to
+          // return here, before parsing or loading an embedding model.
+          if (!delta && !allowFull) return readStats(db);
+        }
+        const embedder =
+          allowFull || rels ? await resolveEmbedder(projectRoot, search.embeddings, runtime) : null;
         const filter = await loadExcluder(projectRoot, search.exclude);
         const canVec = await prepareVectors(db, search.embeddings && embedder !== null);
         const tally: Tally = { chunks: 0, embedded: 0, storedVector: false };
@@ -729,52 +747,46 @@ export function createBuiltinProvider(
         const runSync = (rel: string) => syncOne(db, rel, filter, embedder, canVec, tally);
         if (rels) {
           for (const rel of rels) note(await runSync(rel));
+        } else if (delta) {
+          const deletions = new Set(delta.deletions);
+          const seen = new Set<string>();
+          for (const rel of delta.candidates) {
+            if (deletions.has(rel) || seen.has(rel)) continue;
+            seen.add(rel);
+            note(await runSync(rel));
+          }
+          for (const rel of deletions) {
+            if (deletePath(db, rel)) reindexed += 1;
+          }
+          const stored = db.prepare("SELECT path FROM files").all() as { path: string }[];
+          for (const row of stored) {
+            const exists = await pathExists(join(projectRoot, row.path));
+            if (exists && !filter(row.path) && scopeForPath(row.path, config)) continue;
+            deletePath(db, row.path);
+            considered += 1;
+            reindexed += 1;
+          }
         } else {
-          const head = await safeHead(projectRoot);
-          const cursor = metaString(db, "indexed_commit");
-          const delta =
-            head && isCommitSha(cursor)
-              ? await readGitDelta(projectRoot, cursor.toLowerCase())
-              : null;
-          if (delta) {
-            const deletions = new Set(delta.deletions);
-            const seen = new Set<string>();
-            for (const rel of delta.candidates) {
-              if (deletions.has(rel) || seen.has(rel)) continue;
-              seen.add(rel);
-              note(await runSync(rel));
-            }
-            for (const rel of deletions) {
-              if (deletePath(db, rel)) reindexed += 1;
-            }
-            const stored = db.prepare("SELECT path FROM files").all() as { path: string }[];
+          const desired = new Set<string>();
+          for (const rel of await walkFiles(projectRoot)) {
+            if (filter(rel) || !scopeForPath(rel, config)) continue;
+            desired.add(rel);
+            note(await runSync(rel));
+          }
+          const stored = db.prepare("SELECT path FROM files").all() as { path: string }[];
+          const tx = db.transaction(() => {
             for (const row of stored) {
-              const exists = await pathExists(join(projectRoot, row.path));
-              if (exists && !filter(row.path) && scopeForPath(row.path, config)) continue;
+              if (desired.has(row.path)) continue;
               deletePath(db, row.path);
-              considered += 1;
               reindexed += 1;
             }
-          } else {
-            const desired = new Set<string>();
-            for (const rel of await walkFiles(projectRoot)) {
-              if (filter(rel) || !scopeForPath(rel, config)) continue;
-              desired.add(rel);
-              note(await runSync(rel));
-            }
-            const stored = db.prepare("SELECT path FROM files").all() as { path: string }[];
-            const tx = db.transaction(() => {
-              for (const row of stored) {
-                if (desired.has(row.path)) continue;
-                deletePath(db, row.path);
-                reindexed += 1;
-              }
-            });
-            tx();
-          }
-          if (search.embeddings && embedder && canVec) await backfill(db, embedder, tally);
-          if (head) writeMetaValue(db, "indexed_commit", head);
+          });
+          tx();
         }
+        if (!rels && allowFull && search.embeddings && embedder && canVec) {
+          await backfill(db, embedder, tally);
+        }
+        if (!rels && head && (delta || allowFull)) writeMetaValue(db, "indexed_commit", head);
         writeCounts(db, considered, reindexed, tally.chunks, tally.embedded);
         if (tally.storedVector) writeMetaValue(db, "embedding_model", EMBEDDING_MODEL);
         return readStats(db);
@@ -860,6 +872,10 @@ export async function rankScope(
   }
 }
 
+function requestedScopes(scope: SearchQuery["scope"]): SearchScope[] {
+  return scope === "all" ? [...SEARCH_SCOPES] : [scope];
+}
+
 export async function searchProject(
   projectRoot: string,
   query: string,
@@ -869,6 +885,7 @@ export async function searchProject(
   const search = await loadSearchConfig(projectRoot);
   const config = await loadConfig(projectRoot);
   const activeChange = await resolveActiveDirectory(projectRoot, config);
+  const scopes = requestedScopes(options.scope);
   const request = {
     projectRoot,
     query,
@@ -878,7 +895,7 @@ export async function searchProject(
     budget: options.budget,
     embeddings: search.embeddings,
     activeChange,
-    scopes: [options.scope],
+    scopes,
   };
   try {
     const cached = readPackedCache(request);
@@ -899,29 +916,42 @@ export async function searchProject(
   }
   const embedder = await resolveEmbedder(projectRoot, search.embeddings, runtime);
   const embedded = await embedSearchQuery(embedder, search.embeddings, query);
-  const ranked = await rankScope(projectRoot, query, options.scope, options.k, {
+  const session = {
     embeddings: search.embeddings,
     queryVec: embedded.queryVec,
     failure: embedded.failure,
-  });
+  };
+  const collected: RawHit[] = [];
+  const hybridScopes: string[] = [];
+  let warning = false;
+  for (const scope of scopes) {
+    const ranked = await rankScope(projectRoot, query, scope, options.k, session);
+    collected.push(...ranked.hits);
+    if (ranked.warning) warning = true;
+    if (ranked.hybrid) hybridScopes.push(scope);
+  }
+  // One scope keeps the ranker's order. Several scopes merge under the same budget.
+  const merged = scopes.length === 1 ? collected : mergeRankedHits(collected);
   const preamble =
-    options.preamble ?? searchPreamble(query, options.scope, options.budget, ranked.hybrid);
-  let hits = ranked.hits;
+    options.preamble ??
+    searchPreamble(query, options.scope, options.budget, hybridScopes.length > 0);
+  let hits = merged;
   try {
-    hits = attachSummaries(projectRoot, ranked.hits, activeChange);
+    hits = attachSummaries(projectRoot, merged, activeChange);
   } catch {
-    hits = ranked.hits;
+    hits = merged;
   }
   const packed = packHits({ preamble, hits, budget: options.budget });
-  const mode = ranked.hits.some((hit) => hit.rankedBy === "rrf") ? "rrf" : "bm25";
+  const mode = merged.some((hit) => hit.rankedBy === "rrf") ? "rrf" : "bm25";
+  const hybridLabel = scopes.length === 1 ? (hybridScopes[0] ?? "") : hybridScopes.join(",");
   try {
-    writePackedCache(request, packed, ranked.hits, mode, ranked.hybrid ? options.scope : "");
+    writePackedCache(request, packed, merged, mode, hybridLabel);
   } catch {
     // The pack is still returned when the cache write fails.
   }
   return {
     provider: "builtin",
-    warning: ranked.warning ? EMBEDDINGS_UNAVAILABLE : undefined,
+    warning: warning ? EMBEDDINGS_UNAVAILABLE : undefined,
     query,
     scope: options.scope,
     budget: options.budget,

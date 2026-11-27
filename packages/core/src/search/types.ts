@@ -1,7 +1,13 @@
 export type SearchScope = "code" | "specs" | "memory";
 
+/** The three indexes `sdd search` reads. `all` merges them into one packed answer. */
+export const SEARCH_SCOPES: readonly SearchScope[] = ["code", "specs", "memory"];
+
+/** A single index, or all three merged under one token budget. */
+export type RequestedScope = SearchScope | "all";
+
 export interface SearchQuery {
-  scope: SearchScope;
+  scope: RequestedScope;
   k: number;
   budget: number;
   /** Header text counted against the budget. Empty for context and handoff. */
@@ -30,7 +36,7 @@ export interface SearchResult {
   provider: string;
   warning?: string;
   query: string;
-  scope: SearchScope;
+  scope: RequestedScope;
   budget: number;
   usedTokens: number;
   hits: SearchHit[];
@@ -48,9 +54,17 @@ export interface IndexStats {
   indexedCommit: string | null;
 }
 
+export interface IndexOptions {
+  /**
+   * When false, apply a saved git cursor if one exists and otherwise leave the
+   * index untouched. A missing cursor must not walk the tree.
+   */
+  full?: boolean;
+}
+
 export interface SearchProvider {
   readonly id: string;
-  index(changed?: readonly string[]): Promise<IndexStats>;
+  index(changed?: readonly string[], options?: IndexOptions): Promise<IndexStats>;
   search(query: string, options: SearchQuery): Promise<SearchResult>;
   stats(): Promise<IndexStats>;
 }
