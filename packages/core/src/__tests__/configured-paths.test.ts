@@ -54,7 +54,7 @@ describe("configured memory and changes paths (#7)", () => {
       title: "Path guidance",
       workflowName: "patch",
     });
-    await refreshActiveAgentContext(root);
+    await refreshActiveAgentContext(root, { rewriteGenerated: true });
     const handoff = await writeAgentHandoff(root, config, ctx.id);
     const plan = await buildRefinePlan({ projectRoot: root, config, changeId: ctx.id });
 

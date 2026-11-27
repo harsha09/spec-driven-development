@@ -147,6 +147,12 @@ export const ConfigSchema = z.object({
   policy: z
     .object({
       gates: z.enum(["soft", "hard"]).default("soft"),
+      /**
+       * strict: `sdd next` / `sdd complete` stop on unchecked tasks or an unticked
+       * verify checklist unless `--allow-unchecked` is set.
+       * warn: print the same counts and continue.
+       */
+      task_checks: z.enum(["strict", "warn"]).default("strict"),
     })
     .prefault({}),
   jenkins: z
@@ -276,6 +282,16 @@ export const ChangeMetaSchema = z.object({
     )
     .default([]),
   completed_at: z.string().optional(),
+  /** Counts from the last `sdd next` or `sdd complete` check. */
+  task_progress: z
+    .object({
+      tasks_checked: z.number().int().nonnegative(),
+      tasks_unchecked: z.number().int().nonnegative(),
+      checklist_ticked: z.number().int().nonnegative(),
+      checklist_unticked: z.number().int().nonnegative(),
+      recorded_at: z.string(),
+    })
+    .optional(),
 });
 
 export type Gate = z.infer<typeof GateSchema>;

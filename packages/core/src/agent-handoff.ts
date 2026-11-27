@@ -3,6 +3,7 @@ import type { ChangeContext } from "./change-context.js";
 import { changesPathRel, guidancePaths } from "./paths.js";
 import type { Config } from "./schemas.js";
 import { type SearchRuntime, buildRetrievedInner } from "./search/index.js";
+import { formatTaskProgressLines } from "./task-progress.js";
 import { getStage, isStageSkipped, shouldAutoSkip } from "./workflow.js";
 
 export function formatStatus(ctx: ChangeContext): string {
@@ -41,6 +42,10 @@ export function formatStatus(ctx: ChangeContext): string {
   if (ctx.meta.overrides?.skip_stages?.length) {
     lines.push("");
     lines.push(`Overrides: skip=${ctx.meta.overrides.skip_stages.join(", ")}`);
+  }
+  if (ctx.meta.task_progress) {
+    lines.push("");
+    lines.push(...formatTaskProgressLines(ctx.meta.task_progress));
   }
   lines.push(...formatBackportStatusLines(ctx.meta));
   return lines.join("\n");

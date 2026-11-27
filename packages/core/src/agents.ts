@@ -918,24 +918,40 @@ export function agentKickoffMessage(opts: {
   ].join(" ");
 }
 
+export interface RefreshContextOptions {
+  /**
+   * Rewrite unmodified generated playbook and host files.
+   * Off for `sdd new` and `sdd next`, which must leave a tracked protocol.md alone.
+   * On for `sdd init --force` and `sdd agents refresh`.
+   */
+  rewriteGenerated?: boolean;
+}
+
 /**
  * Rewrite unmodified generated protocol, host guidance, and role files so they
  * name the configured memory and changes folders. Edited files stay put.
+ * An existing protocol.md is rewritten only when `rewriteGenerated` is set.
  */
-async function refreshGeneratedAgentFiles(projectRoot: string, config: Config): Promise<void> {
+async function refreshGeneratedAgentFiles(
+  projectRoot: string,
+  config: Config,
+  options?: RefreshContextOptions,
+): Promise<void> {
   const installed = await loadInstalledAgent(projectRoot);
   const team = await loadProductTeam(projectRoot);
   const files = installed
     ? agentFiles(installed.integration, config, team)
     : [{ rel: join(".sdd", "protocol.md"), content: renderProtocolMd(config, team) }];
+  const protocolRel = join(".sdd", "protocol.md");
   for (const { rel, content } of files) {
     const full = join(projectRoot, rel);
     if (!(await pathExists(full))) {
-      if (rel === join(".sdd", "protocol.md")) {
+      if (rel === protocolRel) {
         await writeText(full, markGenerated(content));
       }
       continue;
     }
+    if (rel === protocolRel && !options?.rewriteGenerated) continue;
     const existing = await readText(full);
     if (generatedState(existing) !== "unmodified") continue;
     if (existing === markGenerated(content)) continue;
@@ -944,7 +960,10 @@ async function refreshGeneratedAgentFiles(projectRoot: string, config: Config): 
 }
 
 /** Write .sdd/active-context.md for the current change. */
-export async function refreshActiveAgentContext(projectRoot: string): Promise<string | null> {
+export async function refreshActiveAgentContext(
+  projectRoot: string,
+  options?: RefreshContextOptions,
+): Promise<string | null> {
   const markerDir = sddRoot(projectRoot);
   if (!(await pathExists(join(markerDir, "config.yaml")))) {
     return null;
@@ -952,7 +971,7 @@ export async function refreshActiveAgentContext(projectRoot: string): Promise<st
 
   const config = await loadConfig(projectRoot);
   await refreshConfiguredGuidance(projectRoot, config);
-  await refreshGeneratedAgentFiles(projectRoot, config);
+  await refreshGeneratedAgentFiles(projectRoot, config, options);
   const activeId = await getActiveChangeId(projectRoot, config);
   const outPath = join(markerDir, "active-context.md");
   const team = renderProductTeamSection(await loadProductTeam(projectRoot));

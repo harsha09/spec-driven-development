@@ -49,13 +49,18 @@ export type { ChangeContext } from "./change-context.js";
 export {
   buildContext,
   clearActiveIf,
+  formatChangeList,
   getActiveChangeId,
+  listChangeRecords,
   listChanges,
   loadChangeMeta,
+  locateChangePack,
   resolveChangeId,
+  resolveStatusChange,
   saveChangeMeta,
   setActiveChange,
 } from "./change-context.js";
+export type { ChangeStatusFilter, ListedChange } from "./change-context.js";
 export {
   canLeaveStage,
   approveGate,

@@ -39,6 +39,8 @@ cat >"$CHANGE_DIR/local-test-results.md" <<'EOF'
 # Results
 
 Smoke-checked on CI: stages advanced and complete works with default complete-in-place settings.
+
+- [x] Smoke-checked locally
 EOF
 
 node "$SDD" complete --no-agent

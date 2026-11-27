@@ -20,6 +20,8 @@ export * from "./template-status.js";
 export * from "./errors.js";
 export * from "./env.js";
 export * from "./version.js";
+export * from "./sdd-pin.js";
+export * from "./task-progress.js";
 export * from "./agents.js";
 export * from "./guidance.js";
 export {
