@@ -48,6 +48,7 @@ stages:
       checklist:
         - "Smoke-checked locally"
     verify:
+      # - {name: test, run: "npm test", required: true}
       commands: []
 on_complete:
   archive: false

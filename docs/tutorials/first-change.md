@@ -232,7 +232,7 @@ sdd next --no-agent
 Checked shape:
 
 ```text
- WARN  Soft gate checklist not signed off on "intent" (proceeding allowed).
+ WARN  Soft gate checklist not signed off on "intent". Checklist: Problem and expected fix are clear. Sign off with: sdd gate approve -s intent -n "<note>". This warning can be ignored.
 
 ✔ intent → implement
 
@@ -245,7 +245,7 @@ Stages:
 ℹ No AI host configured (no-agent setup) — nothing launched. Add one: sdd agents install --ai copilot|claude|grok|ollama|kilo
 ```
 
-Exit code 0. The command also reprints the change id and title. The soft-gate warning is normal here: the checklist is unsigned, and a soft gate still lets you move.
+Exit code 0. The command also reprints the change id and title. A soft gate prints this warning when its checklist is unsigned and still lets you move. You can ignore the warning, or sign the checklist with `sdd gate approve -s intent -n "scope is clear"`. A hard gate does not let you move until that approve command, or until `sdd team signoff` when the approver is a person.
 
 The handoff stage goal is now "Make the minimal code change". On a real app you would change the code now. This folder has no application. Leave it unchanged.
 
@@ -298,12 +298,23 @@ Checklist:
  WARN  Verify NOT RUN — no verify commands configured for stage "local_verify". Nothing was verified.
 
 Add verify.commands to this stage in .sdd/workflows/<workflow>.yaml, or complete the checklist by hand.
+Example: - {name: test, run: "npm test", required: true}
 
 ℹ Handoff: .sdd/handoff.md
 ℹ No AI host configured (no-agent setup) — nothing launched. Add one: sdd agents install --ai copilot|claude|grok|ollama|kilo
 ```
 
 Exit code 1. Hotfix ships with `verify.commands: []` in `.sdd/workflows/hotfix.yaml`, so no command runs. **NOT RUN** means nothing was verified. It is not a pass. `changes/<id>/meta.yaml` records `verify_results.local_verify.status: not_run` and `ok: false`.
+
+A command entry is an object, not a string. `name` is the label, `run` is the command, and `required: true` blocks completion until that command exits 0:
+
+```yaml
+verify:
+  commands:
+    - name: test
+      run: "npm test"
+      required: true
+```
 
 The handwritten note stayed as written, because it had replaced the template. If you leave the template in place, `sdd verify` replaces it with a generated report whose overall line is also `NOT RUN — no verify commands configured for stage "local_verify"`.
 
@@ -312,7 +323,7 @@ The handwritten note stayed as written, because it had replaced the template. If
 Another `sdd next --no-agent` from here exits 0 and says there is nothing further:
 
 ```text
- WARN  Soft gate checklist not signed off on "local_verify" (proceeding allowed).
+ WARN  Soft gate checklist not signed off on "local_verify". Checklist: Smoke-checked locally. Sign off with: sdd gate approve -s local_verify -n "<note>". This warning can be ignored.
 
  WARN  No further stages. Run sdd complete when ready.
 

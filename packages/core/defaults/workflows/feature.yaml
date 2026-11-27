@@ -176,6 +176,7 @@ stages:
         - "Happy path verified locally"
         - "Key edge cases covered or waived with notes"
     verify:
+      # - {name: test, run: "npm test", required: true}
       commands: []
 
 on_complete:
