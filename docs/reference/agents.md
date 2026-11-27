@@ -86,7 +86,7 @@ The handoff prompt puts the change title, id, workflow, path, constraints, and t
 Most process commands refresh handoff and **launch** the configured agent.  
 **Do not launch:** `status`, `init`, `workflows`, `context`, `doctor`.
 
-Skip launch once: `--no-agent` or `SDD_NO_AGENT=1`.
+Skip launch once: `--no-agent` or `SDD_NO_AGENT=1`. Those commands still save state and write the handoff, and they do not walk the repository to rebuild the search index.
 
 ## Switch host later
 

@@ -155,7 +155,7 @@ To allow the same scripts for later global installs, then install again:
 npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user
 ```
 
-Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`.
+Turn AI off for one command: `--no-agent` or `SDD_NO_AGENT=1`. The change is still saved and the handoff is still written. The search index is not rebuilt by walking every file, so the process exits once that save finishes. Run `sdd search` when you want a full index.
 Set up with no AI host at all: `sdd init --here --no-agent`. This installs no host files and no `AGENTS.md`, never prompts, and leaves nothing for commands to launch.
 
 Phase timing and token metrics are enabled by default. Disable collection in `.sdd/config.yaml`:

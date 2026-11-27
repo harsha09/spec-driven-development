@@ -54,13 +54,13 @@ export function resolveSearchProvider(
   };
   return {
     id: active.id,
-    async index(changed) {
+    async index(changed, options) {
       try {
-        return await active.index(changed);
+        return await active.index(changed, options);
       } catch (err) {
         if (active.id === "builtin") throw err;
         mark();
-        return builtin.index(changed);
+        return builtin.index(changed, options);
       }
     },
     async search(query, options) {
@@ -110,7 +110,12 @@ export async function buildRetrievedInner(
   // Handoff stays on the built-in index. An MCP provider is only used by sdd search.
   const provider = createBuiltinProvider(projectRoot, config, runtime);
   try {
-    await provider.index();
+    // SDD_NO_AGENT is also set for the --no-agent flag before command work.
+    // The change is already saved by then; a first index walks and parses
+    // every source file and holds the process on CPU until that finishes.
+    const flag = process.env.SDD_NO_AGENT;
+    const full = flag !== "1" && flag !== "true";
+    await provider.index(undefined, full ? undefined : { full: false });
   } catch (err) {
     return `Retrieved context skipped: ${safeMessage(err, projectRoot)}.`;
   }

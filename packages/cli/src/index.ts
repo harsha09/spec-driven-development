@@ -19,4 +19,10 @@ if (problem) {
   process.exit(2);
 }
 
+// Handoff refresh runs while the change is being saved, before a command reads
+// its own args. Record the flag here so that refresh does not walk the repo.
+if (process.argv.includes("--no-agent")) {
+  process.env.SDD_NO_AGENT = "1";
+}
+
 await runMain(main);
