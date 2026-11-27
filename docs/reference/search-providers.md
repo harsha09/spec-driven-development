@@ -22,7 +22,7 @@ exclude:
 
 `mcp_source` names an enabled source in `.sdd/mcp.yaml`. When it is omitted and exactly one source is enabled, that source is used. `mcp_tool` names the tool. When it is omitted, sdd uses `invoke.tool`.
 
-`sdd search` sends `{ "query", "scope" }` only. It does not send file contents, `.env`, or excluded paths. The tool returns JSON:
+`sdd search` sends `{ "query", "scope" }` only. It does not send file contents, `.env`, or excluded paths. Omitting `--scope` calls the tool once for `code`, once for `specs`, and once for `memory`, then packs those hits into one answer. The tool returns JSON:
 
 ```json
 { "hits": [{ "path": "src/ok.ts", "startLine": 1, "endLine": 3, "symbol": "okWidget", "body": "export function okWidget(): number {\n  return 1;\n}" }] }

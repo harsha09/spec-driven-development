@@ -64,6 +64,7 @@ stages:
         - "Acceptance cases checked locally"
         - "No obvious regressions on touched paths"
     verify:
+      # - {name: test, run: "npm test", required: true}
       commands: []
 on_complete:
   archive: false

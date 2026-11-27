@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 /**
  * Native packages whose install scripts current npm skips unless allowed.
  * `better-sqlite3` is a dependency of core. `onnxruntime-node` is a dependency
- * of `fastembed`, which core loads for embeddings.
+ * of `fastembed`, which core loads for embeddings. `fastembed` is optional:
+ * a failed GPU download must not abort the CLI install.
  */
 export const NATIVE_DEPENDENCIES = ["better-sqlite3", "onnxruntime-node"] as const;
 
@@ -19,6 +20,14 @@ export const NATIVE_DEPS_INSTALL_COMMAND =
 /** Persist the same allow list for later global installs. Reinstall after setting it. */
 export const NATIVE_DEPS_CONFIG_COMMAND =
   "npm config set allow-scripts=better-sqlite3,onnxruntime-node --location=user";
+
+/**
+ * Reinstall that skips the optional GPU archive. The CPU binaries are already
+ * in the package. Use this when a Linux x64 install still has no
+ * onnxruntime-node. The plain install command does this itself.
+ */
+export const NATIVE_DEPS_CPU_INSTALL_COMMAND =
+  "ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm install -g --allow-scripts=better-sqlite3,onnxruntime-node @structured-vibe-coding/cli";
 
 export type NativeLoadFailure = "missing" | "unbuilt";
 
@@ -34,6 +43,8 @@ export type NativeDoctorView = {
   checks: { label: string; ok: boolean; detail: string }[];
   fix: string | null;
   config: string | null;
+  /** Set when onnxruntime-node did not load. Skips the GPU archive. */
+  cpuFix: string | null;
 };
 
 export type NativeModuleLoader = (name: NativeDependencyName) => void;
@@ -100,7 +111,12 @@ export function classifyNativeLoadError(error: unknown): NativeLoadFailure {
 }
 
 export function nativeDependencyDetail(name: string, failure: NativeLoadFailure): string {
-  if (failure === "missing") return `${name} is not installed`;
+  if (failure === "missing") {
+    if (name === "onnxruntime-node") {
+      return "onnxruntime-node is not installed. On Linux x64 the installer downloads an optional GPU archive that can return 404; reinstall the CPU build";
+    }
+    return `${name} is not installed`;
+  }
   return `${name} is installed but its native build is missing`;
 }
 
@@ -131,8 +147,10 @@ export function nativeDoctorLines(reports: NativeDependencyReport[]): NativeDoct
       ],
       fix: null,
       config: null,
+      cpuFix: null,
     };
   }
+  const onnxFailed = reports.some((report) => report.name === "onnxruntime-node" && !report.ok);
   return {
     checks: reports.map((report) => ({
       label: report.name,
@@ -141,5 +159,6 @@ export function nativeDoctorLines(reports: NativeDependencyReport[]): NativeDoct
     })),
     fix: NATIVE_DEPS_INSTALL_COMMAND,
     config: NATIVE_DEPS_CONFIG_COMMAND,
+    cpuFix: onnxFailed ? NATIVE_DEPS_CPU_INSTALL_COMMAND : null,
   };
 }

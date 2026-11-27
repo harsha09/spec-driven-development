@@ -816,6 +816,91 @@ stages:
     expect(started.status, started.stderr + started.stdout).toBe(0);
   });
 
+  it("explains a string verify.commands entry without a JSON dump (#183)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-verify-shape-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const workflowPath = join(root, ".sdd/workflows/feature.yaml");
+    const text = await readFile(workflowPath, "utf8");
+    const broken = text.replace("      commands: []", '      commands:\n        - "npm test"');
+    expect(broken).not.toBe(text);
+    await writeFile(workflowPath, broken);
+
+    const created = runSdd(root, [
+      "new",
+      "Broken verify entry",
+      "-w",
+      "feature",
+      "-y",
+      "--no-agent",
+    ]);
+    const out = created.stderr + created.stdout;
+    expect(created.status, out).not.toBe(0);
+    expect(out).toContain(
+      '.sdd/workflows/feature.yaml: stage "local_verify" verify.commands[0] must be an object with name, run, required (e.g. - {name: test, run: "npm test", required: true})',
+    );
+    expect(out).not.toContain("invalid_type");
+    expect(out).not.toContain('"expected"');
+  });
+
+  it("tells you how to sign a soft gate and that the warning can be ignored (#188)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-soft-gate-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+    const created = runSdd(root, ["new", "Unsigned checklist", "-w", "hotfix", "-y", "--no-agent"]);
+    expect(created.status, created.stderr + created.stdout).toBe(0);
+    const changes = join(root, "changes");
+    const kid = (await readdir(changes)).find((name) => !name.startsWith("."));
+    await writeFile(
+      join(changes, kid!, "intent.md"),
+      "# Intent\n\nFix a typo in the heading so the product name is spelled correctly.\nSuccess: the heading reads correctly and nothing else changes.\n",
+      "utf8",
+    );
+    const next = runSdd(root, ["next", "--no-agent"]);
+    const out = next.stderr + next.stdout;
+    expect(next.status, out).toBe(0);
+    expect(out).toContain(
+      'Soft gate checklist not signed off on "intent". Checklist: Problem and expected fix are clear. Sign off with: sdd gate approve -s intent -n "<note>". This warning can be ignored.',
+    );
+
+    const help = runSdd(root, ["gate", "--help"]);
+    const helpOut = help.stdout + help.stderr;
+    expect(help.status, helpOut).toBe(0);
+    expect(helpOut).toContain('sdd gate approve -s intent -n "scope is clear"');
+  });
+
+  it("hides workflow token counts unless --tokens is set (#189)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sdd-cli-workflows-tokens-"));
+    temps.push(root);
+    expect(runSdd(root, ["init", "--here", "--no-agent"]).status).toBe(0);
+
+    const listed = runSdd(root, ["workflows"]);
+    const out = listed.stdout + listed.stderr;
+    expect(listed.status, out).toBe(0);
+    expect(out).toContain("hotfix");
+    expect(out).toContain("Tiny local fix");
+    expect(out).toContain("feature");
+    expect(out).toContain(
+      "Choose hotfix for a tiny fix, patch for a small bug, or feature for a normal change.",
+    );
+    expect(out).not.toContain("Tokens (cl100k)");
+    expect(out.split("\n").filter((line) => line.trim()).length).toBeLessThan(20);
+
+    const tokens = runSdd(root, ["workflows", "--tokens"]);
+    const tokenOut = tokens.stdout + tokens.stderr;
+    expect(tokens.status, tokenOut).toBe(0);
+    expect(tokenOut).toContain("Tokens (cl100k):");
+    expect(tokenOut).toContain("hotfix  workflow");
+
+    const help = runSdd(root, ["workflows", "--help"]);
+    const helpOut = help.stdout + help.stderr;
+    expect(help.status, helpOut).toBe(0);
+    expect(helpOut).toContain("--tokens");
+    expect(helpOut).toContain("cl100k");
+    expect(helpOut).toContain("Hotfix is a tiny fix");
+    expect(helpOut).toContain("feature is a normal change");
+  });
+
   it("installs a team template and creates a role from one (#59)", async () => {
     const root = await mkdtemp(join(tmpdir(), "sdd-cli-team-"));
     temps.push(root);

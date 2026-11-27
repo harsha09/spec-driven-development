@@ -43,6 +43,16 @@ that is not a failure of your code, it means nothing was checked automatically. 
 checklist in `local-test-results.md` by hand, or add commands to the stage in
 `.sdd/workflows/<workflow>.yaml`. Only verify commands marked `required: true` block `sdd complete`. A required note, and a hard gate, also block it.
 
+Each entry under `verify.commands` is an object. `name` is the label in the verify output, `run` is the command, and `required` says whether a failing run blocks `sdd complete`. A plain string is rejected.
+
+```yaml
+verify:
+  commands:
+    - name: test
+      run: "npm test"
+      required: true
+```
+
 Without `-w`, most titles open `feature`. That path is not this two-step `sdd next`. Use [Simple feature](./simple-feature). On `feature`, fill `local-test-plan.md` and `local-test-results.md` before `sdd complete`.
 
 From a product backlog after greenfield:

@@ -127,7 +127,7 @@ async function project(opts?: { nestCode?: boolean; excludePrivate?: boolean }):
   return root;
 }
 
-async function search(root: string, query: string, scope: SearchScope, budget: number) {
+async function search(root: string, query: string, scope: SearchScope | "all", budget: number) {
   const config = await loadConfig(root);
   return executeSearch(root, config, query, scope, budget);
 }
@@ -211,6 +211,19 @@ describe("search S1", () => {
     expect(py.text).toContain("`src/notes.py` · `alpha_symbol`");
     expect(py.text).toContain("`src/notes.rs` · `alpha_symbol`");
     expect(countTokens(py.text)).toBeLessThanOrEqual(200);
+  });
+
+  it("merges code, specs, and memory under one budget when the scope is all", async () => {
+    const root = await project();
+    const result = await search(root, "function MemoryAlphaBody", "all", 2000);
+    expect(result.scope).toBe("all");
+    expect(result.text).toContain("Scope: all");
+    expect(result.text).toContain("`src/budget.ts`");
+    expect(result.text).toContain("`memory/product.md`");
+    expect(countTokens(result.text)).toBeLessThanOrEqual(2000);
+
+    const tight = await search(root, "function MemoryAlphaBody", "all", 40);
+    expect(countTokens(tight.text)).toBeLessThanOrEqual(40);
   });
 
   it("packs the spec heading and the memory heading", async () => {
